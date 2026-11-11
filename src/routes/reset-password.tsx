@@ -56,7 +56,7 @@ function ResetPassword() {
     if (oneTimeToken) {
       setRecoveryToken(oneTimeToken);
       finish(true);
-      return () => { active = false; };
+      return () => { active = false; subscription.unsubscribe(); };
     }
     const hashType = hash.get("type");
 
