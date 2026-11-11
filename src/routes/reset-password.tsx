@@ -45,6 +45,12 @@ function ResetPassword() {
       setChecking(false);
     };
 
+    // Register the listener before every early-return branch so cleanup always
+    // references an initialized subscription (including custom one-time links).
+    const subscription = sb.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") finish(true);
+    }).data.subscription;
+
     // Supabase may return either a PKCE code, a token_hash, or tokens in the URL hash.
     // Never treat an ordinary logged-in session as proof that a recovery link was opened.
     const url = new URL(window.location.href);
@@ -56,13 +62,12 @@ function ResetPassword() {
     if (oneTimeToken) {
       setRecoveryToken(oneTimeToken);
       finish(true);
-      return () => { active = false; subscription.unsubscribe(); };
+      return () => {
+        active = false;
+        subscription.unsubscribe();
+      };
     }
     const hashType = hash.get("type");
-
-    const subscription = sb.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") finish(true);
-    }).data.subscription;
 
     const verify = async () => {
       try {
