@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Database, Download, Smartphone, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { useAction } from "@/lib/queries";
 import { buildMigrationSql } from "@/lib/schema";
 import { runSchemaCheck, type SchemaReport } from "@/lib/schema-check";
 import { TABLE_LABELS, TABLES_IN_ORDER, type TableName } from "@/lib/types";
+import { getSupabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_authenticated/ustawienia")({
   head: () => ({
@@ -37,6 +38,9 @@ function Ustawienia() {
   const [installable, setInstallable] = useState(false);
   const [standalone, setStandalone] = useState(false);
   const [csvTable, setCsvTable] = useState<TableName>("matches");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
   useEffect(() => {
     setCfg(readConfig());
@@ -45,6 +49,26 @@ function Ustawienia() {
     setInstallable(canInstall());
     return subscribeInstall(() => setInstallable(canInstall()));
   }, []);
+
+  async function changePassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (newPassword.length < 12) return toast.error("Hasło musi mieć co najmniej 12 znaków.");
+    if (newPassword !== confirmPassword) return toast.error("Hasła się różnią.");
+    const sb = getSupabase();
+    if (!sb) return toast.error("Brak połączenia z bazą.");
+    setPasswordBusy(true);
+    const { data } = await sb.auth.getSession();
+    if (!data.session) {
+      setPasswordBusy(false);
+      return toast.error("Sesja wygasła. Zaloguj się ponownie.");
+    }
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    setPasswordBusy(false);
+    if (error) return toast.error(error.message);
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Hasło zmienione. Przy kolejnych aktualizacjach aplikacji nie trzeba go resetować.");
+  }
 
   async function check() {
     setChecking(true);
@@ -96,6 +120,20 @@ function Ustawienia() {
         <Field label="Waluta (wyświetlanie)" hint="Tylko etykieta, np. PLN lub EUR.">
           <Input className="max-w-40" value={currency} onChange={(e) => { setCurrency(e.target.value); savePrefs({ currency: e.target.value.trim() }); }} />
         </Field>
+      </section>
+
+      <section className="surface-card grid gap-3 p-4">
+        <h2 className="text-xl font-semibold uppercase">Zmiana hasła</h2>
+        <p className="text-sm text-muted-foreground">Gdy jesteś zalogowany, możesz zmienić hasło bez wysyłania wiadomości resetującej. Zmiana nie jest powiązana z aktualizacjami aplikacji.</p>
+        <form onSubmit={changePassword} className="grid max-w-md gap-3">
+          <Field label="Nowe hasło (minimum 12 znaków)">
+            <Input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </Field>
+          <Field label="Powtórz nowe hasło">
+            <Input type="password" autoComplete="new-password" minLength={12} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          </Field>
+          <Button type="submit" className="w-fit" disabled={passwordBusy}>{passwordBusy ? "Zapisywanie…" : "Zmień hasło"}</Button>
+        </form>
       </section>
 
       <section className="surface-card grid gap-3 p-4">
