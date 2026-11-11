@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import logo from "@/assets/logo.png";
+const logo = "https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global/main/src/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSupabase } from "@/lib/supabase";
