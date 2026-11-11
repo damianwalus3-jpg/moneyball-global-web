@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { nitro } from "nitro/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
@@ -12,7 +11,6 @@ export default defineConfig({
       spa: { enabled: true, prerender: { crawlLinks: true } },
       prerender: { failOnError: false },
     }),
-    nitro({ preset: "github_pages" }),
     viteReact(),
     tailwindcss(),
     tsconfigPaths(),
