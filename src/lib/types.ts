@@ -5,7 +5,7 @@ export type Pick = Pick1X2 | PickDC;
 export type Outcome = Pick1X2;
 export type SelectionStatus = "WYBRANY" | "ODRZUCONY";
 export type Settlement = "pending" | "won" | "lost" | "void" | "cancelled";
-export type MatchStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled";
+export type MatchStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled" | "unknown";
 export type TxType = "deposit" | "withdrawal" | "stake" | "payout" | "adjustment";
 
 export interface ScanRun {
