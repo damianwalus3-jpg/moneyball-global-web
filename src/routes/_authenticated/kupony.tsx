@@ -135,9 +135,11 @@ function Kupony() {
 
   const list = [...coupons]
     .filter((c) => {
+      const legCount = legs.filter((l) => l.coupon_id === c.id).length;
       if (statusFilter === "all") return true;
+      if (statusFilter === "cancelled") return c.status === "cancelled" || ((c.status ?? "pending") === "pending" && legCount !== 3);
       if ((c.status ?? "pending") !== statusFilter) return false;
-      return statusFilter !== "pending" || legs.filter((l) => l.coupon_id === c.id).length === 3;
+      return statusFilter !== "pending" || legCount === 3;
     })
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
