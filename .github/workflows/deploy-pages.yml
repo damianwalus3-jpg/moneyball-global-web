@@ -26,6 +26,9 @@ jobs:
       - name: Run tests
         run: bun run test
       - name: Build static SPA
+        env:
+          VITE_SUPABASE_URL: https://gzgeklcukrclgwbsmbsp.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_YdT4Nm50NkbmjKnoQE8bNQ_aGeqzG3S
         run: bun run build
       - name: Inspect static output and add SPA fallback when available
         run: |
