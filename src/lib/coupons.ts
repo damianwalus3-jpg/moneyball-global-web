@@ -1,5 +1,5 @@
 import { combinedProbability, totalOdds, validateBatch } from "./domain";
-import { insertRow, insertRows } from "./db";
+import { deleteRow, insertRow, insertRows } from "./db";
 import type { Prediction } from "./types";
 
 export interface SaveBatchOptions {
@@ -12,9 +12,14 @@ export interface SaveBatchOptions {
 export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOptions) {
   const errors = validateBatch(coupons);
   if (errors.length) throw new Error(errors.join(" "));
+  if (coupons.some((legs) => legs.length !== 3 || new Set(legs.map((l) => l.match_id)).size !== 3)) {
+    throw new Error("Nie zapisano kuponu: każdy kupon musi zawierać dokładnie 3 różne mecze.");
+  }
   const batchId = crypto.randomUUID();
   let created = 0;
   for (const [i, legs] of coupons.entries()) {
+    let couponId: string | null = null;
+    try {
     const coupon = await insertRow("coupons", {
       name: `${opts.namePrefix} #${i + 1}`.trim(),
       batch_id: batchId,
@@ -23,7 +28,8 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
       combined_probability: combinedProbability(legs.map((l) => l.probability)),
       status: "pending",
     });
-    await insertRows(
+    couponId = coupon.id;
+    const insertedLegs = await insertRows(
       "coupon_legs",
       legs.map((l) => ({
         coupon_id: coupon.id,
@@ -36,6 +42,7 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
         result_status: "pending",
       })),
     );
+    if (insertedLegs.length !== 3) throw new Error("Nie udało się zapisać kompletu 3 zdarzeń kuponu.");
     if (opts.recordStake && opts.stake && opts.stake > 0) {
       await insertRow("bankroll_transactions", {
         occurred_at: new Date().toISOString(),
@@ -46,6 +53,16 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
       });
     }
     created++;
+    } catch (error) {
+      if (couponId) {
+        const cleanup = await (async () => {
+          const { deleteCouponChildren } = await import("./coupon-cleanup");
+          return deleteCouponChildren(couponId!);
+        })().catch(() => null);
+        if (!cleanup) await deleteRow("coupons", couponId).catch(() => undefined);
+      }
+      throw error;
+    }
   }
   return created;
 }
