@@ -26,9 +26,13 @@ function Panel() {
   const balance = bankrollBalance(txs);
   const today = brusselsDayKey(new Date());
   const todayCount = matches.filter((m) => m.kickoff_at && brusselsDayKey(m.kickoff_at) === today).length;
-  const sel = preds.filter((p) => p.selection_status === "WYBRANY");
-  const hr1 = hitRate(sel.filter((p) => p.prediction_type === "1X2").map((p) => p.result_status));
-  const hrDc = hitRate(sel.filter((p) => p.prediction_type === "DC").map((p) => p.result_status));
+  // Dashboard reports overall model hit rate; the Statistics page separates selected and rejected picks.
+  const validPicks = preds.filter((p) =>
+    (p.prediction_type === "1X2" && ["1", "X", "2"].includes(p.pick)) ||
+    (p.prediction_type === "DC" && ["1X", "X2", "12"].includes(p.pick)),
+  );
+  const hr1 = hitRate(validPicks.filter((p) => p.prediction_type === "1X2").map((p) => p.result_status));
+  const hrDc = hitRate(validPicks.filter((p) => p.prediction_type === "DC").map((p) => p.result_status));
   const candidates = new Set(preds.filter((p) => isCouponCandidate(p, byId.get(p.match_id), now)).map((p) => p.match_id)).size;
   const resultIds = new Set(results.map((r) => r.match_id));
   const toSettle = matches.filter((m) => m.kickoff_at && new Date(m.kickoff_at).getTime() < now && !resultIds.has(m.id) && m.status !== "cancelled" && m.status !== "postponed").length;
@@ -39,8 +43,8 @@ function Panel() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Bankroll" value={balance == null ? "brak danych" : fmtMoney(balance)} icon={Wallet} tone="primary" />
         <StatCard label="Mecze dziś" value={todayCount} icon={CalendarDays} />
-        <StatCard label="Skuteczność 1X2" value={fmtPct(hr1.rate)} hint={`${hr1.won}/${hr1.settled}`} icon={Trophy} />
-        <StatCard label="Skuteczność DC" value={fmtPct(hrDc.rate)} hint={`${hrDc.won}/${hrDc.settled}`} icon={Trophy} />
+        <StatCard label="Skuteczność 1X2" value={fmtPct(hr1.rate)} hint={`${hr1.won}/${hr1.settled} · model ogółem`} icon={Trophy} />
+        <StatCard label="Skuteczność DC" value={fmtPct(hrDc.rate)} hint={`${hrDc.won}/${hrDc.settled} · model ogółem`} icon={Trophy} />
         <StatCard label="Kupony w grze" value={coupons.filter((c) => (c.status ?? "pending") === "pending").length} icon={Ticket} />
         <StatCard label="Kandydaci >75%" value={candidates} hint="mecze do kuponów" />
         <StatCard label="Do rozliczenia" value={toSettle} tone={toSettle ? "warning" : "default"} />
