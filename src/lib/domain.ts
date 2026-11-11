@@ -41,6 +41,7 @@ export const MATCH_STATUS_LABELS: Record<string, string> = {
   finished: "Zakończony",
   postponed: "Przełożony",
   cancelled: "Odwołany",
+  unknown: "Weryfikacja wyniku",
 };
 
 export const TX_LABELS: Record<TxType, string> = {
