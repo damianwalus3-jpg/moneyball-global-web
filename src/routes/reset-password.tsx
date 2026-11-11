@@ -72,18 +72,13 @@ function ResetPassword() {
     const verify = async () => {
       try {
         if (code) {
-          // The Supabase client has detectSessionInUrl enabled and exchanges PKCE codes itself.
-          // Wait for that exchange instead of racing it with a second exchangeCodeForSession call.
-          const { data } = await sb.auth.getSession();
-          if (data.session) {
-            finish(true);
-            return;
-          }
-          window.setTimeout(async () => {
-            const { data: retry } = await sb.auth.getSession();
-            if (retry.session) finish(true);
-            else finish(false, "Nie udało się potwierdzić linku. Sprawdź, czy Supabase przekierowuje do tej aplikacji.");
-          }, 1200);
+          // A session may already exist from an earlier login. It is NOT proof
+          // that this URL contains a valid recovery link. Exchange this exact,
+          // one-time PKCE code and accept it only if Supabase validates it.
+          const { error } = await sb.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          window.history.replaceState({}, document.title, window.location.pathname);
+          finish(true);
           return;
         }
         if (tokenHash && tokenType === "recovery") {
@@ -104,13 +99,9 @@ function ResetPassword() {
           finish(true);
           return;
         }
-        // A PASSWORD_RECOVERY event can be delivered asynchronously by detectSessionInUrl.
-        const { data } = await sb.auth.getSession();
-        if (data.session && hashType === "recovery") {
-          finish(true);
-          return;
-        }
-        finish(false, "Ten link nie jest linkiem odzyskiwania hasła albo jest niekompletny. Nie loguj się zwykłym linkiem — wygeneruj jeden nowy link resetujący.");
+        // Never accept an existing session as proof of recovery. Only the
+        // explicit recovery payloads above can unlock the password form.
+        finish(false, "Ten link nie jest prawidłowym linkiem odzyskiwania hasła albo wygasł. Wróć do logowania i poproś o nowy link dopiero po ustąpieniu limitu e-maili.");
       } catch (e) {
         finish(false, e instanceof Error ? e.message : "Nie udało się zweryfikować linku odzyskiwania.");
       }
