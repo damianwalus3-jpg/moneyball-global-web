@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/mecze")({
   component: Mecze,
 });
 
-type View = "upcoming" | "past" | "all" | "scans";
+type View = "today" | "past" | "all" | "scans";
 
 function Mecze() {
   const matches = useTable("matches");
@@ -50,7 +50,7 @@ function Mecze() {
   const preds = useTable("predictions");
   const results = useTable("match_results");
   const odds = useTable("odds_snapshots");
-  const [view, setView] = useState<View>("upcoming");
+  const [view, setView] = useState<View>("today");
   const [q, setQ] = useState("");
   const [editMatch, setEditMatch] = useState<Match | null>(null);
   const [matchOpen, setMatchOpen] = useState(false);
@@ -84,17 +84,20 @@ function Mecze() {
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
   const delScan = useAction((id: string) => deleteRow("scan_runs", id), { success: "Usunięto skan" });
 
+  const todayKey = brusselsDayKey(new Date());
   const now = Date.now();
   const filtered = matches
     .filter((m) => {
-      const t = m.kickoff_at ? new Date(m.kickoff_at).getTime() : 0;
-      if (view === "upcoming") return t >= now - 2 * 3600_000;
-      if (view === "past") return t < now;
+      if (!m.kickoff_at) return false;
+      const day = brusselsDayKey(m.kickoff_at);
+      if (view === "today") return day === todayKey;
+      if (view === "past") return day < todayKey;
+      if (view === "all") return day <= todayKey;
       return true;
     })
     .filter((m) => !q || `${m.home_team} ${m.away_team} ${m.league} ${m.country}`.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) =>
-      view === "upcoming"
+      view === "today"
         ? (a.kickoff_at ?? "").localeCompare(b.kickoff_at ?? "")
         : (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? ""),
     );
@@ -132,9 +135,9 @@ function Mecze() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {(
           [
-            ["upcoming", "Nadchodzące"],
-            ["past", "Rozegrane"],
-            ["all", "Wszystkie"],
+            ["today", "Dzisiaj"],
+            ["past", "Historia"],
+            ["all", "Dzisiaj + historia"],
             ["scans", `Skany (${scans.length})`],
           ] as const
         ).map(([v, l]) => (
