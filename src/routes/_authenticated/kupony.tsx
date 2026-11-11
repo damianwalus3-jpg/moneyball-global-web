@@ -134,11 +134,19 @@ function Kupony() {
   );
 
   const list = [...coupons]
-    .filter((c) => statusFilter === "all" || (c.status ?? "pending") === statusFilter)
+    .filter((c) => {
+      if (statusFilter === "all") return true;
+      if ((c.status ?? "pending") !== statusFilter) return false;
+      return statusFilter !== "pending" || legs.filter((l) => l.coupon_id === c.id).length === 3;
+    })
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
   const counts = { pending: 0, won: 0, lost: 0, void: 0, cancelled: 0 } as Record<Settlement, number>;
-  for (const c of coupons) counts[(c.status ?? "pending") as Settlement]++;
+  for (const c of coupons) {
+    const status = (c.status ?? "pending") as Settlement;
+    if (status === "pending" && legs.filter((l) => l.coupon_id === c.id).length !== 3) counts.cancelled++;
+    else counts[status]++;
+  }
 
   return (
     <div>
