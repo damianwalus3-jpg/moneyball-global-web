@@ -101,7 +101,7 @@ export function StatCard({
   );
 }
 
-const SETTLE_VARIANT = { pending: "warning", won: "success", lost: "danger", void: "muted" } as const;
+const SETTLE_VARIANT = { pending: "warning", won: "success", lost: "danger", void: "muted", cancelled: "muted" } as const;
 
 export function SettlementBadge({ status }: { status: Settlement | null | undefined }) {
   const s = status ?? "pending";
