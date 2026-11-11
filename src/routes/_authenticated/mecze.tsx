@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { getSupabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +48,7 @@ export const Route = createFileRoute("/_authenticated/mecze")({
 type View = "today" | "past" | "all" | "scans";
 
 function Mecze() {
+  const qc = useQueryClient();
   const matches = useTable("matches");
   const scans = useTable("scan_runs");
   const preds = useTable("predictions");
@@ -59,6 +63,7 @@ function Mecze() {
   const [settle, setSettle] = useState<Match | null>(null);
   const [editScan, setEditScan] = useState<ScanRun | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  const [globalScanRunning, setGlobalScanRunning] = useState(false);
 
   const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
   const latestOdds = useMemo(() => {
@@ -83,6 +88,23 @@ function Mecze() {
 
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
   const delScan = useAction((id: string) => deleteRow("scan_runs", id), { success: "Usunięto skan" });
+
+  const runTodayScan = async () => {
+    if (globalScanRunning) return;
+    const sb = getSupabase();
+    if (!sb) { toast.error("Brak połączenia z bazą danych."); return; }
+    setGlobalScanRunning(true);
+    try {
+      const date = brusselsDayKey(new Date());
+      const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date } });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Skan nie został zakończony.");
+      await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
+      toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+    } catch (e) {
+      toast.error("Nie udało się wykonać skanu: " + (e instanceof Error ? e.message : String(e)));
+    } finally { setGlobalScanRunning(false); }
+  };
 
   const todayKey = brusselsDayKey(new Date());
   const now = Date.now();
@@ -117,8 +139,12 @@ function Mecze() {
         description="Wszystkie zeskanowane mecze — także te z prognozami ODRZUCONY."
         actions={
           <>
+            <Button onClick={runTodayScan} disabled={globalScanRunning}>
+              <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
+              {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <FileUp /> Import skanu
+              <FileUp /> Import CSV
             </Button>
             <Button
               onClick={() => {
