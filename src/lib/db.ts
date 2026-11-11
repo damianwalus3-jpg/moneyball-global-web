@@ -126,3 +126,9 @@ export async function upsertSkipExisting(table: TableName, rows: Record<string, 
   }
   return n;
 }
+
+/** Delete related rows by a trusted table column value (used for rollback). */
+export async function deleteWhere(table: TableName, column: string, value: string) {
+  const { error } = await requireSupabase().from(table).delete().eq(column, value);
+  if (error) throw new Error(humanizeError(error, table));
+}
