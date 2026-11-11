@@ -100,7 +100,7 @@ function Mecze() {
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Analiza nie została zakończona.");
       await Promise.all(["matches","predictions","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • dane potwierdzone dla " + (data.covered ?? 0) + " meczów • bez historii " + (data.uncovered ?? data.missing ?? 0));
+      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie danych " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma FootyNomad " + (data.footy_form_matches ?? 0) + " • bez danych " + (data.missing ?? 0));
     } catch (e) {
       toast.error("Skan zapisany, ale analiza nie powiodła się: " + (e instanceof Error ? e.message : String(e)));
     } finally { setAnalysisRunning(false); }
