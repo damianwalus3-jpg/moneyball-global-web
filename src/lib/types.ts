@@ -4,7 +4,7 @@ export type PickDC = "1X" | "X2" | "12";
 export type Pick = Pick1X2 | PickDC;
 export type Outcome = Pick1X2;
 export type SelectionStatus = "WYBRANY" | "ODRZUCONY";
-export type Settlement = "pending" | "won" | "lost" | "void";
+export type Settlement = "pending" | "won" | "lost" | "void" | "cancelled";
 export type MatchStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled";
 export type TxType = "deposit" | "withdrawal" | "stake" | "payout" | "adjustment";
 
