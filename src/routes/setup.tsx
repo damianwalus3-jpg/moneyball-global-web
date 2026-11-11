@@ -33,7 +33,11 @@ function Setup() {
   const [testing, setTesting] = useState(false);
   const [current, setCurrent] = useState<ReturnType<typeof readConfig>>(null);
 
-  useEffect(() => setCurrent(readConfig()), []);
+  useEffect(() => {
+    const cfg = readConfig();
+    setCurrent(cfg);
+    if (cfg) navigate({ to: "/login", replace: true });
+  }, [navigate]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
