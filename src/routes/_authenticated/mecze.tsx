@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine } from "lucide-react";
+import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -64,6 +64,7 @@ function Mecze() {
   const [editScan, setEditScan] = useState<ScanRun | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [globalScanRunning, setGlobalScanRunning] = useState(false);
+  const [analysisRunning, setAnalysisRunning] = useState(false);
 
   const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
   const latestOdds = useMemo(() => {
@@ -89,8 +90,24 @@ function Mecze() {
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
   const delScan = useAction((id: string) => deleteRow("scan_runs", id), { success: "Usunięto skan" });
 
+  const runTodayAnalysis = async (date = brusselsDayKey(new Date())) => {
+    if (analysisRunning) return;
+    const sb = getSupabase();
+    if (!sb) { toast.error("Brak połączenia z bazą danych."); return; }
+    setAnalysisRunning(true);
+    try {
+      const { data, error } = await sb.functions.invoke("moneyball-predict", { body: { date } });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Analiza nie została zakończona.");
+      await Promise.all(["matches","predictions","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
+      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • dane potwierdzone dla " + (data.covered ?? 0) + " meczów • bez historii " + (data.uncovered ?? data.missing ?? 0));
+    } catch (e) {
+      toast.error("Skan zapisany, ale analiza nie powiodła się: " + (e instanceof Error ? e.message : String(e)));
+    } finally { setAnalysisRunning(false); }
+  };
+
   const runTodayScan = async () => {
-    if (globalScanRunning) return;
+    if (globalScanRunning || analysisRunning) return;
     const sb = getSupabase();
     if (!sb) { toast.error("Brak połączenia z bazą danych."); return; }
     setGlobalScanRunning(true);
@@ -100,7 +117,8 @@ function Mecze() {
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Skan nie został zakończony.");
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+      toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? data.total_found ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+      await runTodayAnalysis(date);
     } catch (e) {
       toast.error("Nie udało się wykonać skanu: " + (e instanceof Error ? e.message : String(e)));
     } finally { setGlobalScanRunning(false); }
@@ -139,9 +157,13 @@ function Mecze() {
         description="Wszystkie zeskanowane mecze — także te z prognozami ODRZUCONY."
         actions={
           <>
-            <Button onClick={runTodayScan} disabled={globalScanRunning}>
+            <Button onClick={runTodayScan} disabled={globalScanRunning || analysisRunning}>
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
               {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
+            </Button>
+            <Button variant="outline" onClick={() => void runTodayAnalysis()} disabled={globalScanRunning || analysisRunning}>
+              <BrainCircuit className={analysisRunning ? "animate-pulse" : ""} />
+              {analysisRunning ? "Analizuję mecze…" : "Analizuj mecze"}
             </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <FileUp /> Import CSV
