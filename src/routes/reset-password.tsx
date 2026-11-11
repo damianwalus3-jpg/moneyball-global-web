@@ -67,15 +67,24 @@ function ResetPassword() {
     const verify = async () => {
       try {
         if (code) {
-          const { error } = await sb.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          finish(true);
+          // The Supabase client has detectSessionInUrl enabled and exchanges PKCE codes itself.
+          // Wait for that exchange instead of racing it with a second exchangeCodeForSession call.
+          const { data } = await sb.auth.getSession();
+          if (data.session) {
+            finish(true);
+            return;
+          }
+          window.setTimeout(async () => {
+            const { data: retry } = await sb.auth.getSession();
+            if (retry.session) finish(true);
+            else finish(false, "Nie udało się potwierdzić linku. Sprawdź, czy Supabase przekierowuje do tej aplikacji.");
+          }, 1200);
           return;
         }
-        if (tokenHash && (tokenType === "recovery" || tokenType === "email")) {
+        if (tokenHash && tokenType === "recovery") {
           const { error } = await sb.auth.verifyOtp({
             token_hash: tokenHash,
-            type: tokenType as "recovery" | "email",
+            type: "recovery",
           });
           if (error) throw error;
           finish(true);
