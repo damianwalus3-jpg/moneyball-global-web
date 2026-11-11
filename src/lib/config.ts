@@ -94,7 +94,9 @@ export function readConfig(): AppConfig | null {
       stored = {};
     }
   }
-  const ownerColumn: OwnerColumn = stored.ownerColumn === "owner_id" ? "owner_id" : "user_id";
+  // This app is bound to the existing MONEYBALL schema, whose RLS owner key is owner_id.
+  // Ignore stale local user_id preferences left by earlier builds.
+  const ownerColumn: OwnerColumn = "owner_id";
   if (env.key) {
     const url = env.url ?? DEFAULT_SUPABASE_URL;
     if (validatePublicKey(env.key, url).ok) return { url, anonKey: env.key, ownerColumn, source: "env" };
@@ -120,7 +122,7 @@ export function saveConfig(cfg: { url: string; anonKey: string; ownerColumn?: Ow
     JSON.stringify({
       url: cfg.url.trim().replace(/\/$/, ""),
       anonKey: cfg.anonKey.trim(),
-      ownerColumn: cfg.ownerColumn ?? prev?.ownerColumn ?? "user_id",
+      ownerColumn: "owner_id",
     }),
   );
 }
