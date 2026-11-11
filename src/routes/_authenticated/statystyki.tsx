@@ -93,6 +93,7 @@ function Statystyki() {
 function MarketBlock({ type, preds, leagueOf }: { type: PredictionType; preds: Prediction[]; leagueOf: (p: Prediction) => string }) {
   const sel = preds.filter((p) => p.selection_status === "WYBRANY");
   const rej = preds.filter((p) => p.selection_status === "ODRZUCONY");
+  const hrAll = hitRate(preds.map((p) => p.result_status));
   const hrSel = hitRate(sel.map((p) => p.result_status));
   const hrRej = hitRate(rej.map((p) => p.result_status));
   const byBucket = groupHitRates(sel, (p) => bucketOf(p.probability), (p) => p.result_status).sort(
@@ -108,10 +109,11 @@ function MarketBlock({ type, preds, leagueOf }: { type: PredictionType; preds: P
     <section>
       <h2 className="mb-3 text-2xl font-semibold uppercase">{type === "DC" ? "Double Chance" : "1X2"}</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Skuteczność WYBRANE" value={fmtPct(hrSel.rate)} hint={`${hrSel.won}/${hrSel.settled}`} tone="primary" />
+        <StatCard label="Skuteczność modelu ogółem" value={fmtPct(hrAll.rate)} hint={`${hrAll.won}/${hrAll.settled} · wszystkie typy`} tone="primary" />
+        <StatCard label="Skuteczność WYBRANE" value={fmtPct(hrSel.rate)} hint={`${hrSel.won}/${hrSel.settled}`} />
         <StatCard label="Skuteczność ODRZUCONE" value={fmtPct(hrRej.rate)} hint={`${hrRej.won}/${hrRej.settled} — kontrola filtra`} />
         <StatCard label="Prognozy" value={preds.length} hint={`${sel.length} wybranych · ${rej.length} odrzuconych`} />
-        <StatCard label="Oczekujące" value={hrSel.pending + hrRej.pending} />
+        <StatCard label="Oczekujące" value={hrAll.pending} />
       </div>
       {hrSel.settled > 0 && (
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
