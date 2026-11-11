@@ -14,7 +14,7 @@ type Mode = "login" | "signup" | "forgot";
 // Build callback URLs from Vite's base path, not from the domain root.
 function appCallbackUrl(path: string): string {
   const base = new URL(import.meta.env.BASE_URL, window.location.origin);
-  return new URL(path.replace(/^\\/+/, ""), base).toString();
+  return new URL(path.replace(/^\/+/, ""), base).toString();
 }
 
 export const Route = createFileRoute("/login")({
