@@ -10,6 +10,13 @@ import { getSupabase, requireSupabase } from "@/lib/supabase";
 
 type Mode = "login" | "signup" | "forgot";
 
+// GitHub Pages serves this app under /moneyball-global-web/.
+// Build callback URLs from Vite's base path, not from the domain root.
+function appCallbackUrl(path: string): string {
+  const base = new URL(import.meta.env.BASE_URL, window.location.origin);
+  return new URL(path.replace(/^\\/+/, ""), base).toString();
+}
+
 export const Route = createFileRoute("/login")({
   ssr: false,
   validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
@@ -69,14 +76,14 @@ function Login() {
         const { data, error } = await sb.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin + "/panel" },
+          options: { emailRedirectTo: appCallbackUrl("panel") },
         });
         if (error) throw new Error(error.message);
         if (data.session) router.history.push("/panel");
         else setInfo("Sprawdź skrzynkę e-mail i potwierdź konto, a potem zaloguj się.");
       } else {
         const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: window.location.origin + "/reset-password",
+          redirectTo: appCallbackUrl("reset-password"),
         });
         if (error) throw new Error(error.message);
         setInfo("Jeśli konto istnieje, wysłaliśmy link do zmiany hasła.");
