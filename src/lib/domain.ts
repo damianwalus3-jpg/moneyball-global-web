@@ -32,6 +32,7 @@ export const SETTLEMENT_LABELS: Record<Settlement, string> = {
   won: "Wygrany",
   lost: "Przegrany",
   void: "Zwrot",
+  cancelled: "Anulowany",
 };
 
 export const MATCH_STATUS_LABELS: Record<string, string> = {
@@ -168,6 +169,7 @@ export interface HitRate {
   won: number;
   lost: number;
   void: number;
+  cancelled: number;
   pending: number;
   settled: number;
   /** won / (won + lost) in %, null when nothing settled. */
@@ -175,7 +177,7 @@ export interface HitRate {
 }
 
 export function hitRate(statuses: (Settlement | null | undefined)[]): HitRate {
-  const r = { total: statuses.length, won: 0, lost: 0, void: 0, pending: 0 };
+  const r = { total: statuses.length, won: 0, lost: 0, void: 0, cancelled: 0, pending: 0 };
   for (const s of statuses) r[(s ?? "pending") as Settlement]++;
   const settled = r.won + r.lost;
   return { ...r, settled, rate: settled ? Math.round((r.won / settled) * 1000) / 10 : null };
