@@ -137,7 +137,7 @@ function Kupony() {
     .filter((c) => statusFilter === "all" || (c.status ?? "pending") === statusFilter)
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
-  const counts = { pending: 0, won: 0, lost: 0, void: 0 } as Record<Settlement, number>;
+  const counts = { pending: 0, won: 0, lost: 0, void: 0, cancelled: 0 } as Record<Settlement, number>;
   for (const c of coupons) counts[(c.status ?? "pending") as Settlement]++;
 
   return (
@@ -252,9 +252,9 @@ function Kupony() {
 
       {/* List */}
       <div className="mb-3 flex flex-wrap gap-2">
-        {(["all", "pending", "won", "lost", "void"] as const).map((s) => (
+        {(["all", "pending", "won", "lost", "void", "cancelled"] as const).map((s) => (
           <Button key={s} size="sm" variant={statusFilter === s ? "default" : "outline"} onClick={() => setStatusFilter(s)}>
-            {{ all: "Wszystkie", pending: "W grze", won: "Wygrane", lost: "Przegrane", void: "Zwrot" }[s]}
+            {{ all: "Wszystkie", pending: "W grze", won: "Wygrane", lost: "Przegrane", void: "Zwrot", cancelled: "Anulowane" }[s]}
           </Button>
         ))}
       </div>
@@ -284,7 +284,7 @@ function Kupony() {
                       <SettlementBadge status={l.result_status} />
                     </div>
                   ))}
-                  {cl.length !== 3 && <p className="text-xs text-warning">Uwaga: kupon ma {cl.length} zdarzeń zamiast 3.</p>}
+                  {cl.length !== 3 && <p className="text-xs text-warning">Niekompletny kupon ({cl.length}/3). Nie jest aktywny i nie może być rozliczany.</p>}
                 </div>
                 <div className="num mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-sm">
                   <div>
