@@ -1,5 +1,5 @@
 import { combinedProbability, totalOdds, validateBatch } from "./domain";
-import { deleteRow, insertRow, insertRows } from "./db";
+import { deleteRow, deleteWhere, insertRow, insertRows } from "./db";
 import type { Prediction } from "./types";
 
 export interface SaveBatchOptions {
@@ -55,11 +55,8 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
     created++;
     } catch (error) {
       if (couponId) {
-        const cleanup = await (async () => {
-          const { deleteCouponChildren } = await import("./coupon-cleanup");
-          return deleteCouponChildren(couponId!);
-        })().catch(() => null);
-        if (!cleanup) await deleteRow("coupons", couponId).catch(() => undefined);
+        await deleteWhere("coupon_legs", "coupon_id", couponId).catch(() => undefined);
+        await deleteRow("coupons", couponId).catch(() => undefined);
       }
       throw error;
     }
