@@ -44,6 +44,13 @@ function Login() {
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
+  function changeMode(next: Mode) {
+    setMode(next);
+    setError("");
+    setInfo("");
+    setPassword("");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -75,7 +82,12 @@ function Login() {
         setInfo("Jeśli konto istnieje, wysłaliśmy link do zmiany hasła.");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Wystąpił błąd.");
+      const message = e instanceof Error ? e.message : "Wystąpił błąd.";
+      if (/over_email_send_rate_limit|email rate limit exceeded/i.test(message)) {
+        setError("Limit wysyłania e-maili został osiągnięty po wielu próbach. To nie jest błąd hasła. Nie ponawiaj teraz resetu ani rejestracji — spróbuj ponownie po wygaśnięciu limitu.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -115,16 +127,16 @@ function Login() {
           </form>
           <div className="mt-4 flex flex-col gap-1 text-sm">
             {mode !== "login" && (
-              <button className="text-left text-primary" onClick={() => setMode("login")}>
+              <button className="text-left text-primary" onClick={() => changeMode("login")}>
                 ← Wróć do logowania
               </button>
             )}
             {mode === "login" && (
               <>
-                <button className="text-left text-muted-foreground hover:text-foreground" onClick={() => setMode("forgot")}>
+                <button className="text-left text-muted-foreground hover:text-foreground" onClick={() => changeMode("forgot")}>
                   Nie pamiętasz hasła?
                 </button>
-                <button className="text-left text-muted-foreground hover:text-foreground" onClick={() => setMode("signup")}>
+                <button className="text-left text-muted-foreground hover:text-foreground" onClick={() => changeMode("signup")}>
                   Nie masz konta? Utwórz je
                 </button>
               </>
