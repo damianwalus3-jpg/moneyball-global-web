@@ -26,6 +26,7 @@ function ResetPassword() {
   const [pw2, setPw2] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recoveryToken, setRecoveryToken] = useState("");
   const handled = useRef(false);
 
   useEffect(() => {
@@ -51,6 +52,12 @@ function ResetPassword() {
     const tokenHash = url.searchParams.get("token_hash");
     const tokenType = url.searchParams.get("type");
     const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const oneTimeToken = hash.get("recovery");
+    if (oneTimeToken) {
+      setRecoveryToken(oneTimeToken);
+      finish(true);
+      return () => { active = false; };
+    }
     const hashType = hash.get("type");
 
     const subscription = sb.auth.onAuthStateChange((event) => {
@@ -114,6 +121,26 @@ function ResetPassword() {
     const sb = getSupabase();
     if (!sb) return setErr("Brak połączenia z bazą.");
     setBusy(true);
+    if (recoveryToken) {
+      try {
+        const response = await fetch("https://gzgeklcukrclgwbsmbsp.supabase.co/functions/v1/moneyball-password-recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: recoveryToken, password: pw }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Nie udało się zmienić hasła.");
+        await sb.auth.signOut();
+        window.history.replaceState({}, document.title, window.location.pathname);
+        toast.success("Hasło zmienione. Zaloguj się nowym hasłem.");
+        navigate({ to: "/login" });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Nie udało się zmienić hasła.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const { error } = await sb.auth.updateUser({ password: pw });
     setBusy(false);
     if (error) return setErr(error.message);
