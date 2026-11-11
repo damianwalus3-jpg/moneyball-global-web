@@ -41,13 +41,27 @@ function Panel() {
     <div>
       <PageHeader eyebrow="Europe/Brussels" title="Panel" />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Bankroll" value={balance == null ? "brak danych" : fmtMoney(balance)} icon={Wallet} tone="primary" />
-        <StatCard label="Mecze dziś" value={todayCount} icon={CalendarDays} />
-        <StatCard label="Skuteczność 1X2" value={fmtPct(hr1.rate)} hint={`${hr1.won}/${hr1.settled} · model ogółem`} icon={Trophy} />
-        <StatCard label="Skuteczność DC" value={fmtPct(hrDc.rate)} hint={`${hrDc.won}/${hrDc.settled} · model ogółem`} icon={Trophy} />
-        <StatCard label="Kupony w grze" value={coupons.filter((c) => (c.status ?? "pending") === "pending").length} icon={Ticket} />
-        <StatCard label="Kandydaci >75%" value={candidates} hint="mecze do kuponów" />
-        <StatCard label="Do rozliczenia" value={toSettle} tone={toSettle ? "warning" : "default"} />
+        <Link to="/bankroll" aria-label="Otwórz szczegóły bankrolla" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Bankroll" value={balance == null ? "brak danych" : fmtMoney(balance)} hint="Kliknij, aby zobaczyć transakcje i saldo" icon={Wallet} tone="primary" className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/mecze" aria-label="Otwórz dzisiejsze mecze" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Mecze dziś" value={todayCount} hint="Kliknij, aby zobaczyć terminarz" icon={CalendarDays} className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/statystyki" aria-label="Otwórz szczegółowe statystyki 1X2" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Skuteczność 1X2" value={fmtPct(hr1.rate)} hint={`${hr1.won}/${hr1.settled} · kliknij po szczegóły`} icon={Trophy} className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/statystyki" aria-label="Otwórz szczegółowe statystyki Double Chance" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Skuteczność DC" value={fmtPct(hrDc.rate)} hint={`${hrDc.won}/${hrDc.settled} · kliknij po szczegóły`} icon={Trophy} className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/kupony" aria-label="Otwórz kupony w grze i ich szczegóły" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Kupony w grze" value={coupons.filter((c) => (c.status ?? "pending") === "pending").length} hint="Kliknij, aby zobaczyć kupony i wszystkie zdarzenia" icon={Ticket} className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/kupony" aria-label="Otwórz listę kandydatów do kuponów" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Kandydaci >75%" value={candidates} hint="Kliknij, aby zobaczyć kandydatów i generator kuponów" className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
+        <Link to="/historia" aria-label="Otwórz mecze do rozliczenia" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <StatCard label="Do rozliczenia" value={toSettle} hint="Kliknij, aby wpisać wyniki i rozliczyć prognozy" tone={toSettle ? "warning" : "default"} className="h-full transition-colors group-hover:border-primary/60" />
+        </Link>
       </div>
       {matches.length === 0 && (
         <div className="mt-6">
