@@ -74,8 +74,13 @@ export function validatePublicKey(rawKey: string, url = DEFAULT_SUPABASE_URL): K
 function envConfig(): { url?: string; key?: string } {
   const env = import.meta.env as Record<string, string | undefined>;
   return {
-    url: env.VITE_SUPABASE_URL,
-    key: env.VITE_SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    // Public client configuration for the existing MONEYBALL Supabase project.
+    // Publishable keys are designed for browser use; never put secret/service_role keys here.
+    url: env.VITE_SUPABASE_URL ?? "https://gzgeklcukrclgwbsmbsp.supabase.co",
+    key:
+      env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+      env.VITE_SUPABASE_ANON_KEY ??
+      "sb_publishable_YdT4Nm50NkbmjKnoQE8bNQ_aGeqzG3S",
   };
 }
 
