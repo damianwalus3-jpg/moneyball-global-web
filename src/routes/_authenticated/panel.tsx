@@ -61,7 +61,7 @@ function Panel() {
           <StatCard label="Kandydaci >75%" value={candidates} hint="Kliknij, aby zobaczyć kandydatów i generator kuponów" className="h-full transition-colors group-hover:border-primary/60" />
         </Link>
         <Link to="/historia" aria-label="Otwórz mecze do rozliczenia" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <StatCard label="Do rozliczenia" value={toSettle} hint="Kliknij, aby wpisać wyniki i rozliczyć prognozy" tone={toSettle ? "warning" : "default"} className="h-full transition-colors group-hover:border-primary/60" />
+          <StatCard label="Do rozliczenia / weryfikacji" value={toSettle} hint="Kliknij, aby sprawdzić brakujące wyniki" tone={toSettle ? "warning" : "default"} className="h-full transition-colors group-hover:border-primary/60" />
         </Link>
       </div>
       {matches.length === 0 && (
