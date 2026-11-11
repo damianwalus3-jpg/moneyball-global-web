@@ -15,7 +15,9 @@ export function getSupabase(): SupabaseClient | null {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        // Recovery links are parsed and verified explicitly by /reset-password.
+        // Prevent auto-detection from silently creating a session before that route validates the recovery code.
+        detectSessionInUrl: false,
         storageKey: "moneyball-auth",
       },
     });
