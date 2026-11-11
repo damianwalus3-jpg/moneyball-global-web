@@ -14,7 +14,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 const logo = "https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global/main/src/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -62,6 +62,65 @@ export function AppShell({ email, children }: { email: string | null; children: 
   const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
+
+  // Refresh the authenticated user's fixtures immediately on every app entry,
+  // then repeat every 15 minutes while the app is visible.
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    let lastAttemptAt = 0;
+    let running = false;
+    let disposed = false;
+
+    const brusselsDate = () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Brussels",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+
+    const syncFixtures = async (force = false) => {
+      if (disposed || running) return;
+      if (!force && Date.now() - lastAttemptAt < 15 * 60_000) return;
+      running = true;
+      lastAttemptAt = Date.now();
+      try {
+        const { error } = await sb.functions.invoke("footynomad-sync", {
+          body: { date: brusselsDate() },
+        });
+        if (error) throw error;
+        if (!disposed) {
+          await qc.invalidateQueries({ queryKey: ["table"] });
+        }
+      } catch (error) {
+        console.error("[MONEYBALL] Automatyczna synchronizacja nie powiodła się:", error);
+      } finally {
+        running = false;
+      }
+    };
+
+    // Always fetch fresh fixtures when the authenticated app shell is opened.
+    void syncFixtures(true);
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void syncFixtures();
+    }, 60_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void syncFixtures();
+    };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [qc]);
 
   async function signOut() {
     await qc.cancelQueries();
