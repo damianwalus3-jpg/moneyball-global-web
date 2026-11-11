@@ -9,7 +9,7 @@ import { brusselsDayKey } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({ meta: [{ title: "Panel — MONEYBALL GLOBAL 2.0" }, { name: "description", content: "Podsumowanie prognoz, kuponów i bankrolla." }, { property: "og:title", content: "Panel — MONEYBALL" }, { property: "og:description", content: "Podsumowanie prognoz." }] }),
-  loader: ({ context }) => ensureTables(context.queryClient, ["matches", "predictions", "coupons", "bankroll_transactions", "match_results"]),
+  loader: ({ context }) => ensureTables(context.queryClient, ["matches", "predictions", "coupons", "coupon_legs", "bankroll_transactions", "match_results"]),
   pendingComponent: PageLoader,
   errorComponent: DataError,
   component: Panel,
@@ -19,6 +19,7 @@ function Panel() {
   const matches = useTable("matches");
   const preds = useTable("predictions");
   const coupons = useTable("coupons");
+  const couponLegs = useTable("coupon_legs");
   const txs = useTable("bankroll_transactions");
   const results = useTable("match_results");
   const now = Date.now();
@@ -54,7 +55,7 @@ function Panel() {
           <StatCard label="Skuteczność DC" value={fmtPct(hrDc.rate)} hint={`${hrDc.won}/${hrDc.settled} · kliknij po szczegóły`} icon={Trophy} className="h-full transition-colors group-hover:border-primary/60" />
         </Link>
         <Link to="/kupony" aria-label="Otwórz kupony w grze i ich szczegóły" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-          <StatCard label="Kupony w grze" value={coupons.filter((c) => (c.status ?? "pending") === "pending").length} hint="Kliknij, aby zobaczyć kupony i wszystkie zdarzenia" icon={Ticket} className="h-full transition-colors group-hover:border-primary/60" />
+          <StatCard label="Kupony w grze" value={coupons.filter((c) => (c.status ?? "pending") === "pending" && couponLegs.filter((l) => l.coupon_id === c.id).length === 3).length} hint="Kliknij, aby zobaczyć kupony i wszystkie zdarzenia" icon={Ticket} className="h-full transition-colors group-hover:border-primary/60" />
         </Link>
         <Link to="/kupony" aria-label="Otwórz listę kandydatów do kuponów" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <StatCard label="Kandydaci >75%" value={candidates} hint="Kliknij, aby zobaczyć kandydatów i generator kuponów" className="h-full transition-colors group-hover:border-primary/60" />
