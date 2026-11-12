@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtOdds, fmtPct } from "@/lib/format";
-import { fmtDateTime } from "@/lib/time";
+import { fmtDateTime, fmtMatchDateTime } from "@/lib/time";
 import { Activity, BookOpen, CalendarClock, CircleHelp, Database, ShieldAlert, TrendingUp } from "lucide-react";
 import type { Match, MatchResult, OddsSnapshot, Prediction } from "@/lib/types";
 
@@ -127,14 +127,14 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
             {match.gender && <Badge variant="secondary">{match.gender === "women" ? "Kobiety" : match.gender === "men" ? "Mężczyźni" : match.gender === "mixed" ? "Mieszane" : "Płeć nieustalona"}</Badge>}
           </div>
           <DialogTitle className="text-xl leading-tight sm:text-2xl">{match.home_team} – {match.away_team}</DialogTitle>
-          <DialogDescription>{match.league ?? "Rozgrywki nieznane"}{match.country ? ` · ${match.country}` : ""}{match.kickoff_at ? ` · ${fmtDateTime(match.kickoff_at)}` : ""}</DialogDescription>
+          <DialogDescription>{match.league ?? "Rozgrywki nieznane"}{match.country ? ` · ${match.country}` : ""}{match.kickoff_at || match.kickoff_date ? ` · ${fmtMatchDateTime(match.kickoff_at, match.kickoff_date)}` : ""}</DialogDescription>
         </DialogHeader>
 
         <section className="surface-card p-3 sm:p-4">
           <div className="flex items-center gap-2 text-sm font-semibold"><BookOpen className="size-4 text-primary"/> Podsumowanie meczu</div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div><div className="text-xs text-muted-foreground">Spotkanie</div><div className="mt-1 font-semibold">{match.home_team}</div><div className="text-muted-foreground">vs</div><div className="font-semibold">{match.away_team}</div></div>
-            <div><div className="text-xs text-muted-foreground">Termin / status</div><div className="mt-1 font-semibold">{match.kickoff_at ? fmtDateTime(match.kickoff_at) : "Brak terminu"}</div><div className="mt-1 text-xs text-muted-foreground">{statusText}</div></div>
+            <div><div className="text-xs text-muted-foreground">Termin / status</div><div className="mt-1 font-semibold">{match.kickoff_at || match.kickoff_date ? fmtMatchDateTime(match.kickoff_at, match.kickoff_date) : "Brak terminu"}</div><div className="mt-1 text-xs text-muted-foreground">{statusText}</div></div>
           </div>
         </section>
 
