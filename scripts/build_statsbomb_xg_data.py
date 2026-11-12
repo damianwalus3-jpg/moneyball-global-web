@@ -66,7 +66,7 @@ def selected_competitions():
         gender = str(comp.get("competition_gender", "")).lower()
         name = str(comp.get("competition_name", ""))
         season = str(comp.get("season_name", ""))
-        season_start = re.match(r"^(\\d{4})", season)
+        season_start = re.match(r"^(\d{4})", season)
         is_recent_men_season = bool(season_start and int(season_start.group(1)) >= 2020)
         # Keep all available women's event seasons, and expand men's coverage
         # to every published 2020+ competition-season. Retain selected historic
