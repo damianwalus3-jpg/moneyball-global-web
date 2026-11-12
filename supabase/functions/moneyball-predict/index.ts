@@ -207,7 +207,7 @@ function historyModel(home:string,away:string,kickoff:string,history:any[],footy
   else if(footyForm)source="FOOTYNOMAD_LAST5";
   else if(hn>0||an>0)source="PARTIAL_VERIFIED_HISTORY";
   if(eloUsed&&hn===0&&an===0)source="BEYONDELO_ONLY";
-  const coverage=source==="BEYONDELO_ONLY"?35:(n>0?Math.min(75,n*15):(eloUsed?35:0));
+  const coverage=source==="BEYONDELO_ONLY"?35:source==="ESPN_FORM_LAST5"?45:(n>0?Math.min(75,n*15):(eloUsed?35:0));
   return {p1:+(p1/total*100).toFixed(1),px:+(px/total*100).toFixed(1),p2:+(p2/total*100).toFixed(1),coverage,home_matches:hn,away_matches:an,home_form:Object.keys(hf).length?hf:null,away_form:Object.keys(af).length?af:null,source,footyForm:!!footyForm,publicForm:source==="OPENMATCHDAY_LAST10"||source==="ESPN_WOMEN_LAST10"||source==="ESPN_FORM_LAST5",espnWomenForm:source==="ESPN_WOMEN_LAST10",pitchForm:source==="PITCHAPI_LAST5",method,xg_used:xgUsed,xg_home_matches:xgHomeMatches,xg_away_matches:xgAwayMatches,xg_sources:xgSources,calibration_temperature:calibrationTemperature,calibration_method:calibrationMethod,elo_used:eloUsed,elo_home:eloHome,elo_away:eloAway,elo_diff:eloDiff,elo_weight:eloWeight,elo_as_of:eloAsOf};
  return {p1:+(p1/total*100).toFixed(1),px:+(px/total*100).toFixed(1),p2:+(p2/total*100).toFixed(1),coverage:Math.min(75,n*15),home_matches:hn,away_matches:an,home_form:hf||null,away_form:af||null,source,footyForm:!!footyForm,publicForm:source==="OPENMATCHDAY_LAST10",pitchForm:source==="PITCHAPI_LAST5",method};
 }
