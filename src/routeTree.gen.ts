@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedBankrollRouteImport } from './routes/_authenticated/bankroll'
 import { Route as AuthenticatedDoubleChanceRouteImport } from './routes/_authenticated/double-chance'
+import { Route as AuthenticatedGoleRouteImport } from './routes/_authenticated/gole'
 import { Route as AuthenticatedHistoriaRouteImport } from './routes/_authenticated/historia'
 import { Route as AuthenticatedKuponyRouteImport } from './routes/_authenticated/kupony'
 import { Route as AuthenticatedMeczeRouteImport } from './routes/_authenticated/mecze'
@@ -59,6 +60,11 @@ const AuthenticatedDoubleChanceRoute =
     path: '/double-chance',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGoleRoute = AuthenticatedGoleRouteImport.update({
+  id: '/gole',
+  path: '/gole',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHistoriaRoute = AuthenticatedHistoriaRouteImport.update({
   id: '/historia',
   path: '/historia',
@@ -103,6 +109,8 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/bankroll': typeof AuthenticatedBankrollRoute
   '/double-chance': typeof AuthenticatedDoubleChanceRoute
+  '/gole': typeof AuthenticatedGoleRoute
+  '/gole': typeof AuthenticatedGoleRoute
   '/historia': typeof AuthenticatedHistoriaRoute
   '/kupony': typeof AuthenticatedKuponyRoute
   '/mecze': typeof AuthenticatedMeczeRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_authenticated/bankroll': typeof AuthenticatedBankrollRoute
   '/_authenticated/double-chance': typeof AuthenticatedDoubleChanceRoute
+  '/_authenticated/gole': typeof AuthenticatedGoleRoute
   '/_authenticated/historia': typeof AuthenticatedHistoriaRoute
   '/_authenticated/kupony': typeof AuthenticatedKuponyRoute
   '/_authenticated/mecze': typeof AuthenticatedMeczeRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/bankroll'
     | '/double-chance'
+    | '/gole'
     | '/historia'
     | '/kupony'
     | '/mecze'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_authenticated/bankroll'
     | '/_authenticated/double-chance'
+    | '/_authenticated/gole'
     | '/_authenticated/historia'
     | '/_authenticated/kupony'
     | '/_authenticated/mecze'
@@ -251,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDoubleChanceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/gole': {
+      id: '/_authenticated/gole'
+      path: '/gole'
+      fullPath: '/gole'
+      preLoaderRoute: typeof AuthenticatedGoleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/historia': {
       id: '/_authenticated/historia'
       path: '/historia'
@@ -306,6 +324,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBankrollRoute: typeof AuthenticatedBankrollRoute
   AuthenticatedDoubleChanceRoute: typeof AuthenticatedDoubleChanceRoute
+  AuthenticatedGoleRoute: typeof AuthenticatedGoleRoute
   AuthenticatedHistoriaRoute: typeof AuthenticatedHistoriaRoute
   AuthenticatedKuponyRoute: typeof AuthenticatedKuponyRoute
   AuthenticatedMeczeRoute: typeof AuthenticatedMeczeRoute
@@ -318,6 +337,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBankrollRoute: AuthenticatedBankrollRoute,
   AuthenticatedDoubleChanceRoute: AuthenticatedDoubleChanceRoute,
+  AuthenticatedGoleRoute: AuthenticatedGoleRoute,
   AuthenticatedHistoriaRoute: AuthenticatedHistoriaRoute,
   AuthenticatedKuponyRoute: AuthenticatedKuponyRoute,
   AuthenticatedMeczeRoute: AuthenticatedMeczeRoute,
