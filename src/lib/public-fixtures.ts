@@ -25,7 +25,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   KAZ:"Kazakhstan", NED:"Netherlands", NLD:"Netherlands", NOR:"Norway",
   POL:"Poland", POR:"Portugal", PRT:"Portugal", ROU:"Romania", RUS:"Russia",
   SCO:"Scotland", SRB:"Serbia", SVK:"Slovakia", SVN:"Slovenia", ESP:"Spain",
-  SWE:"Sweden", SUI:"Switzerland", CHE:"Switzerland", DNK:"Denmark", DEU:"Germany", MNE:"Montenegro", MKD:"North Macedonia", LUX:"Luxembourg", MLT:"Malta", KOS:"Kosovo", LIE:"Liechtenstein", SMR:"San Marino", GIB:"Gibraltar", TUR:"Turkey",
+  SWE:"Sweden", SUI:"Switzerland", CHE:"Switzerland", MNE:"Montenegro", MKD:"North Macedonia", LUX:"Luxembourg", MLT:"Malta", KOS:"Kosovo", LIE:"Liechtenstein", SMR:"San Marino", GIB:"Gibraltar", TUR:"Turkey",
   UKR:"Ukraine", WAL:"Wales", UEFA:"UEFA",
 };
 const TIME_ZONES: Record<string, string> = {
