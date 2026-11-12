@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase";
@@ -113,6 +113,49 @@ function Mecze() {
   const refreshResults = useAction(() => syncResults(7), {
     success: (r) => `Wyniki sprawdzone · ${r.results_saved ?? 0} zapisów · ${r.alternate_results_matched ?? 0} dopasowań ze źródeł dodatkowych · ${r.predictions_settled ?? 0} rozliczeń prognoz`,
   });
+
+  // Keep match results current without requiring the user to press "Odśwież wyniki".
+  // Reuse the existing verified multi-source synchronizer; do not add another provider.
+  const automaticResultsSync = useRef(false);
+  useEffect(() => {
+    let disposed = false;
+    const refreshAutomatically = async () => {
+      if (disposed || document.visibilityState !== "visible" || automaticResultsSync.current) return;
+      automaticResultsSync.current = true;
+      try {
+        await syncResults(7);
+        if (!disposed) {
+          await Promise.all(
+            ["matches", "match_results", "predictions", "coupons", "coupon_legs"].map((table) =>
+              qc.invalidateQueries({ queryKey: ["table", table] }),
+            ),
+          );
+        }
+      } catch (error) {
+        // Keep background refresh quiet; the manual button still displays actionable errors.
+        console.warn("Automatyczna synchronizacja wyników MONEYBALL:", error);
+      } finally {
+        automaticResultsSync.current = false;
+      }
+    };
+
+    const onFocus = () => void refreshAutomatically();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshAutomatically();
+    };
+
+    void refreshAutomatically();
+    const interval = window.setInterval(() => void refreshAutomatically(), 5 * 60_000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [qc]);
 
   const runTodayAnalysis = async (date = brusselsDayKey(new Date())) => {
     if (analysisRunning) return;
