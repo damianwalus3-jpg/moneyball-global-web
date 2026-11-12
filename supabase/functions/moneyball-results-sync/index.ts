@@ -331,7 +331,9 @@ Deno.serve(async(req:Request)=>{
     for(const f of fixtures){
      if(f.status!=="finished"||!Number.isInteger(f.home_score)||!Number.isInteger(f.away_score))continue;
      const exact=map.get(String(f.external_id));
-     const exactTeamMatches=byTeams.get(normTeam(f.home_team)+"|"+normTeam(f.away_team))||[];const fallbackMatch=exactTeamMatches.length===0?matchFeedToDb({source:"FootyNomad",external_id:String(f.external_id),home:f.home_team,away:f.away_team,home_score:f.home_score,away_score:f.away_score,status:f.status,date,url:"https://footynomad.com/fixture/"+String(f.external_id),raw:f},matches):null;const candidates=exact?[exact]:(exactTeamMatches.length?exactTeamMatches:(fallbackMatch?[fallbackMatch]:[]));
+     const exactTeamMatches=byTeams.get(normTeam(f.home_team)+"|"+normTeam(f.away_team))||[];const fallbackMatch=exactTeamMatches.length===0?matchFeedToDb({source:"FootyNomad",external_id:String(f.external_id),home:f.home_team,away:f.away_team,home_score:f.home_score,away_score:f.away_score,status:f.status,date,url:"https://footynomad.com/fixture/"+String(f.external_id),raw:f},matches):null;
+     // If the same fixture exists under multiple source IDs, settle every same-day row so legacy/import duplicates do not remain pending.
+     const candidates=exact?[exact,...exactTeamMatches.filter((x:any)=>x.id!==exact.id)]:(exactTeamMatches.length?exactTeamMatches:(fallbackMatch?[fallbackMatch]:[]));
      for(const m of candidates)eligible.push({f,m,matchMethod:exact?"external_id":"team_names"});
     }
     matched+=eligible.length;matchedById+=eligible.filter((x:any)=>x.matchMethod==="external_id").length;matchedByNames+=eligible.filter((x:any)=>x.matchMethod==="team_names").length;
