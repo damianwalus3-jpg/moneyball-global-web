@@ -17,6 +17,7 @@ import openplay as op
 import pandas as pd
 
 OUT = Path("public-data/openplay-xg.json")
+SUMMARY_OUT = Path("public-data/openplay-xg-summary.json")
 MAX_MATCHES_PER_TEAM = 20
 REQUIRED = {
     "match_id", "comp", "season", "date", "team_id", "opponent_id",
@@ -162,6 +163,8 @@ def main() -> None:
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    summary = {key: payload[key] for key in ("schema_version", "generated_at", "source", "source_url", "data_release", "license", "attribution", "scope", "coverage")}
+    SUMMARY_OUT.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(OUT), **payload["coverage"]}, ensure_ascii=False))
 
 
