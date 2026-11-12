@@ -32,29 +32,31 @@ jobs:
       - name: Build selected StatsBomb event-derived xG index
         run: python scripts/build_statsbomb_xg_data.py
 
-      - name: Publish compact xG index
+      - name: Publish generated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public-data/statsbomb-xg.json public-data/statsbomb-xg-summary.json
-          if git diff --cached --quiet; then
-            echo "StatsBomb xG data is unchanged."
-            exit 0
-          fi
-          git commit -m "Update StatsBomb historical xG data"
-          pushed=false
+          mkdir -p /tmp/generated-data
+          cp public-data/statsbomb-xg.json /tmp/generated-data/0.json
+          cp public-data/statsbomb-xg-summary.json /tmp/generated-data/1.json
+          # Rebuild the data commit on the newest main; do not rebase generated
+          # JSON over a concurrent data publish or app deployment.
           for attempt in 1 2 3 4 5; do
             git fetch origin main
-            git rebase origin/main
-            if git push origin HEAD:main; then
-              pushed=true
-              break
+            git reset --hard origin/main
+            cp /tmp/generated-data/0.json public-data/statsbomb-xg.json
+            cp /tmp/generated-data/1.json public-data/statsbomb-xg-summary.json
+            git add public-data/statsbomb-xg.json public-data/statsbomb-xg-summary.json
+            if git diff --cached --quiet; then
+              echo "Generated data is already current on main."
+              exit 0
             fi
-            echo "Push race on attempt $attempt; retrying after refreshing main."
-            git rebase --abort || true
+            git commit -m "Update StatsBomb historical xG data"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push raced with another main update; retrying ($attempt/5)."
             sleep $((attempt * 2))
           done
-          if [ "$pushed" != "true" ]; then
-            echo "Could not publish StatsBomb xG data after five retries."
-            exit 1
-          fi
+          echo "Could not publish generated data after five attempts."
+          exit 1
