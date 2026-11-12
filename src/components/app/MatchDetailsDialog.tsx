@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtOdds, fmtPct } from "@/lib/format";
 import { fmtDateTime } from "@/lib/time";
-import { Activity, BookOpen, CalendarClock, CheckCircle2, CircleHelp, Database, ShieldAlert, TrendingUp } from "lucide-react";
+import { Activity, BookOpen, CalendarClock, CircleHelp, Database, ShieldAlert, TrendingUp } from "lucide-react";
 import type { Match, MatchResult, OddsSnapshot, Prediction } from "@/lib/types";
 
 type FormLine = { w: number; d: number; l: number };
@@ -25,9 +25,9 @@ function readSavedForm(notes: string | null | undefined) {
   const index = notes.indexOf(marker);
   if (index < 0) return null;
   try {
-    const raw = notes.slice(index + marker.length).split(/\\r?\\n|\\\\n/)[0].trim();
+    const raw = notes.slice(index + marker.length).split(/\r?\n|\\n/)[0].trim();
     let parsed: any;
-    try { parsed = JSON.parse(raw); } catch { parsed = JSON.parse(raw.replace(/\\\\+"/g, '"' ).replace(/\\\\\\\\n/g, "")); }
+    try { parsed = JSON.parse(raw); } catch { parsed = JSON.parse(raw.replace(/\\"/g, '"').replace(/\\n/g, "")); }
     const valid = (v: unknown): v is FormLine => !!v && typeof v === "object" &&
       ["w", "d", "l"].every((k) => Number.isFinite(Number((v as Record<string, unknown>)[k]))) &&
       Number((v as Record<string, unknown>).w) + Number((v as Record<string, unknown>).d) + Number((v as Record<string, unknown>).l) === 5;
