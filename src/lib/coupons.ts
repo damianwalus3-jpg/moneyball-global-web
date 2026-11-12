@@ -31,8 +31,9 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
     couponId = coupon.id;
     const insertedLegs = await insertRows(
       "coupon_legs",
-      legs.map((l) => ({
+      legs.map((l, index) => ({
         coupon_id: coupon.id,
+        leg_number: index + 1,
         prediction_id: l.id,
         match_id: l.match_id,
         prediction_type: l.prediction_type,
