@@ -170,7 +170,7 @@ function Mecze() {
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Analiza nie została zakończona.");
       await Promise.all(["matches","predictions","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma GitHub/OpenMatchday " + (data.github_form_matches ?? 0) + " • baza " + (data.github_public_teams ?? 0) + " drużyn / " + (data.github_public_competitions ?? 0) + " lig • bez danych " + (data.missing ?? 0));
+      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma GitHub/OpenMatchday " + (data.github_form_matches ?? 0) + " • baza " + (data.github_public_teams ?? 0) + " drużyn / " + (data.github_public_competitions ?? 0) + " lig + " + (data.github_openfootball_files ?? 0) + " plików OpenFootball • bez danych " + (data.missing ?? 0));
     } catch (e) {
       toast.error("Skan zapisany, ale analiza nie powiodła się: " + (e instanceof Error ? e.message : String(e)));
     } finally { setAnalysisRunning(false); }
