@@ -1,0 +1,47 @@
+name: Refresh keyless football data
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_public_football_data.py"
+      - ".github/workflows/public-football-data.yml"
+permissions:
+  contents: write
+concurrency:
+  group: public-football-data
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build public football history (no API keys)
+        run: python3 scripts/build_public_football_data.py
+      - name: Validate generated JSON
+        run: |
+          python3 -m json.tool public-data/team-history.json > /dev/null
+          python3 - <<'PY'
+          import json
+          p=json.load(open("public-data/team-history.json", encoding="utf-8"))
+          assert p["coverage"]["competitions_with_results"] >= 15
+          assert p["coverage"]["team_names"] >= 100
+          assert p["teams"]
+          print("Generated:", p["coverage"])
+          PY
+      - name: Publish refreshed data to GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public-data/team-history.json
+          if git diff --cached --quiet; then
+            echo "Public football dataset is unchanged."
+          else
+            git commit -m "Refresh keyless public football history"
+            git push
+          fi
