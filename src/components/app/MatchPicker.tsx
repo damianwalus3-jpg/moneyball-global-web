@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { matchLabel } from "@/lib/format";
-import { fmtDateTime } from "@/lib/time";
+import { fmtMatchDateTime } from "@/lib/time";
 import type { Match } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +52,7 @@ export function MatchPicker({
                   <div className="min-w-0">
                     <div className="truncate">{matchLabel(m)}</div>
                     <div className="text-xs text-muted-foreground">
-                      {m.league ?? "—"} · {fmtDateTime(m.kickoff_at)}
+                      {m.league ?? "—"} · {fmtMatchDateTime(m.kickoff_at, m.kickoff_date)}
                     </div>
                   </div>
                 </CommandItem>
