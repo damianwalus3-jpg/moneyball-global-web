@@ -56,6 +56,7 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
 }
 
 const sourceLabel = (source: string | null | undefined) => {
+  if (source === "OPENMATCHDAY_LAST5_FORM") return "OpenMatchday · wyniki i gole z ostatnich 5 spotkań";
   if (source === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań";
   if (source === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane";
   if (source === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
@@ -87,7 +88,10 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
   const saved = readSavedForm(match.notes);
   const homeGames = recentFor(String(match.home_team), match, matches, results);
   const awayGames = recentFor(String(match.away_team), match, matches, results);
-  const ordered = [...predictions].sort((a, b) => {
+  // In the detail card show only the newest model run; keep older versions in the database for audit/history.
+  const latestVersion = [...predictions].sort((a, b) => String((b as any).created_at || "").localeCompare(String((a as any).created_at || "")))[0]?.model_version;
+  const currentPredictions = latestVersion ? predictions.filter((p) => p.model_version === latestVersion) : predictions;
+  const ordered = [...currentPredictions].sort((a, b) => {
     const at = a.prediction_type === "1X2" ? 0 : 1;
     const bt = b.prediction_type === "1X2" ? 0 : 1;
     return at - bt || Number(b.probability ?? -1) - Number(a.probability ?? -1);
@@ -95,6 +99,9 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
   const mainPick = ordered.find((p) => p.prediction_type === "1X2");
   const coverage = (mainPick as any)?.data_coverage ?? ordered.find((p) => (p as any).data_coverage)?.data_coverage;
   const source = (mainPick as any)?.data_source ?? ordered.find((p) => (p as any).data_source)?.data_source;
+  const formLine = (v: any): FormLine | undefined => v && Number.isFinite(Number(v.w)) && Number.isFinite(Number(v.d)) && Number.isFinite(Number(v.l)) && Number(v.w)+Number(v.d)+Number(v.l)===5 ? {w:Number(v.w),d:Number(v.d),l:Number(v.l)} : undefined;
+  const homeSaved = saved?.home || formLine((coverage as any)?.home_form);
+  const awaySaved = saved?.away || formLine((coverage as any)?.away_form);
   const rationale = (mainPick as any)?.rationale ?? (mainPick as any)?.notes ?? (mainPick as any)?.rejection_reason;
   const isNoData = source === "NO_VERIFIED_SOURCE" || (!!coverage && (coverage as any).baseline_only === true);
   const confidence = mainPick?.confidence;
@@ -126,8 +133,8 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
         <section className="space-y-3">
           <div className="flex items-center gap-2 font-semibold"><Activity className="size-4 text-primary"/> Forma drużyn</div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <FormCard name={String(match.home_team)} games={homeGames} saved={saved?.home}/>
-            <FormCard name={String(match.away_team)} games={awayGames} saved={saved?.away}/>
+            <FormCard name={String(match.home_team)} games={homeGames} saved={homeSaved}/>
+            <FormCard name={String(match.away_team)} games={awayGames} saved={awaySaved}/>
           </div>
           <p className="text-[11px] text-muted-foreground">W = wygrana, D = remis, L = porażka. W pierwszej kolejności pokazujemy wyniki zweryfikowane; dane FootyNomad oznaczamy osobno.</p>
         </section>
