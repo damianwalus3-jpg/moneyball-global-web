@@ -271,7 +271,7 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  if(req.method!=="POST")return out({error:"POST required"},405);
  const token=req.headers.get("Authorization")?.replace("Bearer ","");if(!token)throw Error("Zaloguj się ponownie.");
  const body=await req.json().catch(()=>({})),date=String(body.date||new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()));
- const all=await db("matches?select=id,external_id,source,competition,league,country,home_team,away_team,kickoff_at,kickoff_date,status,notes&order=kickoff_at.asc",token);
+ const all=await db("matches?select=id,external_id,source,competition,league,country,gender,home_team,away_team,kickoff_at,kickoff_date,status,notes&order=kickoff_at.asc",token);
  const dateFromExternalId=(m:any)=>String(m.kickoff_date||"").slice(0,10)||/:(\d{4}-\d{2}-\d{2}):/.exec(String(m.external_id||""))?.[1]||null;
   const matchDate=(m:any)=>m.kickoff_at?new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(m.kickoff_at)):dateFromExternalId(m);
   const rawDateMatches=all.filter((m:any)=>isEuropeanFixture(m.country,m.league||m.competition,m.home_team,m.away_team)&&matchDate(m)===date);
