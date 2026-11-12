@@ -39,7 +39,16 @@ export function GoalsView() {
     const kickoff = new Date(m.kickoff_at).getTime();
     return Number.isFinite(kickoff) && kickoff > now && kickoff <= forecastHorizon;
   }).map((m) => [m.id, m] as const)), [matches, now, forecastHorizon]);
-  const rows = predictions.filter((p) => p.market === "GOALS" && byId.has(p.match_id));
+  const rows = useMemo(() => {
+    const latest = new Map<string, Prediction>();
+    for (const p of predictions) {
+      if (p.market !== "GOALS" || !byId.has(p.match_id)) continue;
+      const key = `${p.match_id}|${p.selection ?? p.pick}`;
+      const previous = latest.get(key);
+      if (!previous || (p.created_at ?? "").localeCompare(previous.created_at ?? "") > 0) latest.set(key, p);
+    }
+    return [...latest.values()];
+  }, [predictions, byId]);
   const grouped = useMemo(() => {
     const groups = new Map<string, Prediction[]>();
     for (const p of rows) {
