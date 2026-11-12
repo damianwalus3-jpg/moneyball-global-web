@@ -125,7 +125,7 @@ export function isCouponCandidate(p: Prediction, m: Match | undefined, nowMs: nu
  * Builds up to `count` coupons of exactly 3 distinct matches.
  * One leg per match (highest probability), and no match is reused across the batch.
  */
-export function buildCouponBatch<T extends Pick<Prediction, "match_id" | "probability">>(candidates: T[], count: number): T[][] {
+export function buildCouponBatch<T extends Pick<Prediction, "match_id" | "probability">>(candidates: T[], count: number, legsPerCoupon: 1 | 3 = COUPON_SIZE): T[][] {
   const best = new Map<string, T>();
   for (const c of candidates) {
     if (c.probability == null || Number(c.probability) <= CANDIDATE_MIN_PROBABILITY) continue;
@@ -145,7 +145,7 @@ export function validateCoupon(
   usedMatchIds: Set<string> = new Set(),
 ): string[] {
   const errors: string[] = [];
-  if (legs.length !== COUPON_SIZE) errors.push("Kupon musi mieć dokładnie 3 zdarzenia.");
+  if (legs.length !== expectedLegs) errors.push(`Kupon musi mieć dokładnie ${expectedLegs} ${expectedLegs === 1 ? "zdarzenie" : "zdarzenia"}.`);
   if (new Set(legs.map((l) => l.match_id)).size !== legs.length)
     errors.push("Każde zdarzenie musi dotyczyć innego meczu.");
   if (legs.some((l) => l.probability == null || Number(l.probability) <= CANDIDATE_MIN_PROBABILITY))
@@ -155,11 +155,11 @@ export function validateCoupon(
   return errors;
 }
 
-export function validateBatch(coupons: { match_id: string; probability: number | null }[][]): string[] {
+export function validateBatch(coupons: { match_id: string; probability: number | null }[][], expectedLegs: 1 | 3 = COUPON_SIZE): string[] {
   const used = new Set<string>();
   const errors: string[] = [];
   coupons.forEach((legs, i) => {
-    for (const e of validateCoupon(legs, used)) errors.push(`Kupon ${i + 1}: ${e}`);
+    for (const e of validateCoupon(legs, used, expectedLegs)) errors.push(`Kupon ${i + 1}: ${e}`);
     legs.forEach((l) => used.add(l.match_id));
   });
   return errors;
