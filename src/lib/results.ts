@@ -13,6 +13,8 @@ export interface ResultsSyncResponse {
   coupon_legs_settled?: number;
   alternate_results_fetched?: number;
   alternate_results_matched?: number;
+  rescheduled_matches?: number;
+  reschedule_errors?: string[];
   errors?: string[];
 }
 
