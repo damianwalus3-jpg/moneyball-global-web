@@ -116,7 +116,7 @@ TEXT_REPOS = ("openfootball/europe", "openfootball/world", "openfootball/south-a
 
 def parse_football_txt(path: str, raw: str, repository: str):
     """Parse dated Football.TXT match rows; keep only played matches with a final score."""
-    year_match = re.match(r"^(\\d{4})", path.rsplit("/", 1)[-1])
+    year_match = re.match(r"^(\d{4})", path.rsplit("/", 1)[-1])
     current_year = int(year_match.group(1)) if year_match else None
     current_month = None
     current_date = None
@@ -127,7 +127,7 @@ def parse_football_txt(path: str, raw: str, repository: str):
         if stripped.startswith("=") and not competition:
             competition = stripped.lstrip("= ").strip()
             continue
-        heading = re.match(r"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+([A-Z][a-z]{2})\\s+(\\d{1,2})(?:\\s+(\\d{4}))?$", stripped)
+        heading = re.match(r"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+(\d{4}))?$", stripped)
         if heading:
             month_name, day, explicit_year = heading.groups()
             try:
@@ -145,10 +145,10 @@ def parse_football_txt(path: str, raw: str, repository: str):
         if not current_date or " v " not in stripped:
             continue
         home_part, away_part = stripped.split(" v ", 1)
-        score = re.search(r"\\s+(\\d+)-(\\d+)(?:\\s+\\(\\d+-\\d+\\))?(?:\\s+(?:AET|PEN))?\\s*$", away_part, re.I)
+        score = re.search(r"\s+(\d+)-(\d+)(?:\s+\(\d+-\d+\))?(?:\s+(?:AET|PEN))?\s*$", away_part, re.I)
         if not score:
             continue
-        home = re.sub(r"^\\d{1,2}:\\d{2}\\s+", "", home_part).strip()
+        home = re.sub(r"^\d{1,2}:\d{2}\s+", "", home_part).strip()
         away = away_part[:score.start()].strip()
         if not home or not away:
             continue
@@ -168,7 +168,7 @@ def load_openfootball_text_results():
                 path = item.get("path", "")
                 if item.get("type") != "blob" or not path.endswith(".txt"):
                     continue
-                year_match = re.search(r"/(20\\d{2})(?:-|_)", path)
+                year_match = re.search(r"/(20\d{2})(?:-|_)", path)
                 if year_match and int(year_match.group(1)) >= 2025:
                     tasks.append((repository, path))
         except Exception as exc:
