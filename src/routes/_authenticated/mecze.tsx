@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
+import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDelete, DataError, EmptyState, PageHeader, PageLoader } from "@/components/app/ui-bits";
 import { ScanImportDialog } from "@/components/app/ScanImportDialog";
-import { SettleMatchDialog } from "@/components/app/SettleMatchDialog";
 import { MatchForm } from "@/components/forms/MatchForm";
 import { OddsForm, ScanRunForm } from "@/components/forms/SimpleForms";
 import { deleteRow } from "@/lib/db";
@@ -66,7 +65,6 @@ function Mecze() {
   const [matchOpen, setMatchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [oddsFor, setOddsFor] = useState<string | null>(null);
-  const [settle, setSettle] = useState<Match | null>(null);
   const [editScan, setEditScan] = useState<ScanRun | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [globalScanRunning, setGlobalScanRunning] = useState(false);
@@ -224,7 +222,7 @@ function Mecze() {
       <PageHeader
         eyebrow="Europe/Brussels"
         title="Terminarz / Mecze"
-        description="Europejskie mecze — także te z prognozami ODRZUCONY. Pozostałe regiony są ukryte."
+        description="Europejskie rozgrywki klubowe i reprezentacyjne, w tym Liga Narodów UEFA. Wyniki pobierane i rozliczane automatycznie."
         actions={
           <>
             <Button variant="outline" onClick={() => refreshResults.mutate(undefined)} disabled={refreshResults.isPending || globalScanRunning || analysisRunning}>
@@ -380,7 +378,6 @@ function Mecze() {
                   const r = resultBy.get(m.id);
                   const c = predCount.get(m.id);
                   const o = latestOdds.get(m.id);
-                  const started = m.kickoff_at ? new Date(m.kickoff_at).getTime() < now : false;
                   return (
                     <div key={m.id} className="surface-card flex flex-wrap items-center gap-3 p-3">
                       <div className="num w-12 text-center text-sm font-semibold text-primary">{fmtTime(m.kickoff_at)}</div>
@@ -418,11 +415,6 @@ function Mecze() {
                         <Button variant="ghost" size="icon" aria-label="Kursy" title="Dodaj kursy" onClick={() => setOddsFor(m.id)}>
                           <CircleDollarSign />
                         </Button>
-                        {(started || r) && (
-                          <Button variant="ghost" size="icon" aria-label="Wynik" title="Wpisz wynik" onClick={() => setSettle(m)}>
-                            <Flag />
-                          </Button>
-                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -458,7 +450,6 @@ function Mecze() {
         matches={europeanMatches}
         defaultMatchId={oddsFor ?? undefined}
       />
-      <SettleMatchDialog match={settle} onClose={() => setSettle(null)} />
     </div>
   );
 }
