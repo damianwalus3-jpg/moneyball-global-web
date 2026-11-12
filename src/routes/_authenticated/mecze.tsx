@@ -165,11 +165,23 @@ function Mecze() {
     if (!sb) { toast.error("Brak połączenia z bazą danych."); return; }
     setAnalysisRunning(true);
     try {
+      // Pull the richer, free PitchAPI data before calculating probabilities. Missing API key is non-blocking.
+      let pitchData: any = null;
+      try {
+        const pitch = await sb.functions.invoke("pitchapi-sync", { body: { date } });
+        if (pitch.error) throw pitch.error;
+        pitchData = pitch.data;
+      } catch (pitchError) {
+        console.warn("PitchAPI enrichment unavailable; continue with verified fallback sources:", pitchError);
+      }
       const { data, error } = await sb.functions.invoke("moneyball-predict", { body: { date } });
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Analiza nie została zakończona.");
       await Promise.all(["matches","predictions","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie danych " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma FootyNomad " + (data.footy_form_matches ?? 0) + " • bez danych " + (data.missing ?? 0));
+      const pitchSummary = pitchData?.configured
+        ? " • PitchAPI: " + (pitchData.enriched ?? 0) + " meczów / " + (pitchData.team_forms ?? 0) + " form"
+        : " • PitchAPI: brak klucza API";
+      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma FootyNomad " + (data.footy_form_matches ?? 0) + " • xG PitchAPI " + (data.pitchapi_xg_matches ?? 0) + pitchSummary + " • bez danych " + (data.missing ?? 0));
     } catch (e) {
       toast.error("Skan zapisany, ale analiza nie powiodła się: " + (e instanceof Error ? e.message : String(e)));
     } finally { setAnalysisRunning(false); }
