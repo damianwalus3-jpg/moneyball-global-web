@@ -190,14 +190,18 @@ async function readOpenPlayXgData(){
  const teams:Record<string,any>={};let openplay:any=null,statsbomb:any=null;
  try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/openplay-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(r.ok){const data=await r.json();if(data?.schema_version===1&&data?.teams&&Object.keys(data.teams).length>=100)openplay=data;else throw new Error("OpenPlay xG validation failed");}}catch(e){console.error("OpenPlay xG history unavailable:",String(e));}
  try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/statsbomb-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(r.ok){const data=await r.json();if(data?.schema_version===1&&data?.teams&&Object.keys(data.teams).length>=80)statsbomb=data;}}catch(e){console.error("StatsBomb xG history unavailable:",String(e));}
- for(const [source,defaultGender] of [[openplay,"men"],[statsbomb,null]] as any[]){for(const [key,entry] of Object.entries(source?.teams||{})){
-  const current=teams[key]||{name:(entry as any).name,gender:(entry as any).gender||"unknown",matches:[]};
-  const merged=[...(current.matches||[]),...((entry as any).matches||[])],seen=new Set<string>();
-  current.matches=merged.filter((x:any)=>{const id=String(x.match_id||[x.date,x.opponent,x.goals_for,x.goals_against].join("|"));if(seen.has(id))return false;seen.add(id);return true;}).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,30);
-  if(current.gender==="unknown"&&(entry as any).gender)current.gender=(entry as any).gender;
-  teams[key]=current;
+ for(const [source,defaultGender] of [[openplay,"men"],[statsbomb,null]] as any[]){
+  for(const [key,entry] of Object.entries(source?.teams||{})){
+   const sourceGender=defaultGender||(entry as any).gender||"unknown";
+   const current=teams[key]||{name:(entry as any).name,gender:sourceGender,matches:[]};
+   const incoming=((entry as any).matches||[]).map((x:any)=>({...x,gender:x.gender||sourceGender}));
+   const merged=[...(current.matches||[]),...incoming],seen=new Set<string>();
+   current.matches=merged.filter((x:any)=>{const id=String(x.match_id||[x.date,x.opponent,x.goals_for,x.goals_against].join("|"));if(seen.has(id))return false;seen.add(id);return true;}).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,30);
+   if(current.gender==="unknown")current.gender=sourceGender;
+   teams[key]=current;
+  }
  }
- return {teams,generated_at:openplay?.generated_at||null,coverage:{openplay:openplay?.coverage||null,statsbomb:statsbomb?.coverage||null},openplay_generated_at:openplay?.generated_at||null,statsbomb_generated_at:statsbomb?.generated_at||null,error:!openplay&&!statsbomb?"OpenPlay and StatsBomb xG datasets unavailable":null};
+ return {teams,generated_at:openplay?.generated_at||statsbomb?.generated_at||null,coverage:{openplay:openplay?.coverage||null,statsbomb:statsbomb?.coverage||null},openplay_generated_at:openplay?.generated_at||null,statsbomb_generated_at:statsbomb?.generated_at||null,error:!openplay&&!statsbomb?"OpenPlay and StatsBomb xG datasets unavailable":null};
 }
 function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null,gender:string="men"){
  const key=normTeam(team),teams=data?.teams||{},xgTeams=xgData?.teams||{};
