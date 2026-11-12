@@ -105,6 +105,31 @@ async function readFootyNomadForm(id:string,expectedHome:string,expectedAway:str
   return {home:h,away:a,source:"FOOTYNOMAD_LAST5"};
  }catch(_){return null;}
 }
+function xgoalsSlug(value:string){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");}
+async function readXgoalsTeamForm(team:string,country:string,kickoff:string){
+ try{
+  const countrySlug=xgoalsSlug(country||"france"),teamSlug=xgoalsSlug(team);
+  if(!countrySlug||!teamSlug)return null;
+  const url="https://xgoalspro.com/football/"+countrySlug+"/team/"+teamSlug+"/";
+  const r=await fetch(url,{headers:{"User-Agent":"Mozilla/5.0 MoneyballGlobal/3.8","Accept":"text/html"},signal:AbortSignal.timeout(8000)});
+  if(!r.ok)return null;
+  const html=await r.text(),section=html.match(/<h2[^>]*>\s*Latest results\s*<\/h2>([\s\S]*?)(?:<h2|<\/section>)/i)?.[1]||"";
+  if(!section)return null;
+  const cutoff=String(kickoff||"").slice(0,10),rows:any[]=[];
+  for(const item of section.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)){
+   const li=item[1],date=li.match(/<time[^>]*>\s*(\d{4}-\d{2}-\d{2})\s*<\/time>/i)?.[1];if(!date||date>=cutoff)continue;
+   const plain=li.replace(/<time[\s\S]*?<\/time>/i," ").replace(/<[^>]*>/g," ").replace(/&amp;/g,"&").replace(/&nbsp;/g," ").replace(/&#39;|&apos;/g,"'").replace(/&#x27;/g,"'").replace(/\s+/g," ").trim();
+   const score=plain.match(/(\d{1,2})\s*[–−-]\s*(\d{1,2})/);if(!score||score.index==null)continue;
+   const home=plain.slice(0,score.index).trim(),away=plain.slice(score.index+score[0].length).trim();if(!home||!away)continue;
+   const h=Number(score[1]),a=Number(score[2]);let gf:number,ga:number,opponent:string;
+   if(normTeam(home)===normTeam(team)){gf=h;ga=a;opponent=away;}else if(normTeam(away)===normTeam(team)){gf=a;ga=h;opponent=home;}else continue;
+   rows.push({date,opponent,goals_for:gf,goals_against:ga,result:gf>ga?"W":gf<ga?"L":"D"});
+  }
+  const last10=rows.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);if(last10.length<3)return null;
+  const w=last10.filter(x=>x.result==="W").length,d=last10.filter(x=>x.result==="D").length,l=last10.filter(x=>x.result==="L").length;
+  return {matches:last10.length,w,d,l,points:w*3+d,goals_for:last10.reduce((s,x)=>s+x.goals_for,0),goals_against:last10.reduce((s,x)=>s+x.goals_against,0),last10,source:"XGOALSPRO_PUBLIC_RESULTS"};
+ }catch(_){return null;}
+}
 async function limitedSettled<T,R>(items:T[],limit:number,fn:(item:T)=>Promise<R>):Promise<PromiseSettledResult<R>[]>{const out:any[]=new Array(items.length);let cursor=0;const workers=Array.from({length:Math.min(limit,items.length)},async()=>{while(true){const i=cursor++;if(i>=items.length)return;try{out[i]={status:"fulfilled",value:await fn(items[i])};}catch(reason){out[i]={status:"rejected",reason};}}});await Promise.all(workers);return out;}
 function formFromPublic(f:any){
  const games=Array.isArray(f?.last10)?f.last10:(Array.isArray(f?.last5)?f.last5:[]);
@@ -324,12 +349,22 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  const openPlayXg=await readOpenPlayXgData();
  const marketRows=await db("match_market_data?select=match_id,provider_data,captured_at&source=eq.StrikerAPI",token);const marketMap=new Map((marketRows||[]).map((x:any)=>[x.match_id,x.provider_data]));
  if(!matches.length)return out({ok:true,date,total:0,created:0,updated:0,selected:0,message:"Brak zaplanowanych meczów w bazie."});
+ const xgoalsTeamForms=new Map<string,any>(),xgoalsCandidates=new Map<string,{team:string,country:string,kickoff:string}>();
+ for(const m of matches){
+  if(!m.kickoff_at||!["scheduled","unknown"].includes(String(m.status||""))||new Date(m.kickoff_at).getTime()<=Date.now())continue;
+  const kickoff=String(m.kickoff_at),pub=publicFormForMatch(m,publicForms),gh=githubTeamForm(String(m.home_team),kickoff,githubPublic,openPlayXg,String(m.gender||"unknown")),ga=githubTeamForm(String(m.away_team),kickoff,githubPublic,openPlayXg,String(m.gender||"unknown"));
+  const preliminary=historyModel(m.home_team,m.away_team,kickoff,history||[],footyForms.get(m.id)||null,{home:{...(pub?.home||{}),...(gh||{})},away:{...(pub?.away||{}),...(ga||{})}},String(m.gender||"unknown"));
+  if(preliminary.expected_home_goals!=null&&preliminary.expected_away_goals!=null)continue;
+  for(const team of [String(m.home_team),String(m.away_team)]){const key=normTeam(team);if(!xgoalsCandidates.has(key))xgoalsCandidates.set(key,{team,country:String(m.country||"France"),kickoff});}
+ }
+ const xgoalsResults=await limitedSettled([...xgoalsCandidates.values()],8,async(item)=>({key:normTeam(item.team),form:await readXgoalsTeamForm(item.team,item.country,item.kickoff)}));
+ for(const item of xgoalsResults)if(item.status==="fulfilled"&&item.value.form)xgoalsTeamForms.set(item.value.key,item.value.form);
  const rows:any[]=[];let covered=0,missing=0;
  for(const m of matches){
   const market:any=marketMap.get(m.id);let model:any=null,coverage:any={market_odds:false,elo:false,verified_history:false};
   if(market?.market_probabilities){const mp=market.market_probabilities,stamp=Date.parse(String(market.captured_at||market.provider_data?.captured_at||"")),fresh=Number.isFinite(stamp)&&Date.now()-stamp>=0&&Date.now()-stamp<=48*60*60*1000,vals=[Number(mp.home),Number(mp.draw),Number(mp.away)],sum=vals.reduce((a,b)=>a+b,0);if(fresh&&vals.every(x=>Number.isFinite(x)&&x>0)&&sum>0){model={p1:+(vals[0]/sum*100).toFixed(1),px:+(vals[1]/sum*100).toFixed(1),p2:+(vals[2]/sum*100).toFixed(1),coverage:80,market:true};coverage={market_odds:true,books:market.books,league:market.league,market_captured_at:market.captured_at||market.provider_data?.captured_at};}}
   if(!model){
-   const modelKickoff=String(m.kickoff_at||`${date}T00:00:00.000Z`);const isWomen=String(m.gender||"").toLowerCase()==="women";const githubHome=githubTeamForm(String(m.home_team),modelKickoff,githubPublic,openPlayXg,String(m.gender||"unknown")),githubAway=githubTeamForm(String(m.away_team),modelKickoff,githubPublic,openPlayXg,String(m.gender||"unknown"));const githubForm={home:githubHome,away:githubAway,source:"KEYLESS_GITHUB_LAST10"};const publicMatchForm=publicFormForMatch(m,publicForms);const knownGender=["men","women"].includes(String(m.gender||"").toLowerCase());const homeElo=knownGender&&!isWomen?findEloRating(String(m.home_team),publicForms.eloByTeam||new Map()):null,awayElo=knownGender&&!isWomen?findEloRating(String(m.away_team),publicForms.eloByTeam||new Map()):null;const homeSupplement={...(publicMatchForm?.home||{}),...(githubForm.home||{})},awaySupplement={...(publicMatchForm?.away||{}),...(githubForm.away||{})};if(homeElo)Object.assign(homeSupplement,{elo:Number(homeElo.elo),rd:Number(homeElo.rd),hfa:Number(homeElo.hfa),elo_as_of:homeElo.as_of});if(awayElo)Object.assign(awaySupplement,{elo:Number(awayElo.elo),rd:Number(awayElo.rd),hfa:Number(awayElo.hfa),elo_as_of:awayElo.as_of});const supplemental={home:Object.keys(homeSupplement).length?homeSupplement:null,away:Object.keys(awaySupplement).length?awaySupplement:null,source:githubForm.home||githubForm.away?githubForm.source:publicMatchForm?.source||"OPENMATCHDAY_LAST10"};
+   const modelKickoff=String(m.kickoff_at||`${date}T00:00:00.000Z`);const isWomen=String(m.gender||"").toLowerCase()==="women";const githubHome=githubTeamForm(String(m.home_team),modelKickoff,githubPublic,openPlayXg,String(m.gender||"unknown")),githubAway=githubTeamForm(String(m.away_team),modelKickoff,githubPublic,openPlayXg,String(m.gender||"unknown"));const githubForm={home:githubHome,away:githubAway,source:"KEYLESS_GITHUB_LAST10"};const publicMatchForm=publicFormForMatch(m,publicForms);const knownGender=["men","women"].includes(String(m.gender||"").toLowerCase());const homeElo=knownGender&&!isWomen?findEloRating(String(m.home_team),publicForms.eloByTeam||new Map()):null,awayElo=knownGender&&!isWomen?findEloRating(String(m.away_team),publicForms.eloByTeam||new Map()):null;const xgoalsHome=xgoalsTeamForms.get(normTeam(m.home_team)),xgoalsAway=xgoalsTeamForms.get(normTeam(m.away_team));const homeSupplement={...(publicMatchForm?.home||{}),...(githubForm.home||{}),...(xgoalsHome||{})},awaySupplement={...(publicMatchForm?.away||{}),...(githubForm.away||{}),...(xgoalsAway||{})};if(homeElo)Object.assign(homeSupplement,{elo:Number(homeElo.elo),rd:Number(homeElo.rd),hfa:Number(homeElo.hfa),elo_as_of:homeElo.as_of});if(awayElo)Object.assign(awaySupplement,{elo:Number(awayElo.elo),rd:Number(awayElo.rd),hfa:Number(awayElo.hfa),elo_as_of:awayElo.as_of});const supplemental={home:Object.keys(homeSupplement).length?homeSupplement:null,away:Object.keys(awaySupplement).length?awaySupplement:null,source:xgoalsHome||xgoalsAway?"XGOALSPRO_PUBLIC_RESULTS":githubForm.home||githubForm.away?githubForm.source:publicMatchForm?.source||"OPENMATCHDAY_LAST10"};
    model=historyModel(m.home_team,m.away_team,modelKickoff,history||[],footyForms.get(m.id)||null,supplemental,String(m.gender||"unknown"));
    coverage={verified_history:model.source==="VERIFIED_MATCH_HISTORY",partial_verified_history:model.source==="PARTIAL_VERIFIED_HISTORY",baseline_only:model.source==="BASELINE_ONLY",footynomad_last5:model.footyForm,openmatchday_last10:model.source==="OPENMATCHDAY_LAST10",espn_women_last10:model.espnWomenForm,keyless_github_last10:githubForm.source==="KEYLESS_GITHUB_LAST10"&&!!(githubForm.home||githubForm.away),statsbomb_open_data:(model.xg_sources||[]).some((x:string)=>String(x).toLowerCase().includes("statsbomb")),statsbomb_xg_used:!!model.xg_used&&(model.xg_sources||[]).some((x:string)=>String(x).toLowerCase().includes("statsbomb")),openplay_xg_used:!!model.xg_used&&(model.xg_sources||[]).some((x:string)=>String(x).toLowerCase().includes("openplay")),asa_xg_used:!!model.xg_used&&(model.xg_sources||[]).some((x:string)=>String(x).toLowerCase().includes("american_soccer_analysis")),historical_xg_used:!!model.xg_used,historical_xg_sources:model.xg_sources||[],calibration_temperature:model.calibration_temperature||1,calibration_method:model.calibration_method||"none",elo_used:model.elo_used,home_elo:model.elo_home,away_elo:model.elo_away,elo_diff:model.elo_diff,elo_weight:model.elo_weight,elo_as_of:model.elo_as_of,elo_ratings_count:publicForms.eloMeta?.ratings_count||0,github_data_generated_at:githubPublic.generated_at||null,github_data_coverage:githubPublic.coverage||null,openplay_xg_generated_at:openPlayXg.openplay_generated_at||null,statsbomb_xg_generated_at:openPlayXg.statsbomb_generated_at||null,asa_xg_generated_at:openPlayXg.asa_generated_at||null,xg_data_coverage:openPlayXg.coverage||null,historical_xg_home_matches:model.xg_home_matches||0,historical_xg_away_matches:model.xg_away_matches||0,openplay_xg_home_matches:model.xg_home_source_counts?.openplay||0,openplay_xg_away_matches:model.xg_away_source_counts?.openplay||0,statsbomb_xg_home_matches:model.xg_home_source_counts?.statsbomb_open_data||0,statsbomb_xg_away_matches:model.xg_away_source_counts?.statsbomb_open_data||0,asa_xg_home_matches:model.xg_home_source_counts?.american_soccer_analysis||0,asa_xg_away_matches:model.xg_away_source_counts?.american_soccer_analysis||0,home_form:model.home_form,away_form:model.away_form,method:model.method};
    model.history=model.source!=="BASELINE_ONLY";
@@ -353,9 +388,10 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
   const goalPublicForm=publicFormForMatch(m,publicForms);
   const goalGithubHome=githubTeamForm(String(m.home_team),goalKickoff,githubPublic,openPlayXg,String(m.gender||"unknown"));
   const goalGithubAway=githubTeamForm(String(m.away_team),goalKickoff,githubPublic,openPlayXg,String(m.gender||"unknown"));
-  const goalHomeSupplement={...(goalPublicForm?.home||{}),...(goalGithubHome||{})};
-  const goalAwaySupplement={...(goalPublicForm?.away||{}),...(goalGithubAway||{})};
-  const goalSupplement={home:Object.keys(goalHomeSupplement).length?goalHomeSupplement:null,away:Object.keys(goalAwaySupplement).length?goalAwaySupplement:null,source:goalGithubHome||goalGithubAway?"KEYLESS_GITHUB_LAST10":goalPublicForm?.source||"OPENMATCHDAY_LAST10"};
+  const goalXgoalsHome=xgoalsTeamForms.get(normTeam(m.home_team)),goalXgoalsAway=xgoalsTeamForms.get(normTeam(m.away_team));
+  const goalHomeSupplement={...(goalPublicForm?.home||{}),...(goalGithubHome||{}),...(goalXgoalsHome||{})};
+  const goalAwaySupplement={...(goalPublicForm?.away||{}),...(goalGithubAway||{}),...(goalXgoalsAway||{})};
+  const goalSupplement={home:Object.keys(goalHomeSupplement).length?goalHomeSupplement:null,away:Object.keys(goalAwaySupplement).length?goalAwaySupplement:null,source:goalXgoalsHome||goalXgoalsAway?"XGOALSPRO_PUBLIC_RESULTS":goalGithubHome||goalGithubAway?"KEYLESS_GITHUB_LAST10":goalPublicForm?.source||"OPENMATCHDAY_LAST10"};
   const goalsModel=model?.expected_home_goals!=null&&model?.expected_away_goals!=null?model:historyModel(m.home_team,m.away_team,goalKickoff,history||[],footyForms.get(m.id)||null,goalSupplement,String(m.gender||"unknown"));
   if(goalsModel&&goalsModel.expected_home_goals!=null&&goalsModel.expected_away_goals!=null&&goalsModel.home_matches>=3&&goalsModel.away_matches>=3){
    const lh=Number(goalsModel.expected_home_goals),la=Number(goalsModel.expected_away_goals),hp=Array.from({length:10},(_,i)=>poisson(lh,i)),ap=Array.from({length:10},(_,i)=>poisson(la,i));
