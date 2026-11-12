@@ -119,6 +119,44 @@ def metrics(rows: list[dict], field: str, temperature: float = 1.0) -> dict:
     }
 
 
+def double_chance_metrics(rows: list[dict], field: str, temperature: float = 1.0) -> dict:
+    markets = {
+        "1X": ((0, 1), lambda label: label in (0, 1)),
+        "X2": ((1, 2), lambda label: label in (1, 2)),
+        "12": ((0, 2), lambda label: label in (0, 2)),
+    }
+    output = {}
+    for market, (indices, wins) in markets.items():
+        values = []
+        for row in rows:
+            probs = apply_temperature(row[field], temperature)
+            probability = sum(probs[index] for index in indices)
+            outcome = int(wins(row["label"]))
+            values.append((probability, outcome))
+        n = len(values)
+        if not n:
+            output[market] = {}
+            continue
+        accuracy = sum(int((p >= 0.5) == bool(y)) for p, y in values) / n
+        brier = sum((p - y) ** 2 for p, y in values) / n
+        logloss = -sum(math.log(max(min(p if y else 1-p, 1-1e-12), 1e-12)) for p, y in values) / n
+        ece = 0.0
+        for bucket in range(10):
+            low, high = bucket / 10, (bucket + 1) / 10
+            group = [(p, y) for p, y in values if low <= p < high or (bucket == 9 and p == 1)]
+            if group:
+                avg_p = sum(p for p, _ in group) / len(group)
+                avg_y = sum(y for _, y in group) / len(group)
+                ece += len(group) / n * abs(avg_p - avg_y)
+        output[market] = {
+            "accuracy_at_0_5": round(accuracy, 6),
+            "brier": round(brier, 6),
+            "log_loss": round(logloss, 6),
+            "ece": round(ece, 6),
+        }
+    return output
+
+
 def main() -> None:
     data = json.loads(DATA.read_text(encoding="utf-8"))
     if data.get("schema_version") != 1 or not isinstance(data.get("teams"), dict):
@@ -218,6 +256,12 @@ def main() -> None:
                 "log_loss": round(xg_cal["log_loss"] - goals_cal["log_loss"], 6),
                 "ece_top_class": round(xg_cal["ece_top_class"] - goals_cal["ece_top_class"], 6),
             },
+        },
+        "double_chance": {
+            "goals_only_raw": double_chance_metrics(test, "goals"),
+            "xg_raw": double_chance_metrics(test, "xg"),
+            "goals_only_calibrated": double_chance_metrics(test, "goals", goals_t),
+            "xg_calibrated": double_chance_metrics(test, "xg", xg_t),
         },
     }
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
