@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 BASE = "https://raw.githubusercontent.com/oladeeayo/open-matchday/master"
 OUT = Path("public-data/team-history.json")
 FORM_OUT = Path("public-data/team-form.json")
-UA = "MONEYBALL-GLOBAL/3.4 (public football research; keyless GitHub data builder)"
+UA = "MONEYBALL-GLOBAL/3.5 (public football research; keyless GitHub data builder)"
 SEASONS = ("2627", "2026")
 
 def get(url: str, attempts: int = 3) -> str:
