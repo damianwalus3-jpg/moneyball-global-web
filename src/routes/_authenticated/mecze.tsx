@@ -13,7 +13,8 @@ import { SettleMatchDialog } from "@/components/app/SettleMatchDialog";
 import { MatchForm } from "@/components/forms/MatchForm";
 import { OddsForm, ScanRunForm } from "@/components/forms/SimpleForms";
 import { deleteRow } from "@/lib/db";
-import { MATCH_STATUS_LABELS } from "@/lib/domain";
+import { buildCouponBatch, isCouponCandidate } from "@/lib/domain";
+import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime, fmtDayLong, fmtTime } from "@/lib/time";
@@ -53,6 +54,8 @@ function Mecze() {
   const matches = useTable("matches");
   const scans = useTable("scan_runs");
   const preds = useTable("predictions");
+  const coupons = useTable("coupons");
+  const couponLegs = useTable("coupon_legs");
   const results = useTable("match_results");
   const odds = useTable("odds_snapshots");
   const [view, setView] = useState<View>("today");
@@ -87,6 +90,22 @@ function Mecze() {
     }
     return m;
   }, [preds]);
+
+  const todayKeyForCoupons = brusselsDayKey(new Date());
+  const activeCouponIds = new Set(coupons.filter((coupon) => (coupon.status ?? "pending") === "pending").map((coupon) => coupon.id));
+  const usedCouponMatchIds = new Set(couponLegs.filter((leg) => activeCouponIds.has(leg.coupon_id)).map((leg) => leg.match_id));
+  const couponCandidates = preds
+    .filter((p) => isCouponCandidate(p, matches.find((m) => m.id === p.match_id), Date.now()))
+    .filter((p) => {
+      const kickoff = matches.find((m) => m.id === p.match_id)?.kickoff_at;
+      return !!kickoff && brusselsDayKey(kickoff) === todayKeyForCoupons && !usedCouponMatchIds.has(p.match_id);
+    })
+    .sort((a, b) => Number(b.probability) - Number(a.probability));
+  const couponBatch = buildCouponBatch(couponCandidates, 10);
+  const createCoupons = useAction(
+    () => saveCouponBatch(couponBatch, { namePrefix: "Kupon", stake: 5, recordStake: true }),
+    { success: (n) => `Utworzono ${n} kupon(y) · stawka 5 € każdy` },
+  );
 
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
   const delScan = useAction((id: string) => deleteRow("scan_runs", id), { success: "Usunięto skan" });
@@ -184,11 +203,15 @@ function Mecze() {
       <section className="surface-card mb-5 flex flex-col gap-3 border-2 border-primary bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-bold uppercase">Generator kuponów</h2>
-          <p className="text-sm text-muted-foreground">Po zakończeniu skanowania otwórz generator i utwórz kupony z dzisiejszych typów.</p>
+          <p className="text-sm text-muted-foreground">Tworzy kupony bezpośrednio z dzisiejszych typów WYBRANY powyżej 75%. Każdy kupon ma 3 różne mecze i stawkę wirtualną 5 €.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Dostępne kupony do utworzenia: ${couponBatch.length} · wykorzystane mecze są pomijane.</p>
         </div>
-        <Button size="lg" className="w-full shrink-0 text-base font-bold sm:w-auto" onClick={() => navigate({ to: "/kupony" })}>
-          <Ticket className="mr-2 size-5" /> GENERUJ KUPONY
-        </Button>
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
+          <Button size="lg" className="w-full text-base font-bold" disabled={createCoupons.isPending || couponBatch.length === 0} onClick={() => createCoupons.mutate(undefined)}>
+            <Ticket className="mr-2 size-5" /> {createCoupons.isPending ? "TWORZENIE…" : `GENERUJ I ZAPISZ (${couponBatch.length})`}
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/kupony" })}>Otwórz kupony</Button>
+        </div>
       </section>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
