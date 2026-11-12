@@ -384,39 +384,54 @@ function Mecze() {
                   const c = predCount.get(m.id);
                   const o = latestOdds.get(m.id);
                   return (
-                    <div key={m.id} className="surface-card flex flex-wrap items-center gap-3 p-3">
-                      <div className="num w-12 text-center text-sm font-semibold text-primary">{fmtTime(m.kickoff_at)}</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium">
-                          {m.home_team} – {m.away_team}
+                    <article
+                      key={m.id}
+                      className="surface-card grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 p-3 sm:grid-cols-[4rem_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3 sm:p-4"
+                    >
+                      <div className="num pt-0.5 text-center text-sm font-bold tabular-nums text-primary sm:text-base">
+                        {fmtTime(m.kickoff_at)}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="whitespace-normal break-words text-[0.95rem] font-semibold leading-snug text-foreground sm:text-base">
+                          {m.home_team} <span className="px-1 text-muted-foreground">–</span> {m.away_team}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {m.league ?? "—"}
-                          {m.country ? ` · ${m.country}` : ""}
-                          {c ? ` · 1X2: ${c.x12} · DC: ${c.dc} · wybrane: ${c.sel}` : " · brak prognoz"}
+                        <div className="mt-1 whitespace-normal break-words text-xs leading-relaxed text-muted-foreground">
+                          {m.league ?? "Rozgrywki nieznane"}{m.country ? ` · ${m.country}` : ""}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {r ? (
+                            <span className="num rounded-md bg-secondary px-2 py-1 text-sm font-bold">
+                              {r.home_goals}:{r.away_goals}
+                            </span>
+                          ) : (
+                            <Badge variant={m.status === "cancelled" || m.status === "postponed" ? "muted" : "outline"}>
+                              {MATCH_STATUS_LABELS[m.status ?? "scheduled"] ?? m.status}
+                            </Badge>
+                          )}
+                          {c ? (
+                            <>
+                              <Badge variant="secondary">1X2: {c.x12}</Badge>
+                              <Badge variant="secondary">DC: {c.dc}</Badge>
+                              <Badge variant="outline">Wybrane: {c.sel}</Badge>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Brak prognoz</span>
+                          )}
                         </div>
                         {o && (
-                          <div className="num text-xs text-muted-foreground">
-                            Kursy{o.bookmaker ? ` (${o.bookmaker})` : ""}: 1 {fmtOdds(o.odds_1)} · X {fmtOdds(o.odds_x)} · 2{" "}
-                            {fmtOdds(o.odds_2)}
+                          <div className="num mt-1 whitespace-normal text-xs leading-relaxed text-muted-foreground">
+                            Kursy{o.bookmaker ? ` (${o.bookmaker})` : ""}: 1 {fmtOdds(o.odds_1)} · X {fmtOdds(o.odds_x)} · 2 {fmtOdds(o.odds_2)}
                           </div>
                         )}
                         {r && (
-                          <div className="text-xs text-muted-foreground">
-                            {r.verified === true ? "WYNIK POTWIERDZONY" : "WYNIK DO WERYFIKACJI"}{r.source ? ` · źródło: ${r.source}` : ""}
+                          <div className="mt-1 whitespace-normal break-words text-[11px] leading-relaxed text-muted-foreground">
+                            {r.verified === true ? "Wynik potwierdzony" : "Wynik do weryfikacji"}{r.source ? ` · źródło: ${r.source}` : ""}
                           </div>
                         )}
                       </div>
-                      {r ? (
-                        <div className="num rounded-md bg-secondary px-2 py-1 text-lg font-semibold">
-                          {r.home_goals}:{r.away_goals}
-                        </div>
-                      ) : (
-                        <Badge variant={m.status === "cancelled" || m.status === "postponed" ? "muted" : "outline"}>
-                          {MATCH_STATUS_LABELS[m.status ?? "scheduled"] ?? m.status}
-                        </Badge>
-                      )}
-                      <div className="flex items-center">
+
+                      <div className="col-span-2 flex items-center justify-end border-t border-border/60 pt-1 sm:col-span-1 sm:border-0 sm:pt-0">
                         <Button variant="ghost" size="icon" aria-label="Kursy" title="Dodaj kursy" onClick={() => setOddsFor(m.id)}>
                           <CircleDollarSign />
                         </Button>
@@ -437,7 +452,7 @@ function Mecze() {
                           onConfirm={() => del.mutate(m.id)}
                         />
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>
