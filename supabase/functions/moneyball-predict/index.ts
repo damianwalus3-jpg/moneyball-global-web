@@ -336,9 +336,22 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
   }
  }
  const matchIds=matches.map((m:any)=>String(m.id)).filter(Boolean);
- const old=matchIds.length?await db("predictions?select=id,match_id,market,selection,settlement_status&model_version=eq."+encodeURIComponent(V)+"&match_id=in.("+matchIds.join(",")+")",token):[];
- const map=new Map(old.map((x:any)=>[x.match_id+"|"+x.market+"|"+x.selection,x.id])),settledMarkets=new Set(old.filter((x:any)=>x.settlement_status!=="pending").map((x:any)=>x.match_id+"|"+x.market));let created=0,updated=0,preserved=0;
- for(const x of old||[]){if(!x.selection||x.selection==="—"){await db("predictions?id=eq."+x.id,token,"PATCH",{settlement_status:"void",result_status:"void",verified:true,settled_at:new Date().toISOString(),note:"Stary pusty wpis zastąpiono typem modelowym; nie liczy się do skuteczności."});}}
+ const old=matchIds.length?await db("predictions?select=id,match_id,market,selection,settlement_status,note&model_version=eq."+encodeURIComponent(V)+"&match_id=in.("+matchIds.join(",")+")",token):[];
+ // A 1X2 market has exactly one official selection per match. When a later
+ // analysis changes that selection (including to a no-data placeholder),
+ // void the older pending row so it cannot inflate history or hit rates.
+ const desired1x2=new Map(rows.filter((x:any)=>x.market==="1X2").map((x:any)=>[x.match_id,x.selection]));
+ const stale1x2=(old||[]).filter((x:any)=>x.market==="1X2"&&desired1x2.has(x.match_id)&&x.selection!==desired1x2.get(x.match_id)&&x.settlement_status==="pending");
+ const staleIds=new Set(stale1x2.map((x:any)=>x.id));
+ if(staleIds.size){
+  const ids=[...staleIds];
+  for(let i=0;i<ids.length;i+=100){
+   await db("predictions?id=in.("+ids.slice(i,i+100).join(",")+")",token,"PATCH",{settlement_status:"void",result_status:"void",verified:true,settled_at:new Date().toISOString(),note:"Zastąpiono nowszym wyborem 1X2 modelu; poprzedni wpis wyłączony z rozliczeń."});
+  }
+ }
+ const activeOld=(old||[]).filter((x:any)=>!staleIds.has(x.id)&&!(x.market==="1X2"&&String(x.note||"").includes("Zastąpiono nowszym wyborem 1X2 modelu")));
+ const map=new Map(activeOld.map((x:any)=>[x.match_id+"|"+x.market+"|"+x.selection,x.id])),settledMarkets=new Set(activeOld.filter((x:any)=>x.settlement_status!=="pending").map((x:any)=>x.match_id+"|"+x.market));let created=0,updated=0,preserved=0;
+ for(const x of activeOld){if(!x.selection||x.selection==="—"){await db("predictions?id=eq."+x.id,token,"PATCH",{settlement_status:"void",result_status:"void",verified:true,settled_at:new Date().toISOString(),note:"Stary pusty wpis zastąpiono typem modelowym; nie liczy się do skuteczności."});}}
  const updateRows:any[]=[],insertRows:any[]=[];
  for(const r of rows){
   const key=r.match_id+"|"+r.market+"|"+r.selection,id=map.get(key);
