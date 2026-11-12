@@ -116,31 +116,24 @@ function Kupony() {
       // Use fetch directly instead of supabase.functions.invoke: the results job can take
       // 40+ seconds, and the SDK wrapper may surface a generic FunctionsFetchError on mobile.
       const endpoint = config.url.replace(/\/$/, "") + "/functions/v1/moneyball-results-sync";
-      let response: Response | null = null;
-      let lastNetworkError: unknown = null;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              apikey: config.anonKey,
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: "{}",
-            cache: "no-store",
-            signal: AbortSignal.timeout(90_000),
-          });
-          break;
-        } catch (error) {
-          lastNetworkError = error;
-          if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1200));
-        }
-      }
-      if (!response) {
-        const detail = lastNetworkError instanceof Error ? lastNetworkError.message : String(lastNetworkError ?? "brak odpowiedzi");
-        throw new Error("Nie udało się połączyć z synchronizacją wyników po dwóch próbach. " + detail);
+      let response: Response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            apikey: config.anonKey,
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: "{}",
+          cache: "no-store",
+          // Results sync can take over 40 seconds; allow enough time on mobile.
+          signal: AbortSignal.timeout(90_000),
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error("Połączenie z synchronizacją wyników zostało przerwane. Żądanie nie będzie automatycznie ponawiane, aby uniknąć podwójnego rozliczenia. " + detail);
       }
       const raw = await response.text();
       let data: any = null;
