@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Banknote, Pencil, Sparkles, Ticket } from "lucide-react";
+import { Banknote, Pencil, RefreshCw, Sparkles, Ticket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +31,7 @@ import {
   validateCoupon,
 } from "@/lib/domain";
 import { fmtMoney, fmtOdds, fmtPct, matchLabel, parseDecimal } from "@/lib/format";
+import { requireSupabase } from "@/lib/supabase";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
 import type { Coupon, Prediction, Settlement } from "@/lib/types";
@@ -100,6 +101,22 @@ function Kupony() {
     },
   );
 
+  const refreshResults = useAction(
+    async () => {
+      const { data, error } = await requireSupabase().functions.invoke("moneyball-results-sync");
+      if (error) throw error;
+      if (data?.ok === false) {
+        const details = Array.isArray(data.errors) ? data.errors.join("; ") : data.error;
+        throw new Error(details || "Synchronizacja wyników zgłosiła błąd.");
+      }
+      return data as { results_saved?: number; predictions_settled?: number; coupon_legs_settled?: number };
+    },
+    {
+      success: (r) =>
+        `Wyniki odświeżone · ${r.results_saved ?? 0} wyników · ${r.coupon_legs_settled ?? 0} zdarzeń kuponów rozliczonych`,
+    },
+  );
+
   const manualLegs = manual.map((id) => preds.find((p) => p.id === id)!).filter(Boolean);
   const manualErrors = manual.length ? validateCoupon(manualLegs) : [];
 
@@ -157,6 +174,17 @@ function Kupony() {
         title="Kupony"
         description="Każdy kupon to dokładnie 3 różne mecze. W jednej partii żaden mecz nie powtarza się między kuponami."
       />
+      <div className="mb-4 flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={refreshResults.isPending}
+          onClick={() => refreshResults.mutate(undefined)}
+        >
+          <RefreshCw className={refreshResults.isPending ? "animate-spin" : ""} />
+          {refreshResults.isPending ? "Aktualizuję wyniki…" : "Odśwież wyniki"}
+        </Button>
+      </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="W grze" value={counts.pending} />
