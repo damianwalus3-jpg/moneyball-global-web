@@ -31,7 +31,7 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          for name in ("public-data/team-history.json", "public-data/team-form.json", "public-data/fixtures.json"):
+          for name in ("public-data/team-history.json", "public-data/fixtures.json"):
               path = Path(name)
               raw = path.read_text(encoding="utf-8")
               print(f"Validating {name}: {len(raw)} characters")
@@ -54,7 +54,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public-data/team-history.json public-data/team-form.json public-data/fixtures.json
+          git add public-data/team-history.json public-data/fixtures.json
           if git diff --cached --quiet; then
             echo "Public football dataset is unchanged."
           else
