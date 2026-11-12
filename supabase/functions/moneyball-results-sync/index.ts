@@ -33,12 +33,15 @@ async function readDay(date:string){
   const attrs=m[1],body=m[2],href=(attrs.match(/href=["']([^"']+)/i)||[])[1]||"",id=(href.match(/\/fixture\/(\d+)/i)||[])[1];if(!id)continue;
   const home=clean((body.match(/<span[^>]*class=["'][^"']*ticket-home[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)||[])[1]||"");
   const away=clean((body.match(/<span[^>]*class=["'][^"']*ticket-away[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)||[])[1]||"");
+  const leagueStart=html.lastIndexOf('<details class="league-group',m.index),leagueEnd=leagueStart>=0?html.indexOf("</summary>",leagueStart):-1;
+  const league=leagueStart>=0&&leagueEnd>leagueStart?clean((html.slice(leagueStart,leagueEnd).match(/href=["']\\/league\\/[^"']+["'][^>]*>([\\s\\S]*?)<\\/a>/i)||[])[1]||""):"";
+  const gender=/\\bW\\b|Women|female|girls/i.test(home+" "+away+" "+league)?"women":"men";
   const kickoff=(body.match(/<time[^>]*datetime=["']([^"']+)/i)||[])[1]||null;
   const cls=(attrs.match(/class=["']([^"']+)/i)||[])[1]||"";
   const hs=(body.match(/class=["'][^"']*ticket-hs[^"']*["'][^>]*>(\d+)</i)||[])[1];
   const as=(body.match(/class=["'][^"']*ticket-as[^"']*["'][^>]*>(\d+)</i)||[])[1];
   const status=cls.includes("ticket-ft")?"finished":cls.includes("ticket-live")?"live":cls.includes("ticket-pst")?"postponed":cls.includes("ticket-canc")?"cancelled":"scheduled";
-  if(home&&away)out.push({external_id:id,home_team:home,away_team:away,kickoff_at:kickoff?new Date(kickoff).toISOString():null,status,home_score:hs==null?null:Number(hs),away_score:as==null?null:Number(as)});
+  if(home&&away)out.push({external_id:id,home_team:home,away_team:away,gender,kickoff_at:kickoff?new Date(kickoff).toISOString():null,status,home_score:hs==null?null:Number(hs),away_score:as==null?null:Number(as)});
  }
  return out;
 }
