@@ -234,7 +234,7 @@ def main():
                 continue
             seen.add(dedupe)
             unique.append(item)
-        teams[key] = {"name": entry["name"], "matches": unique[:5]}
+        teams[key] = {"name": entry["name"], "matches": unique[:20]}
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
