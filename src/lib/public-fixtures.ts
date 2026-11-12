@@ -17,12 +17,12 @@ type PublicFixture = {
 type FixturePayload = { generated_at: string; coverage: { fixture_count: number }; fixtures: PublicFixture[] };
 
 const COUNTRY_NAMES: Record<string, string> = {
-  ALB:"Albania", AND:"Andorra", ARM:"Armenia", AUT:"Austria", AZE:"Azerbaijan", BLR:"Belarus",
+  ALB:"Albania", AND:"Andorra", ARM:"Armenia", AUT:"Austria", AZE:"Azerbaijan", BLR:"Belarus", GBR:"United Kingdom", UK:"United Kingdom", NIR:"Northern Ireland",
   BEL:"Belgium", BIH:"Bosnia and Herzegovina", BUL:"Bulgaria", CRO:"Croatia",
   CYP:"Cyprus", CZE:"Czechia", DEN:"Denmark", DNK:"Denmark", ENG:"England",
   EST:"Estonia", FIN:"Finland", FRA:"France", GEO:"Georgia", GER:"Germany", DEU:"Germany",
   GRE:"Greece", GRC:"Greece", HUN:"Hungary", IRE:"Ireland", IRL:"Ireland", ITA:"Italy", ISL:"Iceland", FRO:"Faroe Islands",
-  KAZ:"Kazakhstan", NED:"Netherlands", NLD:"Netherlands", NOR:"Norway",
+  KAZ:"Kazakhstan", NED:"Netherlands", NLD:"Netherlands", NOR:"Norway", LVA:"Latvia", LTU:"Lithuania", MDA:"Moldova",
   POL:"Poland", POR:"Portugal", PRT:"Portugal", ROU:"Romania", RUS:"Russia",
   SCO:"Scotland", SRB:"Serbia", SVK:"Slovakia", SVN:"Slovenia", ESP:"Spain",
   SWE:"Sweden", SUI:"Switzerland", CHE:"Switzerland", MNE:"Montenegro", MKD:"North Macedonia", LUX:"Luxembourg", MLT:"Malta", KOS:"Kosovo", LIE:"Liechtenstein", SMR:"San Marino", GIB:"Gibraltar", TUR:"Turkey",
