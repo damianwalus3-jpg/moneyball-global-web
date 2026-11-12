@@ -67,7 +67,7 @@ function Kupony() {
 
   const [market, setMarket] = useState<Market>("all");
   const [count, setCount] = useState("3");
-  const [stake, setStake] = useState("");
+  const [stake, setStake] = useState("5");
   const [recordStake, setRecordStake] = useState(true);
   const [excludeActive, setExcludeActive] = useState(true);
   const [prefix, setPrefix] = useState("Kupon");
@@ -257,7 +257,7 @@ function Kupony() {
           <Field label="Liczba kuponów" hint={`Maks. ${Math.floor(distinctMatches / 3)} z dostępnych meczów`}>
             <Input type="number" inputMode="numeric" min={maxCoupons > 0 ? 1 : 0} max={maxCoupons} step={1} disabled={maxCoupons === 0} className="num" value={String(nCount)} onChange={(e) => { const requested = Math.max(1, Math.floor(Number(e.target.value) || 1)); setCount(String(Math.min(maxCoupons || 1, requested))); }} />
           </Field>
-          <Field label="Stawka na kupon (opcjonalnie)" error={stakeError}>
+          <Field label="Stawka na kupon (€)" error={stakeError}>
             <Input inputMode="decimal" className="num" value={stake} onChange={(e) => setStake(e.target.value)} placeholder="np. 10" />
           </Field>
           <Field label="Nazwa">
