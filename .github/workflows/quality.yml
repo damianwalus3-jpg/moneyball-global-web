@@ -20,9 +20,8 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      - name: TypeScript check (informational while existing strict-type errors are resolved)
+      - name: TypeScript check
         run: bunx tsc --noEmit
-        continue-on-error: true
       - name: Tests
         run: bun run test
       - name: Production build
