@@ -87,12 +87,12 @@ function Kupony() {
     .filter((p) => !excludeActive || !activeMatchIds.has(p.match_id))
     .sort((a, b) => Number(b.probability) - Number(a.probability));
 
+  const distinctMatches = new Set(candidates.map((c) => c.match_id)).size;
   const maxCoupons = Math.floor(distinctMatches / 3);
   const nCount = Math.max(1, Math.min(maxCoupons || 1, 20, Math.floor(Number(count) || 1)));
   const preview = buildCouponBatch(candidates, nCount);
   const stakeNum = parseDecimal(stake);
   const stakeError = stake.trim() && (stakeNum == null || stakeNum <= 0) ? "Stawka musi być > 0." : "";
-  const distinctMatches = new Set(candidates.map((c) => c.match_id)).size;
 
   const saveBatch = useAction(
     (batch: Prediction[][]) =>
@@ -115,7 +115,7 @@ function Kupony() {
 
       // Use fetch directly instead of supabase.functions.invoke: the results job can take
       // 40+ seconds, and the SDK wrapper may surface a generic FunctionsFetchError on mobile.
-      const endpoint = config.url.replace(/\\/$/, "") + "/functions/v1/moneyball-results-sync";
+      const endpoint = config.url.replace(/\/$/, "") + "/functions/v1/moneyball-results-sync";
       let response: Response | null = null;
       let lastNetworkError: unknown = null;
       for (let attempt = 0; attempt < 2; attempt++) {
