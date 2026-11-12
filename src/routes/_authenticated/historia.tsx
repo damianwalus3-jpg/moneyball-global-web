@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Flag, History } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CheckCircle2, History } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,12 +13,11 @@ import {
   SettlementBadge,
   TypeBadge,
 } from "@/components/app/ui-bits";
-import { SettleMatchDialog } from "@/components/app/SettleMatchDialog";
+import { syncResults } from "@/lib/results";
 import { fmtPct, matchLabel } from "@/lib/format";
 import { isEuropeanMatch } from "@/lib/geography";
 import { ensureTables, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
-import type { Match } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/historia")({
   head: () => ({
@@ -38,12 +38,46 @@ export const Route = createFileRoute("/_authenticated/historia")({
 });
 
 function Historia() {
+  const qc = useQueryClient();
   const matches = useTable("matches");
   const preds = useTable("predictions");
   const results = useTable("match_results");
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [q, setQ] = useState("");
-  const [settle, setSettle] = useState<Match | null>(null);
+  const syncInFlight = useRef(false);
+  const [syncMessage, setSyncMessage] = useState("Synchronizacja automatyczna aktywna");
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = async () => {
+      if (disposed || document.visibilityState !== "visible" || syncInFlight.current) return;
+      syncInFlight.current = true;
+      try {
+        const result = await syncResults(7);
+        if (disposed) return;
+        await Promise.all(["matches", "match_results", "predictions", "coupons", "coupon_legs"].map((table) =>
+          qc.invalidateQueries({ queryKey: ["table", table] }),
+        ));
+        setSyncMessage(`Automatycznie sprawdzono wyniki · ${result.results_saved ?? 0} nowych rozliczeń`);
+      } catch (error) {
+        if (!disposed) setSyncMessage(`Kolejna automatyczna próba po błędzie: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        syncInFlight.current = false;
+      }
+    };
+    const onFocus = () => void refresh();
+    const onVisibility = () => { if (document.visibilityState === "visible") void refresh(); };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5 * 60_000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [qc]);
   const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
   const europeanMatchIds = useMemo(() => new Set(europeanMatches.map((m) => m.id)), [europeanMatches]);
   const europeanResults = results.filter((r) => europeanMatchIds.has(r.match_id));
@@ -66,8 +100,9 @@ function Historia() {
       <PageHeader
         eyebrow="Wyniki · rozliczenia"
         title="Historia / Rozliczenia"
-        description="Historia obejmuje wyłącznie mecze europejskie. Wpisz wynik, a aplikacja rozliczy wszystkie prognozy 1X2 i DC tego meczu oraz powiązane kupony. Poprawienie wyniku rozlicza wszystko ponownie."
+        description="Wyniki są pobierane automatycznie z niezależnych źródeł. Po potwierdzeniu rezultatu Moneyball rozlicza prognozy 1X2, DC i powiązane kupony."
       />
+      <p className="mb-3 text-xs text-muted-foreground" role="status">{syncMessage} · sprawdzanie co 5 minut</p>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button size="sm" variant={tab === "todo" ? "default" : "outline"} onClick={() => setTab("todo")}>
           Do rozliczenia ({todo.length})
@@ -109,9 +144,7 @@ function Historia() {
                   ) : isVoided(m) ? (
                     <SettlementBadge status="void" />
                   ) : null}
-                  <Button size="sm" variant={r ? "outline" : "default"} onClick={() => setSettle(m)}>
-                    <Flag /> {r || isVoided(m) ? "Popraw" : m.status === "unknown" ? "Sprawdź wynik" : "Wpisz wynik"}
-                  </Button>
+                  {m.status === "unknown" && !r && <span className="text-xs text-muted-foreground">Weryfikacja automatyczna</span>}
                 </div>
                 {mp.length > 0 && (
                   <div className="mt-2 grid gap-1 border-t border-border pt-2">
@@ -132,7 +165,6 @@ function Historia() {
           })}
         </div>
       )}
-      <SettleMatchDialog match={settle} onClose={() => setSettle(null)} />
     </div>
   );
 }
