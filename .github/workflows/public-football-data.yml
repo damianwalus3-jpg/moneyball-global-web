@@ -23,22 +23,30 @@ jobs:
           fetch-depth: 1
       - name: Build public football history (no API keys)
         run: python3 scripts/build_public_football_data.py
+      - name: Build keyless multi-competition fixtures
+        run: python3 scripts/build_public_football_fixtures.py
       - name: Validate generated JSON
         run: |
           python3 -m json.tool public-data/team-history.json > /dev/null
+          python3 -m json.tool public-data/fixtures.json > /dev/null
           python3 - <<'PY'
           import json
           p=json.load(open("public-data/team-history.json", encoding="utf-8"))
           assert p["coverage"]["competitions_with_results"] >= 15
           assert p["coverage"]["team_names"] >= 100
           assert p["teams"]
-          print("Generated:", p["coverage"])
+          print("History generated:", p["coverage"])
+          f=json.load(open("public-data/fixtures.json", encoding="utf-8"))
+          assert f["coverage"]["competitions_with_fixtures"] >= 10
+          assert f["coverage"]["fixture_count"] > 0
+          assert all(x.get("date") and x.get("home_team") and x.get("away_team") for x in f["fixtures"])
+          print("Fixtures generated:", f["coverage"])
           PY
       - name: Publish refreshed data to GitHub
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public-data/team-history.json
+          git add public-data/team-history.json public-data/fixtures.json
           if git diff --cached --quiet; then
             echo "Public football dataset is unchanged."
           else
