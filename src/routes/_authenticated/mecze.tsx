@@ -72,6 +72,7 @@ function Mecze() {
   const [scanOpen, setScanOpen] = useState(false);
   const [globalScanRunning, setGlobalScanRunning] = useState(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [couponSize, setCouponSize] = useState<1 | 3>(3);
 
   const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
   const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
@@ -106,10 +107,10 @@ function Mecze() {
       return !!kickoff && brusselsDayKey(kickoff) === todayKeyForCoupons && !usedCouponMatchIds.has(p.match_id);
     })
     .sort((a, b) => Number(b.probability) - Number(a.probability));
-  const couponBatch = buildCouponBatch(couponCandidates, 10);
+  const couponBatch = buildCouponBatch(couponCandidates, 10, couponSize);
   const createCoupons = useAction(
-    () => saveCouponBatch(couponBatch, { namePrefix: "Kupon", stake: 5, recordStake: true }),
-    { success: (n) => `Utworzono ${n} kupon(y) · stawka 5 € każdy` },
+    () => saveCouponBatch(couponBatch, { namePrefix: "Kupon", stake: 5, recordStake: true, legsPerCoupon: couponSize }),
+    { success: (n) => `Utworzono ${n} kupon(y) · ${couponSize === 1 ? "pojedyncze" : "AKO 3-meczowe"} · stawka 5 € każdy` },
   );
 
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
@@ -342,9 +343,13 @@ function Mecze() {
       <section className="surface-card mb-5 flex flex-col gap-3 border-2 border-primary bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-bold uppercase">Generator kuponów</h2>
-          <p className="text-sm text-muted-foreground">Tworzy kupony bezpośrednio z dzisiejszych typów WYBRANY powyżej 75%. Każdy kupon ma 3 różne mecze i stawkę wirtualną 5 €.</p>
+          <p className="text-sm text-muted-foreground">Tworzy kupony z dzisiejszych typów WYBRANY powyżej 75%. Wybierz kupon pojedynczy albo AKO z 3 różnych meczów. Stawka wirtualna: 5 € na kupon.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant={couponSize === 1 ? "default" : "outline"} onClick={() => setCouponSize(1)}>Pojedynczy (1 mecz)</Button>
+            <Button type="button" size="sm" variant={couponSize === 3 ? "default" : "outline"} onClick={() => setCouponSize(3)}>AKO (3 mecze)</Button>
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">Dostępne kupony do utworzenia: {couponBatch.length} · wykorzystane mecze są pomijane.</p>
-          {couponBatch.length === 0 && <p className="mt-1 text-xs text-warning">Brak 3 wolnych, dzisiejszych typów WYBRANY powyżej 75% z przyszłą godziną rozpoczęcia.</p>}
+          {couponBatch.length === 0 && <p className="mt-1 text-xs text-warning">Brak {couponSize} wolnych, dzisiejszych typów WYBRANY powyżej 75% z przyszłą godziną rozpoczęcia.</p>}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
           <Button size="lg" className="w-full text-base font-bold" disabled={createCoupons.isPending || couponBatch.length === 0} onClick={() => createCoupons.mutate(undefined)}>
