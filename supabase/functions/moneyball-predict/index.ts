@@ -300,7 +300,8 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  const all=await db("matches?select=id,scan_run_id,external_id,source,competition,league,country,gender,home_team,away_team,kickoff_at,kickoff_date,status,notes&order=kickoff_at.asc",token);
  const dateFromExternalId=(m:any)=>String(m.kickoff_date||"").slice(0,10)||/:(\d{4}-\d{2}-\d{2}):/.exec(String(m.external_id||""))?.[1]||null;
   const matchDate=(m:any)=>m.kickoff_at?new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(m.kickoff_at)):dateFromExternalId(m);
-  const rawDateMatches=all.filter((m:any)=>isEuropeanFixture(m.country,m.league||m.competition,m.home_team,m.away_team)&&matchDate(m)===date);
+  const horizonDate=new Date(date+"T12:00:00Z");horizonDate.setUTCDate(horizonDate.getUTCDate()+6);const endDate=horizonDate.toISOString().slice(0,10);
+  const rawDateMatches=all.filter((m:any)=>{const d=matchDate(m);return isEuropeanFixture(m.country,m.league||m.competition,m.home_team,m.away_team)&&d>=date&&d<=endDate;});
   const deduped=dedupeFixturesByDate(rawDateMatches,matchDate);const matches=deduped.matches;const duplicatesRemoved=deduped.duplicatesRemoved;
  const historyFields="select=id,home_team,away_team,kickoff_at,kickoff_date,gender,match_results(home_score,away_score,verified)";
  const historyTimed=await db("matches?"+historyFields+"&kickoff_at=lt."+encodeURIComponent(date+"T23:59:59Z")+"&order=kickoff_at.desc&limit=3000",token).catch((e:any)=>{console.error("Timed history query unavailable:",String(e));return [];});
