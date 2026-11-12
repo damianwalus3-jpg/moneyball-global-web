@@ -165,7 +165,17 @@ Deno.serve(async(req)=>{
      const rb={home_score:f.home_score,away_score:f.away_score,home_goals:f.home_score,away_goals:f.away_score,outcome_1x2:outcome,verified:true,source:f.source||"FootyNomad",finished_at:f.kickoff_at||new Date().toISOString(),verified_at:new Date().toISOString()};
      if(oldResults?.length)await db("match_results?id=eq."+oldResults[0].id,token,"PATCH",rb);else await db("match_results",token,"POST",{match_id:row.id,...rb});
      const ps=await db("predictions?select=id,market,selection&match_id=eq."+row.id,token);
-     for(const p of ps||[]){const won=p.market==="1X2"?p.selection===outcome:(p.selection==="1X"?outcome!=="2":p.selection==="X2"?outcome!=="1":outcome!=="X");await db("predictions?id=eq."+p.id,token,"PATCH",{settlement_status:won?"won":"lost",verified:true});settled++;}
+     for(const p of ps||[]){
+      let won:boolean|null=null;
+      if(String(p.market||"").toUpperCase()==="GOALS"){
+       const total=Number(f.home_score)+Number(f.away_score),home=Number(f.home_score),away=Number(f.away_score),s=String(p.selection||"");
+       if(s==="OVER_1.5")won=total>=2;else if(s==="UNDER_1.5")won=total<=1;else if(s==="OVER_2.5")won=total>=3;else if(s==="UNDER_2.5")won=total<=2;else if(s==="OVER_3.5")won=total>=4;else if(s==="UNDER_3.5")won=total<=3;else if(s==="BTTS_YES")won=home>=1&&away>=1;else if(s==="BTTS_NO")won=home===0||away===0;
+      }else if(p.market==="1X2")won=p.selection===outcome;
+      else if(p.selection==="1X")won=outcome!=="2";else if(p.selection==="X2")won=outcome!=="1";else if(p.selection==="12")won=outcome!=="X";
+      if(won===null)continue;
+      const settledAt=new Date().toISOString();
+      await db("predictions?id=eq."+p.id,token,"PATCH",{settlement_status:won?"won":"lost",result_status:won?"won":"lost",verified:true,settled_at:settledAt});settled++;
+     }
     }
    }
    await db("scan_runs?id=eq."+run.id,token,"PATCH",{status:"completed",completed_at:new Date().toISOString(),matches_found:combined.length,notes:"FootyNomad "+result.fixtures.length+"; public fixtures "+publicFixtures.length+"; enriched "+enriched+"; public-only "+publicOnly+"; inserted "+inserted+"; updated "+updated+"; settled "+settled+"; matched by fixture "+matchedByFixture+"; promoted "+promotedToPrimary+"; public source status "+JSON.stringify(publicSourceStatus).slice(0,900)});
