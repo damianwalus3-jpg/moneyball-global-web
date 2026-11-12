@@ -162,9 +162,6 @@ function Mecze() {
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
               {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
             </Button>
-            <Button variant="default" onClick={() => navigate({ to: "/kupony" })}>
-              <Ticket /> Generuj kupony
-            </Button>
             <Button variant="outline" onClick={() => void runTodayAnalysis()} disabled={globalScanRunning || analysisRunning}>
               <BrainCircuit className={analysisRunning ? "animate-pulse" : ""} />
               {analysisRunning ? "Analizuję mecze…" : "Analizuj mecze"}
@@ -183,6 +180,16 @@ function Mecze() {
           </>
         }
       />
+
+      <section className="surface-card mb-5 flex flex-col gap-3 border-2 border-primary bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold uppercase">Generator kuponów</h2>
+          <p className="text-sm text-muted-foreground">Po zakończeniu skanowania otwórz generator i utwórz kupony z dzisiejszych typów.</p>
+        </div>
+        <Button size="lg" className="w-full shrink-0 text-base font-bold sm:w-auto" onClick={() => navigate({ to: "/kupony" })}>
+          <Ticket className="mr-2 size-5" /> GENERUJ KUPONY
+        </Button>
+      </section>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {(
