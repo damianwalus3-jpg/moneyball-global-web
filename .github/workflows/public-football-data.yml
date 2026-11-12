@@ -52,5 +52,9 @@ jobs:
             echo "Public football dataset is unchanged."
           else
             git commit -m "Refresh keyless public football history"
-            git push
+            # Human edits and other Actions workflows can advance main while the
+            # data build is running. Rebase generated JSON on the latest main.
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
           fi
