@@ -227,26 +227,34 @@ function Mecze() {
   };
 
   const todayKey = brusselsDayKey(new Date());
-  const now = Date.now();
+  const matchDayKey = (m: Match): string | null => {
+    if (m.kickoff_at) return brusselsDayKey(m.kickoff_at);
+    // OpenMatchday external IDs retain the fixture date when the source has
+    // not published a kickoff time. Keep the date visible without inventing a time.
+    return /:(\\d{4}-\\d{2}-\\d{2}):/.exec(m.external_id ?? "")?.[1] ?? null;
+  };
   const filtered = europeanMatches
     .filter((m) => {
-      if (!m.kickoff_at) return false;
-      const day = brusselsDayKey(m.kickoff_at);
+      const day = matchDayKey(m);
+      if (!day) return false;
       if (view === "today") return day === todayKey;
       if (view === "past") return day < todayKey;
       if (view === "all") return day <= todayKey;
       return true;
     })
     .filter((m) => !q || `${m.home_team} ${m.away_team} ${m.league} ${m.country}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) =>
-      view === "today"
+    .sort((a, b) => {
+      const dayA = matchDayKey(a) ?? "";
+      const dayB = matchDayKey(b) ?? "";
+      const dayOrder = view === "today" ? dayA.localeCompare(dayB) : dayB.localeCompare(dayA);
+      return dayOrder || (view === "today"
         ? (a.kickoff_at ?? "").localeCompare(b.kickoff_at ?? "")
-        : (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? ""),
-    );
+        : (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? ""));
+    });
 
   const groups = new Map<string, Match[]>();
   for (const m of filtered) {
-    const k = m.kickoff_at ? brusselsDayKey(m.kickoff_at) : "brak-daty";
+    const k = matchDayKey(m) ?? "brak-daty";
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k)!.push(m);
   }
@@ -406,7 +414,7 @@ function Mecze() {
         <div className="grid gap-5">
           {[...groups.entries()].map(([day, list]) => (
             <section key={day}>
-              <h2 className="eyebrow mb-2 capitalize">{day === "brak-daty" ? "Bez daty" : fmtDayLong(list[0].kickoff_at)}</h2>
+              <h2 className="eyebrow mb-2 capitalize">{day === "brak-daty" ? "Bez daty" : fmtDayLong(list[0].kickoff_at ?? `${day}T12:00:00.000Z`)}</h2>
               <div className="grid gap-2">
                 {list.map((m) => {
                   const r = resultBy.get(m.id);
@@ -418,7 +426,7 @@ function Mecze() {
                       className="surface-card grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 p-3 sm:grid-cols-[4rem_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3 sm:p-4"
                     >
                       <div className="num pt-0.5 text-center text-sm font-bold tabular-nums text-primary sm:text-base">
-                        {fmtTime(m.kickoff_at)}
+                        {m.kickoff_at ? fmtTime(m.kickoff_at) : "Godzina nieznana"}
                       </div>
 
                       <div className="min-w-0">
