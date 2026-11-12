@@ -7,6 +7,7 @@ export interface ParsedMatch {
   kickoff_at: string;
   league: string;
   country: string | null;
+  gender?: "men" | "women" | "mixed" | "unknown" | null;
   home_team: string;
   away_team: string;
 }
