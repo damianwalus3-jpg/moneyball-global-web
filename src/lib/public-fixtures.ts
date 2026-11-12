@@ -156,8 +156,8 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
         league: f.competition,
         country,
         gender: f.gender || "unknown",
-        external_id: null,
-        source: "OpenMatchday GitHub",
+        external_id: f.fixture_id,
+        source: f.source || "OpenMatchday",
         home_team: f.home_team,
         away_team: f.away_team,
       };
