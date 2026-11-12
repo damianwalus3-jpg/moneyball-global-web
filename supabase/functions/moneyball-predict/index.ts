@@ -187,7 +187,7 @@ function historyModel(home:string,away:string,kickoff:string,history:any[],footy
   const xgSources=[...new Set([...(hf?.xg_last10||[]),...(af?.xg_last10||[])].map((x:any)=>String(x.source||"HISTORICAL_XG")))];
   let calibrationTemperature=1,calibrationMethod="none";
   if(targetGender!=="women"&&!eloUsed){
-   if(xgUsed&&xgSources.some((x:string)=>x.toLowerCase().includes("openplay"))&&!xgSources.some((x:string)=>x.toLowerCase().includes("american_soccer_analysis"))){calibrationTemperature=0.67;calibrationMethod="chronological_holdout_temperature_openplay_xg";}
+   if(xgUsed&&xgSources.length===1&&xgSources[0].toLowerCase().includes("openplay")){calibrationTemperature=0.67;calibrationMethod="chronological_holdout_temperature_openplay_xg";}
    else if(!xgUsed){calibrationTemperature=0.90;calibrationMethod="chronological_holdout_temperature_goals_only";}
   }
   if(calibrationTemperature!==1){
