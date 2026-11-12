@@ -249,7 +249,7 @@ function Kupony() {
                     </span>
                   </div>
                   {c.map((l) => (
-                    <LegRow key={l.id} label={matchLabel(byId.get(l.match_id))} type={l.prediction_type} pick={l.pick} prob={l.probability} odds={l.odds} />
+                    <LegRow key={l.id} label={matchLabel(byId.get(l.match_id))} type={l.prediction_type} pick={l.pick} prob={l.probability} odds={l.odds} sub={matchScheduleLabel(byId.get(l.match_id))} />
                   ))}
                 </div>
               ))}
@@ -271,7 +271,7 @@ function Kupony() {
               <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-secondary">
                 <Checkbox checked={manual.includes(p.id)} onCheckedChange={() => toggleManual(p)} />
                 <div className="min-w-0 flex-1">
-                  <LegRow label={matchLabel(byId.get(p.match_id))} type={p.prediction_type} pick={p.pick} prob={p.probability} odds={p.odds} sub={fmtDateTime(byId.get(p.match_id)?.kickoff_at)} />
+                  <LegRow label={matchLabel(byId.get(p.match_id))} type={p.prediction_type} pick={p.pick} prob={p.probability} odds={p.odds} sub={matchScheduleLabel(byId.get(p.match_id))} />
                 </div>
               </label>
             ))}
@@ -317,7 +317,7 @@ function Kupony() {
                   {cl.map((l) => (
                     <div key={l.id} className="flex items-center gap-2">
                       <div className="min-w-0 flex-1">
-                        <LegRow label={matchLabel(byId.get(l.match_id))} type={l.prediction_type} pick={l.pick} prob={l.probability} odds={l.odds} />
+                        <LegRow label={matchLabel(byId.get(l.match_id))} type={l.prediction_type} pick={l.pick} prob={l.probability} odds={l.odds} sub={matchScheduleLabel(byId.get(l.match_id))} />
                       </div>
                       <SettlementBadge status={l.result_status} />
                     </div>
@@ -359,6 +359,20 @@ function Kupony() {
       <CouponEditDialog coupon={edit} onClose={() => setEdit(null)} />
     </div>
   );
+}
+
+function matchScheduleLabel(match: { kickoff_at?: string | null; status?: string | null } | undefined) {
+  const kickoff = fmtDateTime(match?.kickoff_at);
+  const statusLabels: Record<string, string> = {
+    scheduled: "ZAPLANOWANY",
+    live: "NA ŻYWO",
+    finished: "ZAKOŃCZONY",
+    postponed: "PRZEŁOŻONY",
+    cancelled: "ODWOŁANY",
+    unknown: "WERYFIKACJA WYNIKU",
+  };
+  const status = statusLabels[String(match?.status ?? "").toLowerCase()] ?? "STATUS NIEZNANY";
+  return `${kickoff} · ${status}`;
 }
 
 function LegRow({
