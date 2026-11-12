@@ -30,14 +30,15 @@ export function GoalsView() {
   const predictions = useTable("predictions");
   const today = brusselsDay(new Date());
   const now = Date.now();
-  // The goals screen is a pre-match forecast board, not a history/live feed.
+  const forecastHorizon = now + 7 * 24 * 60 * 60 * 1000;
+  // Show the next seven days of confirmed pre-match fixtures, not only today.
   // Never use kickoff_date as a substitute for a real kickoff timestamp.
   const byId = useMemo(() => new Map(matches.filter(isEuropeanMatch).filter((m) => {
     if (!m.kickoff_at) return false;
     if (!["scheduled", "unknown"].includes(String(m.status ?? "scheduled"))) return false;
     const kickoff = new Date(m.kickoff_at).getTime();
-    return Number.isFinite(kickoff) && kickoff > now && brusselsDay(m.kickoff_at) === today;
-  }).map((m) => [m.id, m] as const)), [matches, today, now]);
+    return Number.isFinite(kickoff) && kickoff > now && kickoff <= forecastHorizon;
+  }).map((m) => [m.id, m] as const)), [matches, now, forecastHorizon]);
   const rows = predictions.filter((p) => p.market === "GOALS" && byId.has(p.match_id));
   const grouped = useMemo(() => {
     const groups = new Map<string, Prediction[]>();
@@ -56,14 +57,14 @@ export function GoalsView() {
 
   return (
     <div>
-      <PageHeader eyebrow="OVER / UNDER · BTTS" title="Prognozy goli" description={`Niezależny model Poissona · mecze na dzisiaj: ${today} (czas belgijski). Prognozy powstają tylko przy co najmniej 3 zweryfikowanych meczach obu drużyn.`} />
+      <PageHeader eyebrow="OVER / UNDER · BTTS" title="Prognozy goli" description={`Niezależny model Poissona · najbliższe 7 dni od ${today} (czas belgijski). Prognozy powstają tylko przy co najmniej 3 zweryfikowanych meczach obu drużyn.`} />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard label="Skuteczność wybranych" value={fmtPct(stats.rate)} hint={`${stats.won}/${stats.settled} rozliczonych`} tone="primary" />
         <StatCard label="Oczekujące typy" value={stats.pending} />
         <StatCard label="Mecze z prognozą" value={grouped.length} />
       </div>
       {grouped.length === 0 ? (
-        <EmptyState icon={Target} title="Brak prognoz goli na dzisiaj" description={byId.size === 0 ? "Brak potwierdzonych, przyszłych meczów na dzisiaj z dokładną godziną rozpoczęcia. Mecze live, zakończone i bez godziny pozostają w historii, ale nie trafiają do prognoz przedmeczowych." : "Silnik utworzy prognozy po potwierdzeniu wystarczającej historii wyników obu drużyn. Brakujących danych nie zastępujemy zgadywaniem."} />
+        <EmptyState icon={Target} title="Brak prognoz goli w najbliższych 7 dniach" description={byId.size === 0 ? "Brak potwierdzonych, przyszłych meczów europejskich z dokładną godziną rozpoczęcia w najbliższych 7 dniach. Mecze live, zakończone i bez godziny pozostają w historii." : "Silnik utworzy prognozy po potwierdzeniu wystarczającej historii wyników obu drużyn. Brakujących danych nie zastępujemy zgadywaniem."} />
       ) : (
         <div className="grid gap-3">
           {grouped.map(([matchId, items]) => {
