@@ -56,15 +56,19 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
 }
 
 const sourceLabel = (source: string | null | undefined) => {
-  if (source === "GITHUB_PUBLIC_LAST10_FORM") return "GitHub · OpenMatchday + OpenFootball · ostatnie 10 spotkań";
-  if (source === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań";
-  if (source === "OPENMATCHDAY_GITHUB_LAST5_FORM") return "GitHub / OpenMatchday · forma i statystyki z 5 spotkań";
-  if (source === "OPENMATCHDAY_LAST10_FORM") return "OpenMatchday · wyniki i gole z ostatnich 10 spotkań";
-  if (source === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań";
-  if (source === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane";
-  if (source === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
-  if (source === "NO_VERIFIED_SOURCE") return "Brak potwierdzonego źródła";
-  return source || "Źródło nieopisane";
+  if (!source) return "Źródło nieopisane";
+  if (source === "BEYONDELO_ELO_ONLY") return "BeyondELO · rating Elo bez pełnej historii formy";
+  const hasElo = source.includes("+BEYONDELO_ELO");
+  const base = source.replace("+BEYONDELO_ELO", "");
+  if (base === "GITHUB_PUBLIC_LAST10_FORM") return "GitHub · OpenMatchday + OpenFootball · ostatnie 10 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "OPENMATCHDAY_GITHUB_LAST5_FORM") return "GitHub / OpenMatchday · forma i statystyki z 5 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "OPENMATCHDAY_LAST10_FORM") return "OpenMatchday · wyniki i gole z ostatnich 10 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane" + (hasElo ? " + rating Elo" : "");
+  if (base === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
+  if (base === "NO_VERIFIED_SOURCE") return "Brak potwierdzonego źródła";
+  return source;
 };
 
 function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; saved?: FormLine }) {
@@ -102,11 +106,11 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
   const mainPick = ordered.find((p) => p.prediction_type === "1X2");
   const coverage = (mainPick as any)?.data_coverage ?? ordered.find((p) => (p as any).data_coverage)?.data_coverage;
   const source = (mainPick as any)?.data_source ?? ordered.find((p) => (p as any).data_source)?.data_source;
-  const formLine = (v: any): FormLine | undefined => v && Number.isFinite(Number(v.w)) && Number.isFinite(Number(v.d)) && Number.isFinite(Number(v.l)) && Number(v.w)+Number(v.d)+Number(v.l)>=3 && Number(v.w)+Number(v.d)+Number(v.l)<=5 ? {w:Number(v.w),d:Number(v.d),l:Number(v.l)} : undefined;
-  const homeSaved = saved?.home || formLine((coverage as any)?.home_form);
-  const awaySaved = saved?.away || formLine((coverage as any)?.away_form);
+  const formLine = (v: any): FormLine | undefined => v && Number.isFinite(Number(v.w)) && Number.isFinite(Number(v.d)) && Number.isFinite(Number(v.l)) && Number(v.w)+Number(v.d)+Number(v.l)>=3 && Number(v.w)+Number(v.d)+Number(v.l)<=10 ? {w:Number(v.w),d:Number(v.d),l:Number(v.l)} : undefined;
+  const homeSaved = formLine((coverage as any)?.home_form) || saved?.home;
+  const awaySaved = formLine((coverage as any)?.away_form) || saved?.away;
   const rationale = (mainPick as any)?.rationale ?? (mainPick as any)?.notes ?? (mainPick as any)?.rejection_reason;
-  const isNoData = source === "NO_VERIFIED_SOURCE" || (!!coverage && (coverage as any).baseline_only === true);
+  const isNoData = source === "NO_VERIFIED_SOURCE" || source === "BEYONDELO_ELO_ONLY" || (!!coverage && (coverage as any).baseline_only === true);
   const confidence = mainPick?.confidence;
   const statusText = result ? `Wynik: ${result.home_goals ?? (result as any).home_score ?? "?"} : ${result.away_goals ?? (result as any).away_score ?? "?"}` : "Oczekuje na wynik";
   const dcPicks = ordered.filter((p) => p.prediction_type === "DC");
@@ -139,7 +143,7 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
             <FormCard name={String(match.home_team)} games={homeGames} saved={homeSaved}/>
             <FormCard name={String(match.away_team)} games={awayGames} saved={awaySaved}/>
           </div>
-          <p className="text-[11px] text-muted-foreground">W = wygrana, D = remis, L = porażka. W pierwszej kolejności pokazujemy wyniki zweryfikowane; dane FootyNomad oznaczamy osobno.</p>
+          <p className="text-[11px] text-muted-foreground">W = wygrana, D = remis, L = porażka. Model korzysta z maksymalnie 10 ostatnich spotkań, jeśli są dostępne; karta pokazuje zweryfikowane wyniki lokalne w pierwszej kolejności.</p>
         </section>
 
         <section className="space-y-3">
@@ -160,6 +164,7 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
             {mainPick?.rejection_reason && <p className="mt-2 text-warning">Powód odrzucenia: {mainPick.rejection_reason}</p>}
             {method && <p className="mt-2 text-xs text-muted-foreground">Metoda: {String(method)}</p>}
             {confidence && <p className="mt-2 text-xs text-muted-foreground">Pokrycie modelu: {confidence}%</p>}
+             {(coverage as any)?.elo_used && (coverage as any)?.home_elo != null && (coverage as any)?.away_elo != null && <div className="mt-2 rounded-lg bg-secondary/60 p-3 text-xs"><div className="font-semibold">Rating Elo · BeyondELO</div><div className="mt-1 font-semibold num">Gospodarze {(coverage as any).home_elo} · Goście {(coverage as any).away_elo}</div><div className="mt-1 text-muted-foreground">Różnica {(Number((coverage as any).elo_diff) > 0 ? "+" : "")}{Number((coverage as any).elo_diff).toFixed(1)} · udział Elo {Math.round(Number((coverage as any).elo_weight || 0) * 100)}%</div><div className="mt-1 text-muted-foreground">Dane aktualne na: {String((coverage as any).elo_as_of || "brak daty")}</div></div>}
             {coverage && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-xs"><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_matches ?? 0)} meczów</div></div><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_matches ?? 0)} meczów</div></div>
               {(coverage as any).home_form?.avg_shots_for != null && <div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie strzały gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_form.avg_shots_for).toFixed(1)} / mecz</div></div>}
               {(coverage as any).away_form?.avg_shots_for != null && <div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie strzały gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_form.avg_shots_for).toFixed(1)} / mecz</div></div>}
