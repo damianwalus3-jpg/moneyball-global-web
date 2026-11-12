@@ -212,7 +212,7 @@ function Mecze() {
     if (!sb) { toast.error("Brak połączenia z bazą danych."); return; }
     setGlobalScanRunning(true);
     try {
-      const date = brusselsDayKey(new Date());
+      const date = brusselsDayKey(new Date()); // zawsze dzisiejsza data w strefie Europe/Brussels
       const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date, days: 1 } });
       const edgeCount = Number(data?.combined_count ?? data?.fixtures_count ?? data?.total_found ?? 0);
       if (error || !data?.ok || edgeCount === 0) {
