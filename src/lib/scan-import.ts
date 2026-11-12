@@ -96,9 +96,10 @@ function parseKickoff(v: string): string | null {
   return brusselsInputToISO(v);
 }
 
-export function matchKey(kickoffIso: string | null, home: string, away: string, kickoffDate?: string | null) {
+export function matchKey(kickoffIso: string | null, home: string, away: string, kickoffDate?: string | null, gender?: string | null) {
   const timeKey = kickoffIso ? kickoffIso.slice(0, 16) : `DATE:${kickoffDate || "unknown"}`;
-  return `${timeKey}|${home.trim().toLowerCase()}|${away.trim().toLowerCase()}`;
+  const genderKey = String(gender || "").toLowerCase() === "women" ? "women" : "men";
+  return `${timeKey}|${home.trim().toLowerCase()}|${away.trim().toLowerCase()}|${genderKey}`;
 }
 
 /**
