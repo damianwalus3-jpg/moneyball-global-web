@@ -66,7 +66,7 @@ export function GoalsView() {
 
   return (
     <div>
-      <PageHeader eyebrow="OVER / UNDER · BTTS" title="Prognozy goli" description={`Niezależny model Poissona · najbliższe 7 dni od ${today} (czas belgijski). Prognozy powstają tylko przy co najmniej 3 zweryfikowanych meczach obu drużyn.`} />
+      <PageHeader eyebrow="OVER / UNDER · BTTS" title="Prognozy goli" description={`Niezależny model Poissona · najbliższe 7 dni od ${today} (czas belgijski). Prognozy powstają tylko przy co najmniej 3 potwierdzonych wynikach obu drużyn z dostępnych źródeł.`} />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard label="Skuteczność wybranych" value={fmtPct(stats.rate)} hint={`${stats.won}/${stats.settled} rozliczonych`} tone="primary" />
         <StatCard label="Oczekujące typy" value={stats.pending} />
