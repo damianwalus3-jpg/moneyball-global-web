@@ -34,8 +34,8 @@ async function readDay(date:string){
   const home=clean((body.match(/<span[^>]*class=["'][^"']*ticket-home[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)||[])[1]||"");
   const away=clean((body.match(/<span[^>]*class=["'][^"']*ticket-away[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)||[])[1]||"");
   const leagueStart=html.lastIndexOf('<details class="league-group',m.index),leagueEnd=leagueStart>=0?html.indexOf("</summary>",leagueStart):-1;
-  const league=leagueStart>=0&&leagueEnd>leagueStart?clean((html.slice(leagueStart,leagueEnd).match(/href=["']\\/league\\/[^"']+["'][^>]*>([\\s\\S]*?)<\\/a>/i)||[])[1]||""):"";
-  const gender=/\\bW\\b|Women|female|girls/i.test(home+" "+away+" "+league)?"women":"men";
+  const league=leagueStart>=0&&leagueEnd>leagueStart?clean((html.slice(leagueStart,leagueEnd).match(/href=["']\/league\/[^"']+["'][^>]*>([\s\S]*?)<\/a>/i)||[])[1]||""):"";
+  const gender=/\bW\b|Women|female|girls/i.test(home+" "+away+" "+league)?"women":"men";
   const kickoff=(body.match(/<time[^>]*datetime=["']([^"']+)/i)||[])[1]||null;
   const cls=(attrs.match(/class=["']([^"']+)/i)||[])[1]||"";
   const hs=(body.match(/class=["'][^"']*ticket-hs[^"']*["'][^>]*>(\d+)</i)||[])[1];
