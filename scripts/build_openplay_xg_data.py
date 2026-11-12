@@ -80,6 +80,8 @@ def main() -> None:
     source_match_count = int(frame["match_id"].nunique())
     source_team_rows = int(len(frame))
     source_dates = frame["date"]
+    source_competitions = sorted(str(x) for x in frame["comp"].dropna().unique())
+    source_seasons = sorted(str(x) for x in frame["season"].dropna().unique())
     frame = frame.sort_values(["team_id", "date", "match_id"], ascending=[True, False, False])
     frame = frame.groupby("team_id", sort=False).head(MAX_MATCHES_PER_TEAM)
 
@@ -149,8 +151,8 @@ def main() -> None:
             "source_team_match_rows": source_team_rows,
             "stored_team_match_rows": int(len(frame)),
             "unique_matches": source_match_count,
-            "competitions": sorted(str(x) for x in frame["comp"].dropna().unique()),
-            "seasons": sorted(str(x) for x in frame["season"].dropna().unique()),
+            "competitions": source_competitions,
+            "seasons": source_seasons,
             "first_match_date": source_dates.min().strftime("%Y-%m-%d"),
             "last_match_date": source_dates.max().strftime("%Y-%m-%d"),
             "known_issue_matches_excluded": len(issue_ids),
