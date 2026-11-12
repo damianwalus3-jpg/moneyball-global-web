@@ -1,6 +1,10 @@
 name: Build American Soccer Analysis xG data
 
 on:
+  push:
+    paths:
+      - "scripts/build_asa_xg_data.py"
+      - ".github/workflows/build-asa-xg.yml"
   workflow_dispatch:
   schedule:
     - cron: "30 5 * * *"
