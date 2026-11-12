@@ -31,6 +31,7 @@ import {
   validateCoupon,
 } from "@/lib/domain";
 import { fmtMoney, fmtOdds, fmtPct, matchLabel, parseDecimal } from "@/lib/format";
+import { isEuropeanMatch } from "@/lib/geography";
 import { syncResults } from "@/lib/results";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime } from "@/lib/time";
@@ -62,7 +63,9 @@ function Kupony() {
   const coupons = useTable("coupons");
   const legs = useTable("coupon_legs");
   const txs = useTable("bankroll_transactions");
-  const byId = useMemo(() => new Map(matches.map((m) => [m.id, m])), [matches]);
+  const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
+  const europeanMatchIds = useMemo(() => new Set(europeanMatches.map((m) => m.id)), [europeanMatches]);
+  const byId = useMemo(() => new Map(europeanMatches.map((m) => [m.id, m])), [europeanMatches]);
 
   const [market, setMarket] = useState<Market>("all");
   const [count, setCount] = useState("3");
@@ -84,6 +87,7 @@ function Kupony() {
   // Brussels calendar date. This prevents week-ahead matches entering a daily coupon.
   const todayKey = brusselsDayKey(new Date());
   const candidates = preds
+    .filter((p) => europeanMatchIds.has(p.match_id))
     .filter((p) => isCouponCandidate(p, byId.get(p.match_id), now))
     .filter((p) => {
       const kickoff = byId.get(p.match_id)?.kickoff_at;
@@ -114,7 +118,7 @@ function Kupony() {
       `Wyniki odświeżone · ${r.results_saved ?? 0} wyników · ${r.alternate_results_matched ?? 0} dopasowań dodatkowych · ${r.predictions_settled ?? 0} prognoz rozliczonych · ${r.coupon_legs_settled ?? 0} zdarzeń kuponów`,
   });
 
-  const manualLegs = manual.map((id) => preds.find((p) => p.id === id)!).filter(Boolean);
+  const manualLegs = manual.map((id) => preds.find((p) => p.id === id)!).filter((p) => p && europeanMatchIds.has(p.match_id));
   const manualErrors = manual.length ? validateCoupon(manualLegs) : [];
 
   function toggleManual(p: Prediction) {
@@ -147,7 +151,11 @@ function Kupony() {
     { success: "Zaksięgowano wygraną w bankrollu" },
   );
 
-  const list = [...coupons]
+  const europeanCoupons = coupons.filter((c) => {
+    const couponMatches = legs.filter((l) => l.coupon_id === c.id);
+    return couponMatches.length > 0 && couponMatches.every((l) => europeanMatchIds.has(l.match_id));
+  });
+  const list = [...europeanCoupons]
     .filter((c) => {
       const legCount = legs.filter((l) => l.coupon_id === c.id).length;
       if (statusFilter === "all") return true;
@@ -158,7 +166,7 @@ function Kupony() {
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
   const counts = { pending: 0, won: 0, lost: 0, void: 0, cancelled: 0 } as Record<Settlement, number>;
-  for (const c of coupons) {
+  for (const c of europeanCoupons) {
     const status = (c.status ?? "pending") as Settlement;
     if (status === "pending" && legs.filter((l) => l.coupon_id === c.id).length !== 3) counts.cancelled++;
     else counts[status]++;
@@ -169,7 +177,7 @@ function Kupony() {
       <PageHeader
         eyebrow={`3 mecze · tylko > ${CANDIDATE_MIN_PROBABILITY}%`}
         title="Kupony"
-        description="Kupony tworzone są wyłącznie z meczów rozgrywanych dzisiaj (czas Belgii). Każdy kupon ma dokładnie 3 różne mecze, a żaden mecz nie powtarza się między kuponami."
+        description="Wyświetlane są wyłącznie kupony z meczami europejskimi. Kupony tworzone są wyłącznie z meczów rozgrywanych dzisiaj (czas Belgii). Każdy kupon ma dokładnie 3 różne mecze, a żaden mecz nie powtarza się między kuponami."
       />
       <div className="mb-4 flex justify-end">
         <Button
