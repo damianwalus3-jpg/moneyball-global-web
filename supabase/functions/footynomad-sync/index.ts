@@ -66,19 +66,21 @@ Deno.serve(async(req)=>{
    const pj=JSON.parse(pt);publicFixtures=Array.isArray(pj.fixtures)?pj.fixtures.filter((f:any)=>isEuropeanFixture(f.country,f.league||f.competition,f.home_team||f.home,f.away_team||f.away)):[];
    publicSourceStatus={ok:true,source_count:pj.source_count,raw_fixtures:pj.raw_fixtures,unique_fixtures:pj.unique_fixtures,sources:pj.sources};
   }catch(e){publicSourceStatus={ok:false,error:String(e)};}
-  const normTeam=(v:any)=>{const key=String(v||"").normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();return ({"turkiye":"turkey"} as Record<string,string>)[key]||key;};
-  const localDay=(v:any)=>{const raw=String(v||"");if(/^\\d{4}-\\d{2}-\\d{2}$/.test(raw))return raw;const d=new Date(raw);return Number.isNaN(d.getTime())?raw.slice(0,10):new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);};
-  const fixtureDate=(f:any)=>{const explicit=String(f.date||f.kickoff_date||"").slice(0,10);if(/^\\d{4}-\\d{2}-\\d{2}$/.test(explicit))return explicit;const fromTime=localDay(f.kickoff_at);if(fromTime)return fromTime;return /:([0-9]{4}-[0-9]{2}-[0-9]{2}):/.exec(String(f.external_id||""))?.[1]||"";};
+  const normTeam=(v:any)=>{const key=String(v||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();return ({"turkiye":"turkey"} as Record<string,string>)[key]||key;};
+  const localDay=(v:any)=>{const raw=String(v||"");if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw;const d=new Date(raw);return Number.isNaN(d.getTime())?raw.slice(0,10):new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);};
+  const fixtureDate=(f:any)=>{const explicit=String(f.date||f.kickoff_date||"").slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(explicit))return explicit;const fromTime=localDay(f.kickoff_at);if(fromTime)return fromTime;return /:([0-9]{4}-[0-9]{2}-[0-9]{2}):/.exec(String(f.external_id||""))?.[1]||"";};
   const fixtureBaseKey=(f:any)=>normTeam(f.home_team)+"|"+normTeam(f.away_team)+"|"+fixtureDate(f);
   const fixtureGender=(f:any)=>["men","women"].includes(String(f.gender||"").toLowerCase())?String(f.gender).toLowerCase():"unknown";
   const fixtureKey=(f:any)=>fixtureBaseKey(f)+"|"+fixtureGender(f);
   const genderCompatible=(a:any,b:any)=>fixtureGender(a)===fixtureGender(b)||fixtureGender(a)==="unknown"||fixtureGender(b)==="unknown";
   const fixturePriority=(f:any)=>(String(f.source||"").toLowerCase()==="footynomad"?100:0)+(fixtureGender(f)!=="unknown"?10:0)+(f.kickoff_at?1:0);
   const primaryByKey=new Map(result.fixtures.map((f:any)=>[fixtureKey(f),f]));
+  const primaryByBase=new Map<string,any[]>();
+  for(const f of result.fixtures){const k=fixtureBaseKey(f),arr=primaryByBase.get(k)||[];arr.push(f);primaryByBase.set(k,arr);}
   const combined:any[]=[...result.fixtures];
   let enriched=0,publicOnly=0;
   for(const pf of publicFixtures){
-   const key=fixtureKey(pf),primary=primaryByKey.get(key);
+   const key=fixtureKey(pf),primary=primaryByKey.get(key)||(primaryByBase.get(fixtureBaseKey(pf))||[]).find((f:any)=>genderCompatible(f,pf));
    if(primary){
     (primary as any).public_data={...(primary as any).public_data||{},sources:[...new Set([...(primary as any).public_data?.sources||[],pf.source])],home_form:pf.home_form??(primary as any).public_data?.home_form,away_form:pf.away_form??(primary as any).public_data?.away_form};
     enriched++;
@@ -90,7 +92,7 @@ Deno.serve(async(req)=>{
   if(!token)throw new Error("Brak sesji logowania. Zaloguj się ponownie.");
   const runRows=await db("scan_runs",token,"POST",{scan_date:date,source:"FootyNomad + public sources",status:"started",matches_found:combined.length,notes:"FootyNomad primary; public source enrichment: "+JSON.stringify(publicSourceStatus).slice(0,1500)});
   const run=runRows?.[0];if(!run?.id)throw new Error("Nie udało się utworzyć wpisu skanu.");
-  let inserted=0,updated=0,settled=0;
+  let inserted=0,updated=0,settled=0,matchedByFixture=0,promotedToPrimary=0;
   try{
    const dayStart=new Date(Date.parse(date+"T00:00:00Z")-86400000).toISOString(),nextDate=new Date(Date.parse(date+"T00:00:00Z")+2*86400000).toISOString();
    const existingRows=await db("matches?select=id,external_id,source,home_team,away_team,kickoff_at,kickoff_date,gender,notes",token);
@@ -108,7 +110,9 @@ Deno.serve(async(req)=>{
     seenSourceIds.add(key);
     const fixtureCandidates=(existingByFixture.get(fixtureBaseKey(f))||[]).filter((x:any)=>genderCompatible(x,f)).sort((a:any,b:any)=>fixturePriority(b)-fixturePriority(a));
     const byFixture=fixtureCandidates[0];
-    const existing=existingBySourceId.get(key)||byFixture;
+    const exact=existingBySourceId.get(key);
+    const existing=exact||byFixture;
+    if(!exact&&byFixture)matchedByFixture++;
     const noteData={integration:"MONEYBALL_PUBLIC_AGGREGATOR",sources:(f as any).public_data?.sources||[source],home_form:(f as any).home_form||(f as any).public_data?.home_form||null,away_form:(f as any).away_form||(f as any).public_data?.away_form||null,public_data:(f as any).public_data||null};
     const row={scan_run_id:run.id,external_id:sourceId,source,league:f.competition||f.league||null,country:f.country||null,gender:f.gender||"unknown",home_team:f.home_team,away_team:f.away_team,kickoff_at:f.kickoff_at||null,kickoff_date:fixtureDate(f)||null,status:f.status||"scheduled",notes:"[MONEYBALL_PUBLIC_DATA]"+JSON.stringify(noteData)};
     if(existing){
@@ -118,7 +122,7 @@ Deno.serve(async(req)=>{
      const mergedNotes=(preserved?preserved+"\\n\\n":"")+marker+JSON.stringify(noteData);
      if(source==="FootyNomad"||String(existing.source)===source){
       const patch:any={kickoff_at:row.kickoff_at,kickoff_date:row.kickoff_date,status:row.status,league:row.league,gender:row.gender,country:row.country,notes:mergedNotes};
-      if(source==="FootyNomad"&&String(existing.source)!=="FootyNomad"){patch.source=source;patch.external_id=sourceId;}
+      if(source==="FootyNomad"&&String(existing.source)!=="FootyNomad"){patch.source=source;patch.external_id=sourceId;promotedToPrimary++;}
       await db("matches?id=eq."+existing.id,token,"PATCH",patch);
       updated++;
      }
@@ -150,7 +154,7 @@ Deno.serve(async(req)=>{
      for(const p of ps||[]){const won=p.market==="1X2"?p.selection===outcome:(p.selection==="1X"?outcome!=="2":p.selection==="X2"?outcome!=="1":outcome!=="X");await db("predictions?id=eq."+p.id,token,"PATCH",{settlement_status:won?"won":"lost",verified:true});settled++;}
     }
    }
-   await db("scan_runs?id=eq."+run.id,token,"PATCH",{status:"completed",completed_at:new Date().toISOString(),matches_found:combined.length,notes:"FootyNomad "+result.fixtures.length+"; public fixtures "+publicFixtures.length+"; enriched "+enriched+"; public-only "+publicOnly+"; inserted "+inserted+"; updated "+updated+"; settled "+settled+"; public source status "+JSON.stringify(publicSourceStatus).slice(0,900)});
+   await db("scan_runs?id=eq."+run.id,token,"PATCH",{status:"completed",completed_at:new Date().toISOString(),matches_found:combined.length,notes:"FootyNomad "+result.fixtures.length+"; public fixtures "+publicFixtures.length+"; enriched "+enriched+"; public-only "+publicOnly+"; inserted "+inserted+"; updated "+updated+"; settled "+settled+"; matched by fixture "+matchedByFixture+"; promoted "+promotedToPrimary+"; public source status "+JSON.stringify(publicSourceStatus).slice(0,900)});
   }catch(e){await db("scan_runs?id=eq."+run.id,token,"PATCH",{status:"partial",completed_at:new Date().toISOString(),notes:"Import częściowy: "+String(e)});throw e;}
   // Run the same verified result settlement pipeline used by the scheduled synchronizer.
   // This ensures match results, predictions, coupon legs and coupon statuses stay consistent
@@ -166,6 +170,6 @@ Deno.serve(async(req)=>{
    try{resultSync=syncText?JSON.parse(syncText):{ok:false,error:"Empty result-sync response"};}catch(_){resultSync={ok:false,error:syncText.slice(0,500)};}
    if(!syncResponse.ok)resultSync={...resultSync,ok:false,http_status:syncResponse.status};
   }catch(e){resultSync={ok:false,error:String(e)};}
-  return new Response(JSON.stringify({ok:true,date,total_found:result.total_found,fixtures_count:result.fixtures.length,combined_count:combined.length,public_fixtures:publicFixtures.length,enriched,public_only:publicOnly,public_source_status:publicSourceStatus,inserted,updated,settled,scan_run_id:run.id,result_sync:resultSync}),{headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+  return new Response(JSON.stringify({ok:true,date,total_found:result.total_found,fixtures_count:result.fixtures.length,combined_count:combined.length,public_fixtures:publicFixtures.length,enriched,public_only:publicOnly,public_source_status:publicSourceStatus,inserted,updated,settled,matched_by_fixture:matchedByFixture,promoted_to_primary:promotedToPrimary,scan_run_id:run.id,result_sync:resultSync}),{headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
  }catch(e){return new Response(JSON.stringify({error:String(e)}),{status:400,headers:{...cors,"Content-Type":"application/json"}});}
 });
