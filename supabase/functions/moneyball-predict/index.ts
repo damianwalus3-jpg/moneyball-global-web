@@ -166,7 +166,8 @@ function historyModel(home:string,away:string,kickoff:string,history:any[],footy
   }
   const total=p1+px+p2;
   let source="BASELINE_ONLY";
-  if(hs.source==="STATSBOMB_OPEN_DATA"||as.source==="STATSBOMB_OPEN_DATA")source="STATSBOMB_OPEN_DATA";\n  else if(hs.source==="OPENMATCHDAY_GITHUB_LAST10"||as.source==="OPENMATCHDAY_GITHUB_LAST10")source="OPENMATCHDAY_GITHUB_LAST10";
+  if(hs.source==="STATSBOMB_OPEN_DATA"||as.source==="STATSBOMB_OPEN_DATA")source="STATSBOMB_OPEN_DATA";
+  else if(hs.source==="OPENMATCHDAY_GITHUB_LAST10"||as.source==="OPENMATCHDAY_GITHUB_LAST10")source="OPENMATCHDAY_GITHUB_LAST10";
   else if(hs.source==="ESPN_WOMEN_LAST10"||as.source==="ESPN_WOMEN_LAST10")source="ESPN_WOMEN_LAST10";
    else if(hs.source==="OPENMATCHDAY_LAST10"||as.source==="OPENMATCHDAY_LAST10")source="OPENMATCHDAY_LAST10";
   else if(hs.source==="VERIFIED_MATCH_HISTORY"&&as.source==="VERIFIED_MATCH_HISTORY")source="VERIFIED_MATCH_HISTORY";
