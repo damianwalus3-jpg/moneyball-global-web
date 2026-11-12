@@ -101,6 +101,7 @@ function Mecze() {
   const activeCouponIds = new Set(coupons.filter((coupon) => (coupon.status ?? "pending") === "pending").map((coupon) => coupon.id));
   const usedCouponMatchIds = new Set(couponLegs.filter((leg) => activeCouponIds.has(leg.coupon_id)).map((leg) => leg.match_id));
   const couponCandidates = preds
+    .filter((p) => p.market !== "GOALS" && (p.prediction_type === "1X2" || p.prediction_type === "DC"))
     .filter((p) => isEuropeanMatch(matches.find((m) => m.id === p.match_id) ?? {}) && isCouponCandidate(p, matches.find((m) => m.id === p.match_id), Date.now()))
     .filter((p) => {
       const kickoff = matches.find((m) => m.id === p.match_id)?.kickoff_at;
