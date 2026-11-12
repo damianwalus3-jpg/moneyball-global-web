@@ -450,7 +450,6 @@ function Mecze() {
               <div className="grid gap-2">
                 {list.map((group) => {
                   const m = group.primary;
-                  const groupIds = new Set(group.matches.map((row) => row.id));
                   const r = group.matches.map((row) => resultBy.get(row.id)).find((row) => row?.verified === true) ??
                     group.matches.map((row) => resultBy.get(row.id)).find(Boolean);
                   const c = group.matches.reduce((acc, row) => {
@@ -534,12 +533,17 @@ function Mecze() {
                         >
                           <Pencil />
                         </Button>
-                        <ConfirmDelete
-                          title="Usunąć mecz?"
-                          description="Usunięcie meczu może usunąć też jego prognozy i wynik (zależnie od ustawień bazy). Tej operacji nie można cofnąć."
-                          onConfirm={() => del.mutate(m.id)}
-                          disabled={group.matches.length > 1}
-                        />
+                        {group.matches.length === 1 ? (
+                          <ConfirmDelete
+                            title="Usunąć mecz?"
+                            description="Usunięcie meczu może usunąć też jego prognozy i wynik (zależnie od ustawień bazy). Tej operacji nie można cofnąć."
+                            onConfirm={() => del.mutate(m.id)}
+                          />
+                        ) : (
+                          <Badge variant="outline" title="Rekordy pozostają w bazie, aby zachować prognozy i kupony">
+                            Zachowano powiązania
+                          </Badge>
+                        )}
                       </div>
                     </article>
                   );
