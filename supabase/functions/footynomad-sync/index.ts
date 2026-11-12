@@ -56,12 +56,13 @@ Deno.serve(async(req)=>{
  if(req.method==="POST"&&days>1){
   const token=req.headers.get("Authorization")||"";
   const dates=Array.from({length:days},(_,i)=>{const d=new Date(date+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10);});
-  const results:any[]=[];
-  for(const targetDate of dates){
+  const results:any[]=new Array(dates.length);let cursor=0;
+  const workers=Array.from({length:Math.min(2,dates.length)},async()=>{while(true){const i=cursor++;if(i>=dates.length)return;const targetDate=dates[i];try{
    const response=await fetch(SUPABASE_URL+"/functions/v1/footynomad-sync",{method:"POST",headers:{apikey:KEY,Authorization:token,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({date:targetDate,days:1})});
    const body=await response.text();let parsed:any;try{parsed=body?JSON.parse(body):{};}catch{parsed={error:body.slice(0,500)};}
-   results.push({date:targetDate,http_status:response.status,...parsed});
-  }
+   results[i]={date:targetDate,http_status:response.status,...parsed};
+  }catch(e){results[i]={date:targetDate,http_status:0,ok:false,error:String(e)};}}});
+  await Promise.all(workers);
   const totals=(key:string)=>results.reduce((sum,x)=>sum+Number(x[key]||0),0);
   const failures=results.filter(x=>x.http_status<200||x.http_status>=300||x.ok===false||x.error);
   return new Response(JSON.stringify({ok:results.some(x=>x.ok===true),partial:failures.length>0,date,days,dates,dates_completed:results.length-failures.length,dates_failed:failures.length,total_found:totals("total_found"),fixtures_count:totals("fixtures_count"),combined_count:totals("combined_count"),public_fixtures:totals("public_fixtures"),enriched:totals("enriched"),public_only:totals("public_only"),inserted:totals("inserted"),updated:totals("updated"),settled:totals("settled"),scan_run_ids:results.map(x=>x.scan_run_id).filter(Boolean),result_sync:{ok:results.every(x=>x.result_sync?.ok===true),results_saved:results.reduce((s,x)=>s+Number(x.result_sync?.results_saved||0),0),predictions_settled:results.reduce((s,x)=>s+Number(x.result_sync?.predictions_settled||0),0),coupon_legs_settled:results.reduce((s,x)=>s+Number(x.result_sync?.coupon_legs_settled||0),0),errors:results.filter(x=>x.result_sync?.ok!==true).map(x=>({date:x.date,error:x.result_sync?.error||"result sync incomplete"}))},results}),{status:failures.length===days?400:200,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
