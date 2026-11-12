@@ -5,6 +5,7 @@ import { isEuropeanMatch } from "./geography";
 import { getSupabase } from "./supabase";
 
 type PublicFixture = {
+  fixture_id: string;
   date: string;
   time_local: string | null;
   home_team: string;
