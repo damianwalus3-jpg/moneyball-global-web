@@ -361,6 +361,16 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
    }
   }
  }
+ // Normalize every market row to identical keys for PostgREST bulk upserts.
+ // GOALS is a separate market and must not break the 1X2/DC batch.
+ for(const r of rows){
+  if(!Object.prototype.hasOwnProperty.call(r,"prediction_type"))r.prediction_type=r.market==="DOUBLE_CHANCE"?"DC":r.market==="GOALS"?null:"1X2";
+  if(!Object.prototype.hasOwnProperty.call(r,"pick"))r.pick=r.selection??null;
+  if(!Object.prototype.hasOwnProperty.call(r,"selection_status"))r.selection_status=r.verdict??"ODRZUCONY";
+  if(!Object.prototype.hasOwnProperty.call(r,"rejection_reason"))r.rejection_reason=null;
+  if(!Object.prototype.hasOwnProperty.call(r,"result_status"))r.result_status="pending";
+  if(!Object.prototype.hasOwnProperty.call(r,"group_name"))r.group_name=r.market==="GOALS"?"GOALS":r.market==="DOUBLE_CHANCE"?"MEGA":"MAIN";
+ }
  const matchIds=matches.map((m:any)=>String(m.id)).filter(Boolean);
  const old=matchIds.length?await db("predictions?select=id,match_id,market,selection,settlement_status,note&model_version=eq."+encodeURIComponent(V)+"&match_id=in.("+matchIds.join(",")+")",token):[];
  // A 1X2 market has exactly one official selection per match. When a later
