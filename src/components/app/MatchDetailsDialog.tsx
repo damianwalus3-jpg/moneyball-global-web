@@ -64,6 +64,7 @@ const sourceLabel = (source: string | null | undefined) => {
   if (base === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
   if (base === "OPENMATCHDAY_GITHUB_LAST5_FORM") return "GitHub / OpenMatchday · forma i statystyki z 5 spotkań" + (hasElo ? " + rating Elo" : "");
   if (base === "OPENMATCHDAY_LAST10_FORM") return "OpenMatchday · wyniki i gole z ostatnich 10 spotkań" + (hasElo ? " + rating Elo" : "");
+  if (base === "ESPN_WOMEN_LAST10_FORM") return "ESPN · forma kobiecych lig z dostępnych ostatnich spotkań" + (hasElo ? " + rating Elo" : "");
   if (base === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
   if (base === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane" + (hasElo ? " + rating Elo" : "");
   if (base === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
