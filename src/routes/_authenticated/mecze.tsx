@@ -86,6 +86,7 @@ function Mecze() {
   const predCount = useMemo(() => {
     const m = new Map<string, { x12: number; dc: number; sel: number }>();
     for (const p of preds) {
+      if (p.market === "GOALS") continue;
       const c = m.get(p.match_id) ?? { x12: 0, dc: 0, sel: 0 };
       if (p.prediction_type === "DC") c.dc++;
       else c.x12++;
