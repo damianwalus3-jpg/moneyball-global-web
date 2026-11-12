@@ -74,7 +74,9 @@ OPENFOOTBALL_SEASONS = ("2026-27", "2025-26", "2024-25")
 OPENFOOTBALL_LEAGUES = {
     "at.1", "at.2", "be.1", "de.1", "de.2", "en.1", "en.2", "en.3", "en.4",
     "es.1", "es.2", "fr.1", "fr.2", "gr.1", "it.1", "it.2", "nl.1", "pt.1",
-    "sco.1", "tr.1", "uefa.cl", "uefa.el", "uefa.ecl"
+    "sco.1", "tr.1", "uefa.cl", "uefa.el", "uefa.ecl",
+    # Additional public-domain competitions outside the European core.
+    "au.1", "dz.1", "eg.1", "ma.1", "mx.1"
 }
 
 def load_openfootball_league_results():
@@ -203,11 +205,20 @@ def main():
             key = norm(team)
             if not key: continue
             result = "W" if gf > ga else "L" if gf < ga else "D"
+            league_code = source_path.rsplit("/", 1)[-1].removesuffix(".json").replace("-full", "")
+            country_by_code = {
+                "at": "Austria", "au": "Australia", "be": "Belgium", "de": "Germany",
+                "dz": "Algeria", "eg": "Egypt", "en": "England", "es": "Spain",
+                "fr": "France", "gr": "Greece", "it": "Italy", "ma": "Morocco",
+                "mx": "Mexico", "nl": "Netherlands", "pt": "Portugal", "sco": "Scotland",
+                "tr": "Turkey", "uefa": "UEFA"
+            }
+            country = country_by_code.get(league_code.split(".", 1)[0], "unknown")
             item = {"date":date,"opponent":opponent,"result":result,"goals_for":gf,"goals_against":ga,
                 "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
                 "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
                 "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
-                "competition":competition,"country":"EU","source":"OpenFootball Leagues","source_path":source_path}
+                "competition":competition,"country":country,"source":"OpenFootball Leagues","source_path":source_path}
             team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
 
     international_rows, international_files, international_loaded, international_failed = load_international_results()
@@ -240,7 +251,7 @@ def main():
         key: {
             "name": entry["name"],
             "matches": [
-                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against","shots_for","shots_against","shots_on_target_for","shots_on_target_against","corners_for","corners_against","fouls_for","fouls_against","yellow_for","yellow_against","red_for","red_against","competition","country","source")}
+                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against","shots_for","shots_against","shots_on_target_for","shots_on_target_against","corners_for","corners_against","fouls_for","fouls_against","yellow_for","yellow_against","red_for","red_against","competition","country","source","source_path")}
                 for item in entry["matches"][:10]
             ]
         }
@@ -249,8 +260,8 @@ def main():
     form_payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday + OpenFootball European leagues + internationals",
-        "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball Internationals CC0.",
+        "source": "OpenMatchday + OpenFootball global league results + internationals",
+        "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball football.json and Internationals (CC0 1.0).",
         "teams": compact_teams
     }
     FORM_OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -258,11 +269,11 @@ def main():
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday public CSV + OpenFootball European leagues + OpenFootball Internationals",
+        "source": "OpenMatchday public CSV + OpenFootball global leagues + OpenFootball Internationals",
         "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",
-        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball Internationals: CC0 1.0"],
+        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball football.json and Internationals: CC0 1.0"],
         "source_url": "https://github.com/oladeeayo/open-matchday",
-        "attribution": "OpenMatchday contributors; informational non-commercial use; upstream provider rights apply.",
+        "attribution": "OpenMatchday contributors; OpenFootball contributors (CC0 1.0); informational non-commercial use for OpenMatchday; upstream provider rights apply.",
         "coverage": {
             "competitions_indexed": len(folders),
             "competitions_with_results": successful,
