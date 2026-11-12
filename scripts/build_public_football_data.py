@@ -240,7 +240,7 @@ def main():
         key: {
             "name": entry["name"],
             "matches": [
-                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against")}
+                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against","shots_for","shots_against","shots_on_target_for","shots_on_target_against","corners_for","corners_against","fouls_for","fouls_against","yellow_for","yellow_against","red_for","red_against","competition","country","source")}
                 for item in entry["matches"][:10]
             ]
         }
