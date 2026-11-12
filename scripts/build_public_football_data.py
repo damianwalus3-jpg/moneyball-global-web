@@ -304,7 +304,7 @@ def main():
 
     text_rows, text_files, text_loaded, text_failed = load_openfootball_text_results()
     for date, home, away, hg, ag, competition, source_path in text_rows:
-        for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, gf)):
+        for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, hg)):
             key = norm(team)
             if not key:
                 continue
