@@ -32,7 +32,7 @@ export function ScanImportDialog({ open, onOpenChange }: { open: boolean; onOpen
 
   const run = useAction(() => importScan(parsed!, matches, source), {
     success: (r) =>
-      `Zaimportowano: ${r.newMatches} nowych meczów, ${r.reusedMatches} istniejących, ${r.predictions} prognoz`,
+      `Zaimportowano: ${r.newMatches} nowych meczów, ${r.reusedMatches} istniejących, ${r.predictions} prognoz${r.ignoredNonEuropean ? ` · pominięto ${r.ignoredNonEuropean} spoza Europy` : ""}`,
     onDone: () => onOpenChange(false),
   });
 
