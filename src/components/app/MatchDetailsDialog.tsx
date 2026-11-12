@@ -56,6 +56,8 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
 }
 
 const sourceLabel = (source: string | null | undefined) => {
+  if (source === "PITCHAPI_XG_FORM") return "PitchAPI · xG/xGA z ostatnich 5 spotkań";
+  if (source === "PITCHAPI_LAST5_FORM") return "PitchAPI · forma ostatnich 5 spotkań";
   if (source === "OPENMATCHDAY_LAST5_FORM") return "OpenMatchday · wyniki i gole z ostatnich 5 spotkań";
   if (source === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań";
   if (source === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane";
@@ -78,7 +80,7 @@ function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; s
         </div>
       </div>
       {counts && <div className="mb-2 text-xs text-muted-foreground">Ostatnie {counts.w + counts.d + counts.l}: {counts.w} zwycięstw · {counts.d} remisów · {counts.l} porażek</div>}
-      {games.length > 0 ? <div className="space-y-1.5">{games.map((g, i) => <div key={i} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate text-muted-foreground">{g.opponent}</span><span className="num shrink-0 font-medium">{g.score}</span><span className={`w-5 text-right font-bold ${g.outcome === "W" ? "text-emerald-400" : g.outcome === "D" ? "text-amber-300" : "text-rose-400"}`}>{g.outcome}</span></div>)}</div> : <p className="text-xs text-muted-foreground">{saved ? "Forma pobrana z karty meczu FootyNomad; bez listy pojedynczych wyników." : "Nie znaleziono pięciu zweryfikowanych wyników w lokalnej historii."}</p>}
+      {games.length > 0 ? <div className="space-y-1.5">{games.map((g, i) => <div key={i} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate text-muted-foreground">{g.opponent}</span><span className="num shrink-0 font-medium">{g.score}</span><span className={`w-5 text-right font-bold ${g.outcome === "W" ? "text-emerald-400" : g.outcome === "D" ? "text-amber-300" : "text-rose-400"}`}>{g.outcome}</span></div>)}</div> : <p className="text-xs text-muted-foreground">{saved ? "Forma pobrana z dodatkowego źródła; bez listy pojedynczych wyników." : "Nie znaleziono pięciu zweryfikowanych wyników w lokalnej historii."}</p>}
     </div>
   );
 }
@@ -157,7 +159,11 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
             {mainPick?.rejection_reason && <p className="mt-2 text-warning">Powód odrzucenia: {mainPick.rejection_reason}</p>}
             {method && <p className="mt-2 text-xs text-muted-foreground">Metoda: {String(method)}</p>}
             {confidence && <p className="mt-2 text-xs text-muted-foreground">Pokrycie modelu: {confidence}%</p>}
-            {coverage && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-xs"><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_matches ?? 0)} meczów</div></div><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_matches ?? 0)} meczów</div></div></div>}
+            {coverage && <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3 text-xs"><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_matches ?? 0)} meczów</div></div><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Historia gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_matches ?? 0)} meczów</div></div>
+              {(coverage as any).pitchapi_xg && <><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie xG gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_form?.xg_for ?? 0).toFixed(2)} / mecz</div></div><div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie xGA gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_form?.xg_against ?? 0).toFixed(2)} / mecz</div></div></>}
+              {(coverage as any).lineups && <div className="col-span-2 rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Składy PitchAPI</div><div className="mt-1 font-semibold">{(coverage as any).lineups_confirmed ? "Oba składy potwierdzone" : "Składy przewidywane / niepotwierdzone"}</div><div className="text-muted-foreground">{(coverage as any).lineups.home?.formation || "—"} · {(coverage as any).lineups.away?.formation || "—"}</div></div>}
+              {(coverage as any).h2h && <div className="col-span-2 rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Bezpośrednie spotkania H2H</div><div className="mt-1 font-semibold">{((coverage as any).h2h.matches || []).length} rekordów pobranych</div></div>}
+            </div>}
             <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed"><div className="mb-1 font-semibold text-primary">Jak czytać ten typ?</div><p>1X2 wskazuje najbardziej prawdopodobny wynik: 1 = wygrana gospodarzy, X = remis, 2 = wygrana gości. Double Chance sumuje prawdopodobieństwa dwóch wyników (np. 1X = 1 + X). Typ może zostać WYBRANY tylko po spełnieniu progów modelu; sam wysoki procent nie gwarantuje trafienia.</p></div>
             {!rationale && !method && <p className="text-muted-foreground">Model nie zapisał szczegółowego uzasadnienia. Nie dopowiadamy przyczyn, których nie ma w danych.</p>}
           </div>
@@ -169,10 +175,10 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
           <div className="rounded-xl border border-border bg-card/70 p-3">
             {odds ? <><div className="mb-2 text-sm font-semibold">{odds.bookmaker ?? "Źródło kursów nieznane"}</div><div className="grid grid-cols-3 gap-2 text-center">{[["1",odds.odds_1],["X",odds.odds_x],["2",odds.odds_2]].map(([label,value])=><div key={String(label)} className="rounded-lg bg-secondary/70 p-2"><div className="text-xs text-muted-foreground">{label}</div><div className="num font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div><p className="mt-2 text-[11px] text-muted-foreground">Aktualizacja: {fmtDateTime(odds.captured_at)}</p><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[["1X", odds.odds_1x], ["X2", odds.odds_x2], ["12", odds.odds_12]].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-secondary/50 p-2"><div className="text-[10px] text-muted-foreground">{label}</div><div className="num text-sm font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div></> : <p className="text-sm text-muted-foreground">Brak zapisanych kursów dla tego spotkania.</p>}
             <div className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
-              <div>Składy i kontuzje: brak potwierdzonego źródła w obecnym modelu — nie wpływają na typ.</div>
-              <div>xG / xGA: brak potwierdzonych danych — nie są szacowane ani dopisywane.</div>
-              <div>H2H i taktyka: nie są obecnie pobierane do modelu.</div>
-              <div>Model wykorzystuje potwierdzoną historię wyników i/lub formę W/D/L FootyNomad; jeśli ich brakuje, prognoza bazowa jest odrzucana.</div>
+              <div>Składy: { (coverage as any)?.lineups ? ((coverage as any)?.lineups_confirmed ? "pobrane i potwierdzone" : "pobrane jako przewidywane / niepotwierdzone") : "brak danych PitchAPI dla tego meczu" }. Kontuzje wymagają osobnego potwierdzonego źródła.</div>
+              <div>xG / xGA: {(coverage as any)?.pitchapi_xg ? "wykorzystane w modelu z ostatnich spotkań" : "brak wiarygodnych danych dla obu drużyn — nie są dopisywane"}.</div>
+              <div>H2H: {(coverage as any)?.h2h ? "pobrane z PitchAPI" : "brak danych dla tego spotkania"}; nie jest automatycznie używane do podbijania prawdopodobieństwa.</div>
+              <div>Model łączy dostępne zweryfikowane wyniki, formę i xG; brakujące pola pozostają puste, a słabo pokryte typy są odrzucane.</div>
               {showSaved && saved?.fetchedAt && <div>Forma FootyNomad pobrana: {fmtDateTime(saved.fetchedAt)}</div>}
               <div className="flex items-center gap-1 pt-1"><CircleHelp className="size-3.5"/> Dane nieobecne nie są zastępowane wymyślonymi wartościami.</div>
             </div>
