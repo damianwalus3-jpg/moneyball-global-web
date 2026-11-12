@@ -134,8 +134,8 @@ export function buildCouponBatch<T extends Pick<Prediction, "match_id" | "probab
   }
   const sorted = [...best.values()].sort((a, b) => Number(b.probability) - Number(a.probability));
   const out: T[][] = [];
-  for (let i = 0; i + COUPON_SIZE <= sorted.length && out.length < count; i += COUPON_SIZE) {
-    out.push(sorted.slice(i, i + COUPON_SIZE));
+  for (let i = 0; i + legsPerCoupon <= sorted.length && out.length < count; i += legsPerCoupon) {
+    out.push(sorted.slice(i, i + legsPerCoupon));
   }
   return out;
 }
@@ -143,6 +143,7 @@ export function buildCouponBatch<T extends Pick<Prediction, "match_id" | "probab
 export function validateCoupon(
   legs: { match_id: string; probability: number | null }[],
   usedMatchIds: Set<string> = new Set(),
+  expectedLegs: 1 | 3 = COUPON_SIZE,
 ): string[] {
   const errors: string[] = [];
   if (legs.length !== expectedLegs) errors.push(`Kupon musi mieć dokładnie ${expectedLegs} ${expectedLegs === 1 ? "zdarzenie" : "zdarzenia"}.`);
