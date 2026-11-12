@@ -18,12 +18,13 @@ import { fmtPct, matchLabel } from "@/lib/format";
 import { isEuropeanMatch } from "@/lib/geography";
 import { ensureTables, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
+import type { Match } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/historia")({
   head: () => ({
     meta: [
       { title: "Historia i rozliczenia — MONEYBALL GLOBAL 2.0" },
-      { name: "description", content: "Wpisywanie wyników i automatyczne rozliczanie prognoz 1X2, Double Chance i kuponów." },
+      { name: "description", content: "Automatyczne pobieranie wyników i rozliczanie prognoz 1X2, Double Chance i kuponów." },
       { property: "og:title", content: "Historia i rozliczenia — MONEYBALL GLOBAL 2.0" },
       { property: "og:description", content: "Wyniki meczów i rozliczenia prognoz." },
       { property: "og:type", content: "website" },
@@ -120,7 +121,7 @@ function Historia() {
           description={
             tab === "todo"
               ? "Mecze pojawią się tutaj po godzinie rozpoczęcia, jeśli nie mają jeszcze wyniku."
-              : "Po wpisaniu wyniku mecz trafi do historii."
+              : "Mecz pojawi się tutaj po pobraniu i potwierdzeniu wyniku przez źródło danych."
           }
         />
       ) : (
