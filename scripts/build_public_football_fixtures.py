@@ -90,7 +90,7 @@ def main():
                     "competition": label(folder),
                     "competition_id": folder,
                     "country_code": folder.split("_", 1)[0],
-                    "gender": "women" if re.search(r"women|womens|frauen|femenina|feminin|female", folder, re.I) else ("men" if re.search(r"mens|men-", folder, re.I) else "unknown"),
+                    "gender": "women" if re.search(r"women|womens|frauen|femenina|feminin|female|damallsvenskan|wsl", folder, re.I) else "men",
                     "status": "scheduled",
                     "round": (row.get("gw") or "").strip() or None,
                     "source": "OpenMatchday",
