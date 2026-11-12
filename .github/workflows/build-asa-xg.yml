@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "scripts/build_asa_xg_data.py"
+      - "scripts/backtest_asa_xg.py"
       - ".github/workflows/build-asa-xg.yml"
   workflow_dispatch:
   schedule:
@@ -26,9 +27,11 @@ jobs:
           python-version: "3.12"
       - name: Build public ASA xG index
         run: python scripts/build_asa_xg_data.py
+      - name: Backtest xG model against goals-only baseline
+        run: python scripts/backtest_asa_xg.py
       - name: Commit updated data
         run: |
-          git add public-data/asa-xg.json
+          git add public-data/asa-xg.json public-data/asa-xg-benchmark.json
           if git diff --cached --quiet; then
             echo "ASA xG data is unchanged."
             exit 0
