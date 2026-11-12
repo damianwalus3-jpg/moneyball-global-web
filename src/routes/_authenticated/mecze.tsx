@@ -204,7 +204,8 @@ function Mecze() {
         <div className="min-w-0">
           <h2 className="text-lg font-bold uppercase">Generator kuponów</h2>
           <p className="text-sm text-muted-foreground">Tworzy kupony bezpośrednio z dzisiejszych typów WYBRANY powyżej 75%. Każdy kupon ma 3 różne mecze i stawkę wirtualną 5 €.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Dostępne kupony do utworzenia: ${couponBatch.length} · wykorzystane mecze są pomijane.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Dostępne kupony do utworzenia: {couponBatch.length} · wykorzystane mecze są pomijane.</p>
+          {couponBatch.length === 0 && <p className="mt-1 text-xs text-warning">Brak 3 wolnych, dzisiejszych typów WYBRANY powyżej 75% z przyszłą godziną rozpoczęcia.</p>}
         </div>
         <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
           <Button size="lg" className="w-full text-base font-bold" disabled={createCoupons.isPending || couponBatch.length === 0} onClick={() => createCoupons.mutate(undefined)}>
