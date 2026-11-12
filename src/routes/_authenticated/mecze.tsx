@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine, Ticket } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ export const Route = createFileRoute("/_authenticated/mecze")({
 type View = "today" | "past" | "all" | "scans";
 
 function Mecze() {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const matches = useTable("matches");
   const scans = useTable("scan_runs");
@@ -160,6 +161,9 @@ function Mecze() {
             <Button onClick={runTodayScan} disabled={globalScanRunning || analysisRunning}>
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
               {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
+            </Button>
+            <Button variant="default" onClick={() => navigate({ to: "/kupony" })}>
+              <Ticket /> Generuj kupony
             </Button>
             <Button variant="outline" onClick={() => void runTodayAnalysis()} disabled={globalScanRunning || analysisRunning}>
               <BrainCircuit className={analysisRunning ? "animate-pulse" : ""} />
