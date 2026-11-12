@@ -1,4 +1,4 @@
-name: Build American Soccer Analysis xG data
+name: Build American Soccer Analysis xG data and calibrate models
 
 on:
   push:
