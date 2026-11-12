@@ -6,6 +6,7 @@ import { couponPayout, groupHitRates, hitRate, type HitRate } from "@/lib/domain
 import { fmtMoney, fmtPct } from "@/lib/format";
 import { ensureTables, useTable } from "@/lib/queries";
 import type { Prediction, PredictionType } from "@/lib/types";
+import { isEuropeanMatch } from "@/lib/geography";
 
 export const Route = createFileRoute("/_authenticated/statystyki")({
   head: () => ({
@@ -41,20 +42,31 @@ function Statystyki() {
   const preds = useTable("predictions");
   const coupons = useTable("coupons");
   const legs = useTable("coupon_legs");
-  const byId = useMemo(() => new Map(matches.map((m) => [m.id, m])), [matches]);
+  const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
+  const europeanMatchIds = useMemo(() => new Set(europeanMatches.map((m) => m.id)), [europeanMatches]);
+  const europeanPredictions = preds.filter((p) => europeanMatchIds.has(p.match_id));
+  const byId = useMemo(() => new Map(europeanMatches.map((m) => [m.id, m])), [europeanMatches]);
+  const couponLegsByCoupon = new Map<string, typeof legs>();
+  for (const leg of legs) couponLegsByCoupon.set(leg.coupon_id, [...(couponLegsByCoupon.get(leg.coupon_id) ?? []), leg]);
+  const europeanCoupons = coupons.filter((coupon) => {
+    const couponLegs = couponLegsByCoupon.get(coupon.id) ?? [];
+    return couponLegs.length > 0 && couponLegs.every((leg) => europeanMatchIds.has(leg.match_id));
+  });
+  const europeanCouponIds = new Set(europeanCoupons.map((coupon) => coupon.id));
+  const europeanCouponLegs = legs.filter((leg) => europeanCouponIds.has(leg.coupon_id));
 
-  const settledCoupons = coupons.filter((c) => c.status && c.status !== "pending");
+  const settledCoupons = europeanCoupons.filter((c) => c.status && c.status !== "pending");
   const staked = settledCoupons.filter((c) => c.stake != null);
   const stakeSum = staked.reduce((s, c) => s + Number(c.stake), 0);
   const payoutSum = staked.reduce(
-    (s, c) => s + (couponPayout(c.stake, legs.filter((l) => l.coupon_id === c.id)) ?? 0),
+    (s, c) => s + (couponPayout(c.stake, europeanCouponLegs.filter((l) => l.coupon_id === c.id)) ?? 0),
     0,
   );
   const profit = Math.round((payoutSum - stakeSum) * 100) / 100;
   const roi = stakeSum > 0 ? Math.round((profit / stakeSum) * 1000) / 10 : null;
-  const chr = hitRate(coupons.map((c) => c.status));
+  const chr = hitRate(europeanCoupons.map((c) => c.status));
 
-  if (preds.length === 0 && coupons.length === 0)
+  if (europeanPredictions.length === 0 && europeanCoupons.length === 0)
     return (
       <div>
         <PageHeader title="Statystyki" />
@@ -67,12 +79,12 @@ function Statystyki() {
       <PageHeader
         eyebrow="1X2 i DC liczone osobno"
         title="Statystyki"
-        description="Skuteczność = wygrane / (wygrane + przegrane). Zwroty i oczekujące nie są wliczane."
+        description="Statystyki dotyczą wyłącznie meczów europejskich. Skuteczność = wygrane / (wygrane + przegrane); zwroty i oczekujące nie są wliczane."
       />
 
       <div className="grid gap-6">
         {(["1X2", "DC"] as PredictionType[]).map((t) => (
-          <MarketBlock key={t} type={t} preds={preds.filter((p) => p.prediction_type === t)} leagueOf={(p) => byId.get(p.match_id)?.league ?? "—"} />
+          <MarketBlock key={t} type={t} preds={europeanPredictions.filter((p) => p.prediction_type === t)} leagueOf={(p) => byId.get(p.match_id)?.league ?? "—"} />
         ))}
 
         <section>
