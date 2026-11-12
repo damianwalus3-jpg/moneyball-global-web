@@ -64,7 +64,7 @@ Deno.serve(async(req)=>{
   }
   const totals=(key:string)=>results.reduce((sum,x)=>sum+Number(x[key]||0),0);
   const failures=results.filter(x=>x.http_status<200||x.http_status>=300||x.ok===false||x.error);
-  return new Response(JSON.stringify({ok:failures.length===0,date,days,dates,dates_completed:results.length-failures.length,dates_failed:failures.length,total_found:totals("total_found"),fixtures_count:totals("fixtures_count"),combined_count:totals("combined_count"),public_fixtures:totals("public_fixtures"),enriched:totals("enriched"),public_only:totals("public_only"),inserted:totals("inserted"),updated:totals("updated"),settled:totals("settled"),results}),{status:failures.length===days?400:200,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+  return new Response(JSON.stringify({ok:results.some(x=>x.ok===true),partial:failures.length>0,date,days,dates,dates_completed:results.length-failures.length,dates_failed:failures.length,total_found:totals("total_found"),fixtures_count:totals("fixtures_count"),combined_count:totals("combined_count"),public_fixtures:totals("public_fixtures"),enriched:totals("enriched"),public_only:totals("public_only"),inserted:totals("inserted"),updated:totals("updated"),settled:totals("settled"),scan_run_ids:results.map(x=>x.scan_run_id).filter(Boolean),results}),{status:failures.length===days?400:200,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
  }
  const result=await readFixtures(date);
   if(req.method==="GET")return new Response(JSON.stringify(result),{headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
