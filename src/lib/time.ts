@@ -87,6 +87,20 @@ export function fmtDayLong(iso: string | null | undefined): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "—" : dFmt.format(d);
 }
+
+const dateOnlyFmt = new Intl.DateTimeFormat("pl-PL", {
+  timeZone: "UTC",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+export function fmtMatchDateTime(iso: string | null | undefined, date: string | null | undefined): string {
+  if (iso) return fmtDateTime(iso);
+  if (!date) return "—";
+  const parsed = new Date(`${date.slice(0,10)}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? "—" : `${dateOnlyFmt.format(parsed)} · godzina nieznana`;
+}
+
 export function fmtTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
