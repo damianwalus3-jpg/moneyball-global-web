@@ -41,9 +41,9 @@ export const Route = createFileRoute("/_authenticated/kupony")({
   head: () => ({
     meta: [
       { title: "Kupony — MONEYBALL GLOBAL 2.0" },
-      { name: "description", content: "Kupony z dokładnie 3 różnymi meczami, tylko kandydaci powyżej 75%." },
+      { name: "description", content: "Kupony pojedyncze i AKO, tylko kandydaci powyżej 75%." },
       { property: "og:title", content: "Kupony — MONEYBALL GLOBAL 2.0" },
-      { property: "og:description", content: "Kupony 3-meczowe z kandydatów powyżej 75%." },
+      { property: "og:description", content: "Kupony pojedyncze i AKO z kandydatów powyżej 75%." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/_authenticated/kupony")({
   component: Kupony,
 });
 
-type Market = "all" | "1X2" | "DC";
+type Market = "all" | "1X2" | "DC";\ntype CouponSize = 1 | 3;
 
 function Kupony() {
   const matches = useTable("matches");
@@ -68,7 +68,7 @@ function Kupony() {
   const byId = useMemo(() => new Map(europeanMatches.map((m) => [m.id, m])), [europeanMatches]);
 
   const [market, setMarket] = useState<Market>("all");
-  const [count, setCount] = useState("3");
+  const [count, setCount] = useState("3");\n  const [couponSize, setCouponSize] = useState<CouponSize>(3);
   const [stake, setStake] = useState("5");
   const [recordStake, setRecordStake] = useState(true);
   const [excludeActive, setExcludeActive] = useState(true);
@@ -98,15 +98,15 @@ function Kupony() {
     .sort((a, b) => Number(b.probability) - Number(a.probability));
 
   const distinctMatches = new Set(candidates.map((c) => c.match_id)).size;
-  const maxCoupons = Math.floor(distinctMatches / 3);
+  const maxCoupons = Math.floor(distinctMatches / couponSize);
   const nCount = Math.max(1, Math.min(maxCoupons || 1, 20, Math.floor(Number(count) || 1)));
-  const preview = buildCouponBatch(candidates, nCount);
+  const preview = buildCouponBatch(candidates, nCount, couponSize);
   const stakeNum = parseDecimal(stake);
   const stakeError = stake.trim() && (stakeNum == null || stakeNum <= 0) ? "Stawka musi być > 0." : "";
 
   const saveBatch = useAction(
     (batch: Prediction[][]) =>
-      saveCouponBatch(batch, { namePrefix: prefix.trim() || "Kupon", stake: stakeNum, recordStake }),
+      saveCouponBatch(batch, { namePrefix: prefix.trim() || "Kupon", stake: stakeNum, recordStake, legsPerCoupon: couponSize }),
     {
       success: (n) => `Zapisano ${n} kupon(y)`,
       onDone: () => setManual([]),
@@ -119,14 +119,14 @@ function Kupony() {
   });
 
   const manualLegs = manual.map((id) => preds.find((p) => p.id === id)!).filter((p) => p && europeanMatchIds.has(p.match_id));
-  const manualErrors = manual.length ? validateCoupon(manualLegs) : [];
+  const manualErrors = manual.length ? validateCoupon(manualLegs, new Set(), couponSize) : [];
 
   function toggleManual(p: Prediction) {
     setManual((cur) => {
       if (cur.includes(p.id)) return cur.filter((x) => x !== p.id);
       const sameMatch = cur.find((id) => preds.find((x) => x.id === id)?.match_id === p.match_id);
       const next = sameMatch ? cur.filter((x) => x !== sameMatch) : cur;
-      return next.length >= 3 ? next : [...next, p.id];
+      return next.length >= couponSize ? next : [...next, p.id];
     });
   }
 
@@ -159,25 +159,25 @@ function Kupony() {
     .filter((c) => {
       const legCount = legs.filter((l) => l.coupon_id === c.id).length;
       if (statusFilter === "all") return true;
-      if (statusFilter === "cancelled") return c.status === "cancelled" || ((c.status ?? "pending") === "pending" && legCount !== 3);
+      if (statusFilter === "cancelled") return c.status === "cancelled";
       if ((c.status ?? "pending") !== statusFilter) return false;
-      return statusFilter !== "pending" || legCount === 3;
+      return statusFilter !== "pending" || legCount === (c.target_legs ?? 3);
     })
     .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 
   const counts = { pending: 0, won: 0, lost: 0, void: 0, cancelled: 0 } as Record<Settlement, number>;
   for (const c of europeanCoupons) {
     const status = (c.status ?? "pending") as Settlement;
-    if (status === "pending" && legs.filter((l) => l.coupon_id === c.id).length !== 3) counts.cancelled++;
+    if (status === "pending" && legs.filter((l) => l.coupon_id === c.id).length !== (c.target_legs ?? 3)) counts.cancelled++;
     else counts[status]++;
   }
 
   return (
     <div>
       <PageHeader
-        eyebrow={`3 mecze · tylko > ${CANDIDATE_MIN_PROBABILITY}%`}
+        eyebrow={`pojedyncze i AKO · tylko > ${CANDIDATE_MIN_PROBABILITY}%`}
         title="Kupony"
-        description="Wyświetlane są wyłącznie kupony z meczami europejskimi. Kupony tworzone są wyłącznie z meczów rozgrywanych dzisiaj (czas Belgii). Każdy kupon ma dokładnie 3 różne mecze, a żaden mecz nie powtarza się między kuponami."
+        description="Kupony z europejskich meczów rozgrywanych dzisiaj (czas Belgii): pojedyncze typy lub AKO po 3 różne mecze. Każdy kupon jest rozliczany niezależnie."
       />
       <div className="mb-4 flex justify-end">
         <Button
@@ -204,7 +204,7 @@ function Kupony() {
           <Sparkles className="size-5 text-primary" />
           <h2 className="text-xl font-semibold uppercase">Generator kuponów</h2>
         </div>
-        <p className="mb-3 text-sm text-muted-foreground">Skanowanie meczów nie zapisuje automatycznie kuponów. Po zakończeniu skanu sprawdź podgląd poniżej i naciśnij „GENERUJ I ZAPISZ KUPONY”. Dopiero wtedy kupony zostaną dodane do listy i bankrolla (jeśli zaznaczysz zapis stawki).</p>
+        <p className="mb-3 text-sm text-muted-foreground">Skanowanie meczów nie zapisuje automatycznie kuponów. Po zakończeniu skanu sprawdź podgląd poniżej i naciśnij „GENERUJ I ZAPISZ”. Dopiero wtedy kupony zostaną dodane do listy i bankrolla (jeśli zaznaczysz zapis stawki).</p>
         <Button className="mb-4 w-full text-base font-bold" size="lg" disabled={!!stakeError || saveBatch.isPending || preview.length === 0} onClick={() => saveBatch.mutate(preview)}>
           <Ticket className="mr-2 size-5" /> {saveBatch.isPending ? "TWORZENIE KUPONÓW…" : `GENERUJ I ZAPISZ KUPONY (${preview.length})`}
         </Button>
@@ -218,7 +218,7 @@ function Kupony() {
               ))}
             </div>
           </Field>
-          <Field label="Liczba kuponów" hint={`Maks. ${Math.floor(distinctMatches / 3)} z dostępnych meczów`}>
+          <Field label="Liczba kuponów" hint={`Maks. ${maxCoupons} kuponów`}>
             <Input type="number" inputMode="numeric" min={maxCoupons > 0 ? 1 : 0} max={maxCoupons} step={1} disabled={maxCoupons === 0} className="num" value={String(nCount)} onChange={(e) => { const requested = Math.max(1, Math.floor(Number(e.target.value) || 1)); setCount(String(Math.min(maxCoupons || 1, requested))); }} />
           </Field>
           <Field label="Stawka na kupon (€)" error={stakeError}>
@@ -241,7 +241,7 @@ function Kupony() {
 
         {preview.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Za mało dzisiejszych kandydatów: potrzeba co najmniej 3 różnych, jeszcze nierozpoczętych meczów z prognozą WYBRANY powyżej{" "}
+            Brak wystarczającej liczby kandydatów: potrzeba co najmniej {couponSize} jeszcze nierozpoczętych meczów z prognozą WYBRANY powyżej{" "}
             {CANDIDATE_MIN_PROBABILITY}%.
           </p>
         ) : (
@@ -274,7 +274,7 @@ function Kupony() {
       {candidates.length > 0 && (
         <section className="surface-card mb-6 p-4">
           <h2 className="mb-1 text-xl font-semibold uppercase">Kupon ręczny</h2>
-          <p className="mb-3 text-xs text-muted-foreground">Zaznacz 3 kandydatów z różnych meczów ({manual.length}/3).</p>
+          <p className="mb-3 text-xs text-muted-foreground">Zaznacz {couponSize === 1 ? "1 kandydata" : "3 kandydatów z różnych meczów"} ({manual.length}/{couponSize}).</p>
           <div className="grid max-h-80 gap-1 overflow-y-auto">
             {candidates.map((p) => (
               <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-secondary">
@@ -285,11 +285,11 @@ function Kupony() {
               </label>
             ))}
           </div>
-          {manual.length === 3 && manualErrors.length > 0 && <p className="mt-2 text-xs text-destructive">{manualErrors.join(" ")}</p>}
+          {manual.length === couponSize && manualErrors.length > 0 && <p className="mt-2 text-xs text-destructive">{manualErrors.join(" ")}</p>}
           <Button
             className="mt-3"
             variant="outline"
-            disabled={manual.length !== 3 || manualErrors.length > 0 || !!stakeError || saveBatch.isPending}
+            disabled={manual.length !== couponSize || manualErrors.length > 0 || !!stakeError || saveBatch.isPending}
             onClick={() => saveBatch.mutate([manualLegs])}
           >
             <Ticket /> Utwórz kupon z zaznaczonych
@@ -331,7 +331,7 @@ function Kupony() {
                       <SettlementBadge status={l.result_status} />
                     </div>
                   ))}
-                  {cl.length !== 3 && <p className="text-xs text-warning">Niekompletny kupon ({cl.length}/3). Nie jest aktywny i nie może być rozliczany.</p>}
+                  {cl.length !== (c.target_legs ?? 3) && <p className="text-xs text-warning">Niekompletny kupon ({cl.length}/{c.target_legs ?? 3}). Wymaga uzupełnienia.</p>}
                 </div>
                 <div className="num mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-sm">
                   <div>
