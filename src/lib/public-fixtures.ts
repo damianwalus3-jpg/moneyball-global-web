@@ -11,6 +11,7 @@ type PublicFixture = {
   competition: string;
   competition_id: string;
   country_code: string;
+  gender: "men" | "women" | "mixed" | "unknown";
   source: string;
 };
 type FixturePayload = { generated_at: string; coverage: { fixture_count: number }; fixtures: PublicFixture[] };
@@ -79,6 +80,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
         kickoff_at: kickoff,
         league: f.competition,
         country,
+        gender: f.gender || "unknown",
         home_team: f.home_team,
         away_team: f.away_team,
       };
