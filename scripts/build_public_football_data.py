@@ -38,7 +38,7 @@ def norm(s: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", s)).strip()
 
 def infer_gender(*values: str) -> str:
-    text = " ".join(str(value or "") for value in values).lower()
+    text = re.sub(r"[^a-z0-9]+", " ", " ".join(str(value or "") for value in values).lower())
     if re.search(r"\b(women|womens|woman|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\b", text):
         return "women"
     return "men"
