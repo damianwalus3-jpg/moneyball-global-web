@@ -229,8 +229,8 @@ function Mecze() {
   const todayKey = brusselsDayKey(new Date());
   const matchDayKey = (m: Match): string | null => {
     if (m.kickoff_at) return brusselsDayKey(m.kickoff_at);
-    // OpenMatchday external IDs retain the fixture date when the source has
-    // not published a kickoff time. Keep the date visible without inventing a time.
+    if (m.kickoff_date) return m.kickoff_date.slice(0,10);
+    // Older rows retain the fixture date in OpenMatchday external IDs.
     return /:(\d{4}-\d{2}-\d{2}):/.exec(m.external_id ?? "")?.[1] ?? null;
   };
   const filtered = europeanMatches
