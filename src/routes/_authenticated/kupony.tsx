@@ -32,6 +32,7 @@ import {
 } from "@/lib/domain";
 import { fmtMoney, fmtOdds, fmtPct, matchLabel, parseDecimal } from "@/lib/format";
 import { requireSupabase } from "@/lib/supabase";
+import { readConfig } from "@/lib/config";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
 import type { Coupon, Prediction, Settlement } from "@/lib/types";
@@ -86,7 +87,8 @@ function Kupony() {
     .filter((p) => !excludeActive || !activeMatchIds.has(p.match_id))
     .sort((a, b) => Number(b.probability) - Number(a.probability));
 
-  const nCount = Math.max(1, Math.min(20, Math.floor(Number(count) || 1)));
+  const maxCoupons = Math.floor(distinctMatches / 3);
+  const nCount = Math.max(1, Math.min(maxCoupons || 1, 20, Math.floor(Number(count) || 1)));
   const preview = buildCouponBatch(candidates, nCount);
   const stakeNum = parseDecimal(stake);
   const stakeError = stake.trim() && (stakeNum == null || stakeNum <= 0) ? "Stawka musi być > 0." : "";
@@ -103,8 +105,50 @@ function Kupony() {
 
   const refreshResults = useAction(
     async () => {
-      const { data, error } = await requireSupabase().functions.invoke("moneyball-results-sync");
-      if (error) throw error;
+      const client = requireSupabase();
+      const config = readConfig();
+      if (!config) throw new Error("Brak konfiguracji Supabase. Otwórz Ustawienia i sprawdź połączenie.");
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw new Error("Nie udało się odczytać sesji: " + sessionError.message);
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sesja wygasła. Zaloguj się ponownie.");
+
+      // Use fetch directly instead of supabase.functions.invoke: the results job can take
+      // 40+ seconds, and the SDK wrapper may surface a generic FunctionsFetchError on mobile.
+      const endpoint = config.url.replace(/\\/$/, "") + "/functions/v1/moneyball-results-sync";
+      let response: Response | null = null;
+      let lastNetworkError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              apikey: config.anonKey,
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: "{}",
+            cache: "no-store",
+            signal: AbortSignal.timeout(90_000),
+          });
+          break;
+        } catch (error) {
+          lastNetworkError = error;
+          if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1200));
+        }
+      }
+      if (!response) {
+        const detail = lastNetworkError instanceof Error ? lastNetworkError.message : String(lastNetworkError ?? "brak odpowiedzi");
+        throw new Error("Nie udało się połączyć z synchronizacją wyników po dwóch próbach. " + detail);
+      }
+      const raw = await response.text();
+      let data: any = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+      if (!response.ok) {
+        const detail = data?.error || data?.message || raw || `HTTP ${response.status}`;
+        throw new Error(`Synchronizacja wyników: ${detail}`);
+      }
       if (data?.ok === false) {
         const details = Array.isArray(data.errors) ? data.errors.join("; ") : data.error;
         throw new Error(details || "Synchronizacja wyników zgłosiła błąd.");
@@ -210,7 +254,7 @@ function Kupony() {
             </div>
           </Field>
           <Field label="Liczba kuponów" hint={`Maks. ${Math.floor(distinctMatches / 3)} z dostępnych meczów`}>
-            <Input inputMode="numeric" className="num" value={count} onChange={(e) => setCount(e.target.value)} />
+            <Input type="number" inputMode="numeric" min={maxCoupons > 0 ? 1 : 0} max={maxCoupons} step={1} disabled={maxCoupons === 0} className="num" value={String(nCount)} onChange={(e) => { const requested = Math.max(1, Math.floor(Number(e.target.value) || 1)); setCount(String(Math.min(maxCoupons || 1, requested))); }} />
           </Field>
           <Field label="Stawka na kupon (opcjonalnie)" error={stakeError}>
             <Input inputMode="decimal" className="num" value={stake} onChange={(e) => setStake(e.target.value)} placeholder="np. 10" />
