@@ -27,8 +27,8 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
   for (const m of existing) {
     if (!isEuropeanMatch(m) || !m.home_team || !m.away_team) continue;
     const day = m.kickoff_date || (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null);
-    if (m.kickoff_at) existingByKey.set(matchKey(new Date(m.kickoff_at).toISOString(), m.home_team, m.away_team), m);
-    if (day) existingByDayKey.set(matchKey(null, m.home_team, m.away_team, day), m);
+    if (m.kickoff_at) existingByKey.set(matchKey(new Date(m.kickoff_at).toISOString(), m.home_team, m.away_team, m.kickoff_date, m.gender), m);
+    if (day) existingByDayKey.set(matchKey(null, m.home_team, m.away_team, day, m.gender), m);
   }
 
   const existingByExternalId = new Map<string, Match>();
@@ -37,7 +37,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
 
   const idByKey = new Map<string, string>();
   const toInsert = europeanMatches.filter((m) => {
-    const dayKey = matchKey(null, m.home_team, m.away_team, m.kickoff_date ?? (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null));
+    const dayKey = matchKey(null, m.home_team, m.away_team, m.kickoff_date ?? (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null), m.gender);
     const e = existingByKey.get(m.key) || (m.external_id ? existingByExternalId.get(m.external_id) : undefined) || existingByDayKey.get(dayKey);
     if (e) idByKey.set(m.key, e.id);
     return !e;
@@ -61,7 +61,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     })),
   );
   for (const m of inserted)
-    idByKey.set(matchKey(m.kickoff_at ? new Date(m.kickoff_at).toISOString() : null, m.home_team!, m.away_team!, m.kickoff_date), m.id);
+    idByKey.set(matchKey(m.kickoff_at ? new Date(m.kickoff_at).toISOString() : null, m.home_team!, m.away_team!, m.kickoff_date, m.gender), m.id);
 
   const preds = europeanPredictions.map((p) => {
     const match_id = idByKey.get(p.matchKey);
