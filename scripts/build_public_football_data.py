@@ -58,6 +58,50 @@ def load_folder(folder: str):
             last = str(exc)
     return folder, [], None, last
 
+
+INTERNATIONAL_TREE = "https://api.github.com/repos/openfootball/internationals/git/trees/master?recursive=1"
+TEAM_ALIASES = {
+    "republic of ireland": "ireland", "ireland": "republic of ireland",
+    "turkey": "turkiye", "turkiye": "turkey",
+    "czech republic": "czechia", "czechia": "czech republic",
+    "dr congo": "congo dr", "congo dr": "dr congo",
+    "democratic republic of congo": "congo dr",
+}
+
+def load_international_results():
+    tree = json.loads(get(INTERNATIONAL_TREE))
+    paths = sorted(item["path"] for item in tree.get("tree", [])
+        if item.get("type") == "blob" and re.search(r"/202[456]_[A-Za-z0-9_-]+\.txt$", item.get("path", "")))
+    def fetch_one(path):
+        return path, get("https://raw.githubusercontent.com/openfootball/internationals/master/" + path)
+    loaded, failed = [], []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(fetch_one, path) for path in paths]
+        for future in as_completed(futures):
+            try: loaded.append(future.result())
+            except Exception as exc: failed.append(str(exc)[:180])
+    rows = []
+    for path, raw in loaded:
+        try: year = int(path.rsplit("/", 1)[-1][:4])
+        except ValueError: continue
+        competition = path.rsplit("/", 1)[-1][5:-4].replace("_", " ")
+        current_date = None
+        for line in raw.splitlines():
+            heading = re.match(r"^[A-Z][a-z]{2} ([A-Z][a-z]{2}) (\d{1,2})$", line.strip())
+            if heading:
+                try: current_date = datetime.strptime(f"{year} {heading.group(1)} {heading.group(2)}", "%Y %b %d").date().isoformat()
+                except ValueError: current_date = None
+                continue
+            if not current_date or not line.startswith("  ") or line.startswith("   "): continue
+            main = line[2:].split(" @ ", 1)[0].strip()
+            main = re.sub(r"\s+\[[^]]+\]\s*$", "", main)
+            parsed = re.match(r"^(.+?)\s+(\d+)-(\d+)\s+(.+?)\s*$", main)
+            if not parsed: continue
+            home, hg, ag, away = parsed.groups()
+            if home.strip() and away.strip():
+                rows.append((current_date, home.strip(), away.strip(), int(hg), int(ag), competition, path))
+    return rows, len(paths), len(loaded), failed[:20]
+
 def main():
     index = get(BASE + "/LEAGUE_INDEX.md")
     folders = sorted(set(re.findall(r"`([A-Z]{3}_[A-Za-z0-9_-]+)`", index)))
@@ -110,6 +154,22 @@ def main():
                         "source": "OpenMatchday"
                     }
                     team_rows.setdefault(key, {"name": team, "matches": []})["matches"].append(item)
+
+    international_rows, international_files, international_loaded, international_failed = load_international_results()
+    for date, home, away, hg, ag, competition, source_path in international_rows:
+        for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, hg)):
+            key = norm(team)
+            if not key: continue
+            result = "W" if gf > ga else "L" if gf < ga else "D"
+            item = {"date":date,"opponent":opponent,"result":result,"goals_for":gf,"goals_against":ga,
+                "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
+                "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
+                "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
+                "competition":competition,"country":"INT","source":"OpenFootball Internationals","source_path":source_path}
+            team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
+            alias = TEAM_ALIASES.get(key)
+            if alias: team_rows.setdefault(alias, {"name":team,"matches":[]})["matches"].append(item)
+
     teams = {}
     for key, entry in team_rows.items():
         # A club may appear in a league and a cup; deduplicate exact same fixture rows.
@@ -124,14 +184,14 @@ def main():
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday public CSV",
+        "source": "OpenMatchday public CSV + OpenFootball Internationals",\n        "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",\n        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball Internationals: CC0 1.0"],
         "source_url": "https://github.com/oladeeayo/open-matchday",
         "attribution": "OpenMatchday contributors; informational non-commercial use; upstream provider rights apply.",
         "coverage": {
             "competitions_indexed": len(folders),
             "competitions_with_results": successful,
             "team_names": len(teams),
-            "result_rows_read": total_rows,
+            "result_rows_read": total_rows,\n            "international_files_indexed": international_files,\n            "international_files_loaded": international_loaded,\n            "international_matches_read": len(international_rows),\n            "international_fetch_errors": international_failed,
             "failed_competitions": failed[:30]
         },
         "teams": teams
