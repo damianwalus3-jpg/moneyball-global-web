@@ -370,8 +370,20 @@ def main():
     form_payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday + OpenFootball JSON and text leagues + internationals",
+        "source": "OpenMatchday + OpenFootball JSON/text leagues + internationals",
         "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball football.json, Europe, World, South America and Internationals (CC0 1.0).",
+        "coverage": {
+            "team_names": len(compact_teams),
+            "openmatchday_competitions_with_results": successful,
+            "openmatchday_result_rows_read": total_rows,
+            "openfootball_league_files_loaded": openfootball_loaded,
+            "openfootball_league_matches_read": len(openfootball_rows),
+            "openfootball_text_files_indexed": text_files,
+            "openfootball_text_files_loaded": text_loaded,
+            "openfootball_text_matches_read": len(text_rows),
+            "international_files_loaded": international_loaded,
+            "international_matches_read": len(international_rows)
+        },
         "teams": compact_teams
     }
     FORM_OUT.parent.mkdir(parents=True, exist_ok=True)
