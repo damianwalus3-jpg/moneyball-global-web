@@ -86,6 +86,8 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
       const kickoff = zonedLocalToIso(f.date, time, timezone);
       return {
         key: matchKey(kickoff, f.home_team, f.away_team),
+        external_id: f.fixture_id,
+        source: "OpenMatchday",
         kickoff_at: kickoff,
         league: f.competition,
         country,
