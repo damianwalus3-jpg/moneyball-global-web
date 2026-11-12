@@ -179,9 +179,9 @@ function Mecze() {
       if (!data?.ok) throw new Error(data?.error || "Analiza nie została zakończona.");
       await Promise.all(["matches","predictions","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       const pitchSummary = pitchData?.configured
-        ? " • PitchAPI: " + (pitchData.enriched ?? 0) + " meczów / " + (pitchData.team_forms ?? 0) + " form"
+        ? " • PitchAPI: " + (pitchData.enriched ?? 0) + " meczów / " + (pitchData.with_xg_matches ?? 0) + " ostatnich meczów z xG"
         : " • PitchAPI: brak klucza API";
-      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma FootyNomad " + (data.footy_form_matches ?? 0) + " • xG PitchAPI " + (data.pitchapi_xg_matches ?? 0) + pitchSummary + " • bez danych " + (data.missing ?? 0));
+      toast.success("Analiza zakończona: " + (data.predictions ?? 0) + " typów • pokrycie " + (data.covered ?? 0) + "/" + (data.matches ?? 0) + " • forma FootyNomad " + (data.footy_form_matches ?? 0) + " • xG PitchAPI " + (data.pitchapi_form_matches ?? 0) + pitchSummary + " • bez danych " + (data.missing ?? 0));
     } catch (e) {
       toast.error("Skan zapisany, ale analiza nie powiodła się: " + (e instanceof Error ? e.message : String(e)));
     } finally { setAnalysisRunning(false); }
