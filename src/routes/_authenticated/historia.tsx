@@ -14,6 +14,7 @@ import {
 } from "@/components/app/ui-bits";
 import { SettleMatchDialog } from "@/components/app/SettleMatchDialog";
 import { fmtPct, matchLabel } from "@/lib/format";
+import { isEuropeanMatch } from "@/lib/geography";
 import { ensureTables, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
 import type { Match } from "@/lib/types";
@@ -43,14 +44,17 @@ function Historia() {
   const [tab, setTab] = useState<"todo" | "done">("todo");
   const [q, setQ] = useState("");
   const [settle, setSettle] = useState<Match | null>(null);
-  const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
+  const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
+  const europeanMatchIds = useMemo(() => new Set(europeanMatches.map((m) => m.id)), [europeanMatches]);
+  const europeanResults = results.filter((r) => europeanMatchIds.has(r.match_id));
+  const resultBy = useMemo(() => new Map(europeanResults.map((r) => [r.match_id, r])), [europeanResults]);
   const now = Date.now();
 
   const isVoided = (m: Match) => m.status === "cancelled" || m.status === "postponed";
-  const todo = matches
+  const todo = europeanMatches
     .filter((m) => m.kickoff_at && new Date(m.kickoff_at).getTime() < now && !resultBy.has(m.id) && !isVoided(m))
     .sort((a, b) => (a.kickoff_at ?? "").localeCompare(b.kickoff_at ?? ""));
-  const done = matches
+  const done = europeanMatches
     .filter((m) => resultBy.has(m.id) || isVoided(m))
     .sort((a, b) => (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? ""));
   const list = (tab === "todo" ? todo : done).filter(
@@ -62,7 +66,7 @@ function Historia() {
       <PageHeader
         eyebrow="Wyniki · rozliczenia"
         title="Historia / Rozliczenia"
-        description="Wpisz wynik, a aplikacja rozliczy wszystkie prognozy 1X2 i DC tego meczu oraz powiązane kupony. Poprawienie wyniku rozlicza wszystko ponownie."
+        description="Historia obejmuje wyłącznie mecze europejskie. Wpisz wynik, a aplikacja rozliczy wszystkie prognozy 1X2 i DC tego meczu oraz powiązane kupony. Poprawienie wyniku rozlicza wszystko ponownie."
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button size="sm" variant={tab === "todo" ? "default" : "outline"} onClick={() => setTab("todo")}>
