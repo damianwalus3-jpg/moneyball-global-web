@@ -16,6 +16,7 @@ import { deleteRow } from "@/lib/db";
 import { MATCH_STATUS_LABELS, buildCouponBatch, isCouponCandidate } from "@/lib/domain";
 import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
+import { isEuropeanMatch } from "@/lib/geography";
 import { syncResults } from "@/lib/results";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime, fmtDayLong, fmtTime } from "@/lib/time";
@@ -71,6 +72,7 @@ function Mecze() {
   const [globalScanRunning, setGlobalScanRunning] = useState(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
 
+  const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
   const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
   const latestOdds = useMemo(() => {
     const m = new Map<string, (typeof odds)[number]>();
@@ -96,7 +98,7 @@ function Mecze() {
   const activeCouponIds = new Set(coupons.filter((coupon) => (coupon.status ?? "pending") === "pending").map((coupon) => coupon.id));
   const usedCouponMatchIds = new Set(couponLegs.filter((leg) => activeCouponIds.has(leg.coupon_id)).map((leg) => leg.match_id));
   const couponCandidates = preds
-    .filter((p) => isCouponCandidate(p, matches.find((m) => m.id === p.match_id), Date.now()))
+    .filter((p) => isEuropeanMatch(matches.find((m) => m.id === p.match_id) ?? {}) && isCouponCandidate(p, matches.find((m) => m.id === p.match_id), Date.now()))
     .filter((p) => {
       const kickoff = matches.find((m) => m.id === p.match_id)?.kickoff_at;
       return !!kickoff && brusselsDayKey(kickoff) === todayKeyForCoupons && !usedCouponMatchIds.has(p.match_id);
@@ -194,7 +196,7 @@ function Mecze() {
 
   const todayKey = brusselsDayKey(new Date());
   const now = Date.now();
-  const filtered = matches
+  const filtered = europeanMatches
     .filter((m) => {
       if (!m.kickoff_at) return false;
       const day = brusselsDayKey(m.kickoff_at);
@@ -354,14 +356,14 @@ function Mecze() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
-          title={matches.length === 0 ? "Brak meczów" : "Brak meczów w tym widoku"}
+          title={europeanMatches.length === 0 ? "Brak meczów europejskich" : "Brak meczów w tym widoku"}
           description={
-            matches.length === 0
-              ? "Zaimportuj skan CSV albo dodaj mecz ręcznie. Aplikacja nie tworzy przykładowych danych."
+            europeanMatches.length === 0
+              ? "Wykonaj europejski skan FootyNomad albo zaimportuj europejskie mecze. Aplikacja nie tworzy przykładowych danych."
               : "Zmień filtr lub wyszukiwanie."
           }
           action={
-            matches.length === 0 ? (
+            europeanMatches.length === 0 ? (
               <Button onClick={() => setImportOpen(true)}>
                 <FileUp /> Import skanu
               </Button>
@@ -453,7 +455,7 @@ function Mecze() {
       <OddsForm
         open={oddsFor != null}
         onOpenChange={(o) => !o && setOddsFor(null)}
-        matches={matches}
+        matches={europeanMatches}
         defaultMatchId={oddsFor ?? undefined}
       />
       <SettleMatchDialog match={settle} onClose={() => setSettle(null)} />
