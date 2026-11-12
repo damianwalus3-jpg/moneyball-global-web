@@ -68,10 +68,10 @@ async function loadFixtures(): Promise<FixturePayload> {
 export async function importPublicFixturesForDate(date: string, existing: Match[]) {
   const payload = await loadFixtures();
   const rows: ParsedMatch[] = payload.fixtures
-    .filter(f => f.date === date && f.home_team && f.away_team)
+    .filter(f => f.date === date && f.time_local && f.home_team && f.away_team)
     .map(f => {
       const country = COUNTRY_NAMES[f.country_code] ?? f.country_code;
-      const time = f.time_local || "12:00";
+      const time = f.time_local!;
       const timezone = TIME_ZONES[f.country_code] || DEFAULT_EUROPE_TZ;
       const kickoff = zonedLocalToIso(f.date, time, timezone);
       return {
