@@ -18,6 +18,7 @@ import { fmtPct, matchLabel } from "@/lib/format";
 import { isEuropeanMatch } from "@/lib/geography";
 import { ensureTables, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
+import type { Match } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/historia")({
   head: () => ({
