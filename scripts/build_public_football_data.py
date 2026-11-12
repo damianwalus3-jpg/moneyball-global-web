@@ -12,6 +12,7 @@ from urllib.error import HTTPError, URLError
 
 BASE = "https://raw.githubusercontent.com/oladeeayo/open-matchday/master"
 OUT = Path("public-data/team-history.json")
+FORM_OUT = Path("public-data/team-form.json")
 UA = "MONEYBALL-GLOBAL/3.4 (public football research; keyless GitHub data builder)"
 SEASONS = ("2627", "2026")
 
@@ -235,6 +236,25 @@ def main():
             seen.add(dedupe)
             unique.append(item)
         teams[key] = {"name": entry["name"], "matches": unique[:20]}
+    compact_teams = {
+        key: {
+            "name": entry["name"],
+            "matches": [
+                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against")}
+                for item in entry["matches"][:10]
+            ]
+        }
+        for key, entry in teams.items()
+    }
+    form_payload = {
+        "schema_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "OpenMatchday + OpenFootball European leagues + internationals",
+        "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball Internationals CC0.",
+        "teams": compact_teams
+    }
+    FORM_OUT.parent.mkdir(parents=True, exist_ok=True)
+    FORM_OUT.write_text(json.dumps(form_payload, ensure_ascii=False, separators=(",", ":")) + "\\n", encoding="utf-8")
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
