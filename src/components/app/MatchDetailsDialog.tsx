@@ -77,7 +77,7 @@ function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; s
           {!form.length && !saved && <span className="text-xs text-muted-foreground">Brak danych</span>}
         </div>
       </div>
-      {counts && <div className="mb-2 text-xs text-muted-foreground">Ostatnie 5: {counts.w} zwycięstw · {counts.d} remisów · {counts.l} porażek</div>}
+      {counts && <div className="mb-2 text-xs text-muted-foreground">Ostatnie {counts.w + counts.d + counts.l}: {counts.w} zwycięstw · {counts.d} remisów · {counts.l} porażek</div>}
       {games.length > 0 ? <div className="space-y-1.5">{games.map((g, i) => <div key={i} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate text-muted-foreground">{g.opponent}</span><span className="num shrink-0 font-medium">{g.score}</span><span className={`w-5 text-right font-bold ${g.outcome === "W" ? "text-emerald-400" : g.outcome === "D" ? "text-amber-300" : "text-rose-400"}`}>{g.outcome}</span></div>)}</div> : <p className="text-xs text-muted-foreground">{saved ? "Forma pobrana z karty meczu FootyNomad; bez listy pojedynczych wyników." : "Nie znaleziono pięciu zweryfikowanych wyników w lokalnej historii."}</p>}
     </div>
   );
@@ -99,7 +99,7 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
   const mainPick = ordered.find((p) => p.prediction_type === "1X2");
   const coverage = (mainPick as any)?.data_coverage ?? ordered.find((p) => (p as any).data_coverage)?.data_coverage;
   const source = (mainPick as any)?.data_source ?? ordered.find((p) => (p as any).data_source)?.data_source;
-  const formLine = (v: any): FormLine | undefined => v && Number.isFinite(Number(v.w)) && Number.isFinite(Number(v.d)) && Number.isFinite(Number(v.l)) && Number(v.w)+Number(v.d)+Number(v.l)===5 ? {w:Number(v.w),d:Number(v.d),l:Number(v.l)} : undefined;
+  const formLine = (v: any): FormLine | undefined => v && Number.isFinite(Number(v.w)) && Number.isFinite(Number(v.d)) && Number.isFinite(Number(v.l)) && Number(v.w)+Number(v.d)+Number(v.l)>=3 && Number(v.w)+Number(v.d)+Number(v.l)<=5 ? {w:Number(v.w),d:Number(v.d),l:Number(v.l)} : undefined;
   const homeSaved = saved?.home || formLine((coverage as any)?.home_form);
   const awaySaved = saved?.away || formLine((coverage as any)?.away_form);
   const rationale = (mainPick as any)?.rationale ?? (mainPick as any)?.notes ?? (mainPick as any)?.rejection_reason;
