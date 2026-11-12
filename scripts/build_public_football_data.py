@@ -254,7 +254,7 @@ def main():
         "teams": compact_teams
     }
     FORM_OUT.parent.mkdir(parents=True, exist_ok=True)
-    FORM_OUT.write_text(json.dumps(form_payload, ensure_ascii=False, separators=(",", ":")) + "\\n", encoding="utf-8")
+    FORM_OUT.write_text(json.dumps(form_payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
