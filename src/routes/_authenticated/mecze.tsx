@@ -18,6 +18,7 @@ import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
 import { isEuropeanMatch } from "@/lib/geography";
 import { syncResults } from "@/lib/results";
+import { importPublicFixturesForDate } from "@/lib/public-fixtures";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime, fmtDayLong, fmtTime } from "@/lib/time";
 import type { Match, ScanRun } from "@/lib/types";
@@ -184,10 +185,21 @@ function Mecze() {
     try {
       const date = brusselsDayKey(new Date());
       const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date } });
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error || "Skan nie został zakończony.");
+      const edgeCount = Number(data?.combined_count ?? data?.fixtures_count ?? data?.total_found ?? 0);
+      if (error || !data?.ok || edgeCount === 0) {
+        // Independent keyless GitHub fallback: do not let a missing FootyNomad
+        // Edge Function make the daily scan unusable.
+        const fallback = await importPublicFixturesForDate(date, matches);
+        if (fallback.sourceFixtures === 0) {
+          throw new Error(error?.message || data?.error || "Brak meczów w FootyNomad i w publicznym terminarzu GitHub dla tej daty.");
+        }
+        await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
+        toast.success(`Skan GitHub: ${fallback.sourceFixtures} meczów • dodano ${fallback.newMatches} • istniejące ${fallback.reusedMatches} • źródło bez klucza`);
+        await runTodayAnalysis(date);
+        return;
+      }
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? data.total_found ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+      toast.success("Skan zakończony: " + edgeCount + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
       // footynomad-sync now runs the shared result/coupon settlement pipeline itself.
       // Keep the client-side synchronizer only as a fallback if that internal call failed.
       if (data.result_sync?.ok !== true) {
