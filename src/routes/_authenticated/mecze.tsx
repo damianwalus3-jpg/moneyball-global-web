@@ -198,8 +198,22 @@ function Mecze() {
         await runTodayAnalysis(date);
         return;
       }
+      // Always merge the independent keyless GitHub fixture feed, even when
+      // FootyNomad succeeds. This fills gaps instead of using GitHub only as a
+      // complete-outage fallback. Import is deduplicated against existing rows.
+      let publicSummary: Awaited<ReturnType<typeof importPublicFixturesForDate>> | null = null;
+      let publicWarning = "";
+      try {
+        publicSummary = await importPublicFixturesForDate(date, matches);
+      } catch (publicError) {
+        publicWarning = publicError instanceof Error ? publicError.message : String(publicError);
+      }
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-      toast.success("Skan zakończony: " + edgeCount + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+      toast.success(
+        "Skan: FootyNomad " + edgeCount + " • GitHub " + (publicSummary?.sourceFixtures ?? 0) +
+        " • dodano FN " + (data.inserted ?? 0) + " / GitHub " + (publicSummary?.newMatches ?? 0) +
+        (publicWarning ? " • dodatkowe źródło niedostępne" : ""),
+      );
       // footynomad-sync now runs the shared result/coupon settlement pipeline itself.
       // Keep the client-side synchronizer only as a fallback if that internal call failed.
       if (data.result_sync?.ok !== true) {
