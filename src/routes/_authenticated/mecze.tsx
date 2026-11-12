@@ -194,7 +194,7 @@ function Mecze() {
           throw new Error(error?.message || data?.error || "Brak meczów w FootyNomad i w publicznym terminarzu GitHub dla tej daty.");
         }
         await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
-        toast.success(`Skan GitHub: ${fallback.sourceFixtures} meczów • dodano ${fallback.newMatches} • istniejące ${fallback.reusedMatches} • źródło bez klucza`);
+        toast.success(`Skan publiczny: ${fallback.sourceFixtures} meczów • live ${fallback.liveFixtures} • GitHub ${fallback.staticFixtures} • dodano ${fallback.newMatches} • istniejące ${fallback.reusedMatches}`);
         await runTodayAnalysis(date);
         return;
       }
@@ -210,7 +210,7 @@ function Mecze() {
       }
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       toast.success(
-        "Skan: FootyNomad " + edgeCount + " • GitHub " + (publicSummary?.sourceFixtures ?? 0) +
+        "Skan: FootyNomad " + edgeCount + " • źródła publiczne " + (publicSummary?.sourceFixtures ?? 0) +
         " • dodano FN " + (data.inserted ?? 0) + " / GitHub " + (publicSummary?.newMatches ?? 0) +
         (publicWarning ? " • dodatkowe źródło niedostępne" : ""),
       );
