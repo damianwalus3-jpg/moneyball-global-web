@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-12T17:21:37.577292+00:00",
+  "source": "American Soccer Analysis public API",
+  "license": "CC BY-SA 4.0",
+  "attribution": "American Soccer Analysis (ASA), https://www.americansocceranalysis.com/",
+  "method": "Chronological rolling last-10 team form, 540-day lookback, independent Poisson 1X2; xG and goals models use the same matches; temperature fitted only on validation.",
+  "matches_reconstructed": 1930,
+  "predictions_with_both_team_histories": 1682,
+  "split": {
+    "train": 1009,
+    "validation": 336,
+    "test": 337
+  },
+  "temperature": {
+    "goals_only": 1.46,
+    "xg": 1.23
+  },
+  "test": {
+    "goals_only_raw": {
+      "accuracy": 0.498516,
+      "brier": 0.615494,
+      "log_loss": 1.024832,
+      "ece_top_class": 0.037399
+    },
+    "xg_raw": {
+      "accuracy": 0.543027,
+      "brier": 0.607457,
+      "log_loss": 1.014648,
+      "ece_top_class": 0.093309
+    },
+    "goals_only_calibrated": {
+      "accuracy": 0.498516,
+      "brier": 0.623139,
+      "log_loss": 1.035771,
+      "ece_top_class": 0.072795
+    },
+    "xg_calibrated": {
+      "accuracy": 0.543027,
+      "brier": 0.614233,
+      "log_loss": 1.023562,
+      "ece_top_class": 0.115152
+    },
+    "calibrated_delta_xg_minus_goals": {
+      "accuracy": 0.044511,
+      "brier": -0.008906,
+      "log_loss": -0.012209,
+      "ece_top_class": 0.042357
+    }
+  }
+}
