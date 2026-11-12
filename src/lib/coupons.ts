@@ -6,14 +6,16 @@ export interface SaveBatchOptions {
   namePrefix: string;
   stake: number | null;
   recordStake: boolean;
+  legsPerCoupon?: 1 | 3;
 }
 
 /** Validates and stores single or three-leg coupons with their legs. */
 export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOptions) {
-  const errors = validateBatch(coupons);
+  const legsPerCoupon = opts.legsPerCoupon ?? 3;
+  const errors = validateBatch(coupons, legsPerCoupon);
   if (errors.length) throw new Error(errors.join(" "));
-  if (coupons.some((legs) => legs.length !== 3 || new Set(legs.map((l) => l.match_id)).size !== 3)) {
-    throw new Error("Nie zapisano kuponu: każdy kupon musi zawierać dokładnie 3 różne mecze.");
+  if (coupons.some((legs) => legs.length !== legsPerCoupon || new Set(legs.map((l) => l.match_id)).size !== legsPerCoupon)) {
+    throw new Error(`Nie zapisano kuponu: każdy kupon musi zawierać ${legsPerCoupon} ${legsPerCoupon === 1 ? "zdarzenie" : "różne mecze"}.`);
   }
   const batchId = crypto.randomUUID();
   let created = 0;
@@ -24,6 +26,7 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
     const coupon = await insertRow("coupons", {
       name: `${opts.namePrefix} #${i + 1}`.trim(),
       batch_id: batchId,
+      target_legs: legsPerCoupon,
       stake: opts.stake,
       total_odds: totalOdds(legs.map((l) => l.odds)),
       combined_probability: combinedProbability(legs.map((l) => l.probability)),
