@@ -31,19 +31,9 @@ jobs:
           python3 -m json.tool public-data/team-history.json > /dev/null
           python3 -m json.tool public-data/team-form.json > /dev/null
           python3 -m json.tool public-data/fixtures.json > /dev/null
-          python3 - <<'PY'
-          import json
-          p=json.load(open("public-data/team-history.json", encoding="utf-8"))
-          assert p["coverage"]["competitions_with_results"] >= 15
-          assert p["coverage"]["team_names"] >= 100
-          assert p["teams"]
-          print("History generated:", p["coverage"])
-          f=json.load(open("public-data/fixtures.json", encoding="utf-8"))
-          assert f["coverage"]["competitions_with_fixtures"] >= 10
-          assert f["coverage"]["fixture_count"] > 0
-          assert all(x.get("date") and x.get("home_team") and x.get("away_team") for x in f["fixtures"])
-          print("Fixtures generated:", f["coverage"])
-          PY
+          jq -e '.coverage.competitions_with_results >= 15 and .coverage.team_names >= 100 and (.teams | length > 0)' public-data/team-history.json > /dev/null
+          jq -e '.coverage.competitions_with_fixtures >= 10 and .coverage.fixture_count > 0 and ([.fixtures[] | select((.date | length) > 0 and (.home_team | length) > 0 and (.away_team | length) > 0)] | length == .coverage.fixture_count)' public-data/fixtures.json > /dev/null
+          echo "Validated team history and public fixture index with jq."
       - name: Publish refreshed data to GitHub
         run: |
           git config user.name "github-actions[bot]"
