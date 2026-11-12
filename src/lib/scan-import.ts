@@ -114,12 +114,16 @@ export function parseScanRows(
     const away = get(row, "away");
     const league = get(row, "league");
     const kickoff = parseKickoff(get(row, "kickoff"));
-    if (!home || !away) return errors.push({ row: n, message: "Brak drużyn (home_team / away_team)." });
-    if (home.toLowerCase() === away.toLowerCase())
-      return errors.push({ row: n, message: "Gospodarze i goście są tacy sami." });
-    if (!league) return errors.push({ row: n, message: "Brak ligi (league)." });
-    if (!kickoff)
-      return errors.push({ row: n, message: "Brak lub zły format daty (kickoff, np. 2026-11-14 20:45)." });
+    if (!home || !away) { errors.push({ row: n, message: "Brak drużyn (home_team / away_team)." }); return; }
+    if (home.toLowerCase() === away.toLowerCase()) {
+      errors.push({ row: n, message: "Gospodarze i goście są tacy sami." });
+      return;
+    }
+    if (!league) { errors.push({ row: n, message: "Brak ligi (league)." }); return; }
+    if (!kickoff) {
+      errors.push({ row: n, message: "Brak lub zły format daty (kickoff, np. 2026-11-14 20:45)." });
+      return;
+    }
 
     const key = matchKey(kickoff, home, away);
     if (!matches.has(key))
@@ -136,15 +140,21 @@ export function parseScanRows(
     if (!rawPick) return; // match without prediction is still stored
     const pick = normalizePick(rawPick);
     const type = parseType(get(row, "type"), pick);
-    if (!type) return errors.push({ row: n, message: `Nieznany typ prognozy dla wyboru "${rawPick}".` });
-    if (!isValidPick(type, pick))
-      return errors.push({ row: n, message: `Wybór "${rawPick}" nie pasuje do typu ${type}.` });
+    if (!type) { errors.push({ row: n, message: `Nieznany typ prognozy dla wyboru "${rawPick}".` }); return; }
+    if (!isValidPick(type, pick)) {
+      errors.push({ row: n, message: `Wybór "${rawPick}" nie pasuje do typu ${type}.` });
+      return;
+    }
     const probability = parseProbability(get(row, "probability"));
-    if (probability == null)
-      return errors.push({ row: n, message: "Brak lub zły format prawdopodobieństwa (0–100)." });
+    if (probability == null) {
+      errors.push({ row: n, message: "Brak lub zły format prawdopodobieństwa (0–100)." });
+      return;
+    }
     const odds = parseNumber(get(row, "odds"));
-    if (odds != null && odds <= 1)
-      return errors.push({ row: n, message: "Kurs musi być większy niż 1.00." });
+    if (odds != null && odds <= 1) {
+      errors.push({ row: n, message: "Kurs musi być większy niż 1.00." });
+      return;
+    }
 
     const rawStatus = get(row, "status").toUpperCase();
     const status: SelectionStatus =
