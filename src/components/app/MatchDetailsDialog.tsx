@@ -38,10 +38,15 @@ function readSavedForm(notes: string | null | undefined) {
 
 function recentFor(team: string, current: Match, matches: Match[], results: MatchResult[]): RecentGame[] {
   const byId = new Map(results.filter((r) => r.verified === true).map((r) => [r.match_id, r]));
+  const currentTime = current.kickoff_at ? new Date(current.kickoff_at).getTime()
+    : current.kickoff_date ? new Date(current.kickoff_date.slice(0,10) + "T00:00:00Z").getTime() : null;
   return matches
-    .filter((m) => m.id !== current.id && m.kickoff_at && current.kickoff_at &&
-      new Date(m.kickoff_at).getTime() < new Date(current.kickoff_at).getTime() &&
-      (m.home_team === team || m.away_team === team) && byId.has(m.id))
+    .filter((m) => {
+      const matchTime = m.kickoff_at ? new Date(m.kickoff_at).getTime()
+        : m.kickoff_date ? new Date(m.kickoff_date.slice(0,10) + "T00:00:00Z").getTime() : null;
+      return m.id !== current.id && currentTime !== null && matchTime !== null && matchTime < currentTime &&
+        (m.home_team === team || m.away_team === team) && byId.has(m.id);
+    })
     .map((m) => {
       const r = byId.get(m.id)!;
       const hg = Number(r.home_goals ?? (r as any).home_score);
@@ -49,7 +54,7 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
       const home = m.home_team === team;
       const gf = home ? hg : ag;
       const ga = home ? ag : hg;
-      return { opponent: home ? String(m.away_team) : String(m.home_team), score: home ? `${hg}:${ag}` : `${ag}:${hg}`, outcome: gf > ga ? "W" as const : gf === ga ? "D" as const : "L" as const, kickoff: m.kickoff_at };
+      return { opponent: home ? String(m.away_team) : String(m.home_team), score: home ? `${hg}:${ag}` : `${ag}:${hg}`, outcome: gf > ga ? "W" as const : gf === ga ? "D" as const : "L" as const, kickoff: m.kickoff_at ?? m.kickoff_date ?? null };
     })
     .sort((a, b) => new Date(b.kickoff ?? 0).getTime() - new Date(a.kickoff ?? 0).getTime())
     .slice(0, 10);
