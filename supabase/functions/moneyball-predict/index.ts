@@ -214,7 +214,7 @@ function historyModel(home:string,away:string,kickoff:string,history:any[],footy
 }
 async function readGitHubPublicTeamHistory(){
  try{
-  const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/team-form.json",{headers:{"Accept":"application/json"},signal:AbortSignal.timeout(18000)});
+  const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/team-history.json",{headers:{"Accept":"application/json"},signal:AbortSignal.timeout(18000)});
   if(!r.ok)throw new Error("GitHub public history HTTP "+r.status);
   const data=await r.json();
   if(data?.schema_version!==1||!data?.teams||Object.keys(data.teams).length<100)throw new Error("GitHub public history validation failed");
