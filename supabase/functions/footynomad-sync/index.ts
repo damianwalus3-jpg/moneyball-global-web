@@ -49,10 +49,24 @@ async function db(path:string,token:string,method="GET",body?:unknown){
 Deno.serve(async(req)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  try{
-  let date=new URL(req.url).searchParams.get("date")||new Date().toISOString().slice(0,10);
-  if(req.method==="POST"){const b=await req.json();date=b.date||date;}
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error("Nieprawidłowa data skanu.");
-  const result=await readFixtures(date);
+  let date=new URL(req.url).searchParams.get("date")||new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+ let days=1;
+ if(req.method==="POST"){const b=await req.json();date=b.date||date;days=Math.max(1,Math.min(7,Math.floor(Number(b.days??7)||7)));}
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error("Nieprawidłowa data skanu.");
+ if(req.method==="POST"&&days>1){
+  const token=req.headers.get("Authorization")||"";
+  const dates=Array.from({length:days},(_,i)=>{const d=new Date(date+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10);});
+  const results:any[]=[];
+  for(const targetDate of dates){
+   const response=await fetch(SUPABASE_URL+"/functions/v1/footynomad-sync",{method:"POST",headers:{apikey:KEY,Authorization:token,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({date:targetDate,days:1})});
+   const body=await response.text();let parsed:any;try{parsed=body?JSON.parse(body):{};}catch{parsed={error:body.slice(0,500)};}
+   results.push({date:targetDate,http_status:response.status,...parsed});
+  }
+  const totals=(key:string)=>results.reduce((sum,x)=>sum+Number(x[key]||0),0);
+  const failures=results.filter(x=>x.http_status<200||x.http_status>=300||x.ok===false||x.error);
+  return new Response(JSON.stringify({ok:failures.length===0,date,days,dates,dates_completed:results.length-failures.length,dates_failed:failures.length,total_found:totals("total_found"),fixtures_count:totals("fixtures_count"),combined_count:totals("combined_count"),public_fixtures:totals("public_fixtures"),enriched:totals("enriched"),public_only:totals("public_only"),inserted:totals("inserted"),updated:totals("updated"),settled:totals("settled"),results}),{status:failures.length===days?400:200,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+ }
+ const result=await readFixtures(date);
   if(req.method==="GET")return new Response(JSON.stringify(result),{headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
   if(req.method!=="POST")return new Response(JSON.stringify({error:"Method not allowed"}),{status:405,headers:{...cors,"Content-Type":"application/json"}});
   // Enrich the primary FootyNomad fixture list with independent public no-key sources.
