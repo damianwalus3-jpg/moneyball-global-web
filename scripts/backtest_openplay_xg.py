@@ -66,40 +66,96 @@ def probabilities(home_history: list[dict], away_history: list[dict], use_xg: bo
     return p1 / total, px / total, p2 / total
 
 
+def calibration_metrics(probabilities: list[float], outcomes: list[float], bins: int = 10) -> dict:
+    """Equal-width reliability bins and expected calibration error."""
+    grouped = []
+    ece = 0.0
+    total = len(probabilities)
+    for index in range(bins):
+        lower, upper = index / bins, (index + 1) / bins
+        selected = [
+            (p, y) for p, y in zip(probabilities, outcomes)
+            if lower <= p < upper or (index == bins - 1 and p == 1.0)
+        ]
+        if not selected:
+            continue
+        mean_probability = sum(p for p, _ in selected) / len(selected)
+        observed_rate = sum(y for _, y in selected) / len(selected)
+        ece += len(selected) / max(1, total) * abs(mean_probability - observed_rate)
+        grouped.append({
+            "range": f"{lower:.1f}-{upper:.1f}",
+            "count": len(selected),
+            "mean_probability": round(mean_probability, 5),
+            "observed_rate": round(observed_rate, 5),
+        })
+    return {"ece": round(ece, 5), "bins": grouped}
+
+
+def binary_metrics(probabilities: list[float], outcomes: list[float]) -> dict:
+    n = len(probabilities)
+    if not n:
+        return {"matches": 0}
+    brier = sum((p - y) ** 2 for p, y in zip(probabilities, outcomes)) / n
+    logloss = -sum(
+        math.log(max(p, 1e-15)) if y else math.log(max(1 - p, 1e-15))
+        for p, y in zip(probabilities, outcomes)
+    ) / n
+    calibration = calibration_metrics(probabilities, outcomes)
+    return {
+        "matches": n,
+        "brier": round(brier, 5),
+        "log_loss": round(logloss, 5),
+        "calibration_ece": calibration["ece"],
+        "reliability_bins": calibration["bins"],
+    }
+
+
 def score_model(rows: list[dict], key: str) -> dict:
     if not rows:
         return {"matches": 0}
     brier_1x2 = logloss_1x2 = correct_1x2 = 0.0
-    dc_brier = dc_logloss = dc_wins = 0.0
-    dc_count = 0
+    top_confidence: list[float] = []
+    top_correct: list[float] = []
+    dc_probs = {"1X": [], "X2": [], "12": []}
+    dc_outcomes = {"1X": [], "X2": [], "12": []}
+    dc_best_hits = 0
     for row in rows:
         probs = row[key]
         actual = row["actual"]
         one_hot = [1.0 if actual == 0 else 0.0, 1.0 if actual == 1 else 0.0, 1.0 if actual == 2 else 0.0]
         brier_1x2 += sum((p - y) ** 2 for p, y in zip(probs, one_hot)) / 3
         logloss_1x2 += -math.log(max(probs[actual], 1e-15))
-        correct_1x2 += float(max(range(3), key=lambda i: probs[i]) == actual)
+        top_index = max(range(3), key=lambda i: probs[i])
+        top_confidence.append(probs[top_index])
+        top_correct.append(float(top_index == actual))
+        correct_1x2 += float(top_index == actual)
 
-        dc_probs = [probs[0] + probs[1], probs[1] + probs[2], probs[0] + probs[2]]
-        dc_actual = [actual in (0, 1), actual in (1, 2), actual in (0, 2)]
-        for probability, won in zip(dc_probs, dc_actual):
-            y = float(won)
-            dc_brier += (probability - y) ** 2
-            dc_logloss += -(math.log(max(probability, 1e-15)) if won else math.log(max(1 - probability, 1e-15)))
-            dc_wins += y
-            dc_count += 1
+        dc_values = {
+            "1X": (probs[0] + probs[1], float(actual in (0, 1))),
+            "X2": (probs[1] + probs[2], float(actual in (1, 2))),
+            "12": (probs[0] + probs[2], float(actual in (0, 2))),
+        }
+        for market, (probability, won) in dc_values.items():
+            dc_probs[market].append(probability)
+            dc_outcomes[market].append(won)
+        best_dc = max(dc_values, key=lambda market: dc_values[market][0])
+        dc_best_hits += dc_values[best_dc][1]
 
     n = len(rows)
+    one_x_two_calibration = calibration_metrics(top_confidence, top_correct)
     return {
         "matches": n,
         "1x2_accuracy_pct": round(100 * correct_1x2 / n, 2),
         "1x2_multiclass_brier": round(brier_1x2 / n, 5),
         "1x2_log_loss": round(logloss_1x2 / n, 5),
-        "double_chance_hit_pct": round(100 * dc_wins / dc_count, 2),
-        "double_chance_brier": round(dc_brier / dc_count, 5),
-        "double_chance_log_loss": round(dc_logloss / dc_count, 5),
+        "1x2_top_label_calibration_ece": one_x_two_calibration["ece"],
+        "1x2_reliability_bins": one_x_two_calibration["bins"],
+        "double_chance_best_pick_hit_pct": round(100 * dc_best_hits / n, 2),
+        "double_chance_markets": {
+            market: binary_metrics(dc_probs[market], dc_outcomes[market])
+            for market in ("1X", "X2", "12")
+        },
     }
-
 
 def main() -> None:
     stats = op.team_match_stats()
