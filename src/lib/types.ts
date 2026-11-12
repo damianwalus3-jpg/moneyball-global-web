@@ -65,6 +65,7 @@ export interface Coupon {
   id: string;
   name: string | null;
   batch_id: string | null;
+  target_legs?: 1 | 3;
   stake: number | null;
   total_odds: number | null;
   combined_probability: number | null;
