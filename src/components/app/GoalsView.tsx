@@ -29,10 +29,15 @@ export function GoalsView() {
   const matches = useTable("matches");
   const predictions = useTable("predictions");
   const today = brusselsDay(new Date());
+  const now = Date.now();
+  // The goals screen is a pre-match forecast board, not a history/live feed.
+  // Never use kickoff_date as a substitute for a real kickoff timestamp.
   const byId = useMemo(() => new Map(matches.filter(isEuropeanMatch).filter((m) => {
-    const date = m.kickoff_at ? brusselsDay(m.kickoff_at) : (m.kickoff_date ?? "").slice(0, 10);
-    return date === today;
-  }).map((m) => [m.id, m] as const)), [matches, today]);
+    if (!m.kickoff_at) return false;
+    if (!["scheduled", "unknown"].includes(String(m.status ?? "scheduled"))) return false;
+    const kickoff = new Date(m.kickoff_at).getTime();
+    return Number.isFinite(kickoff) && kickoff > now && brusselsDay(m.kickoff_at) === today;
+  }).map((m) => [m.id, m] as const)), [matches, today, now]);
   const rows = predictions.filter((p) => p.market === "GOALS" && byId.has(p.match_id));
   const grouped = useMemo(() => {
     const groups = new Map<string, Prediction[]>();
@@ -58,7 +63,7 @@ export function GoalsView() {
         <StatCard label="Mecze z prognozą" value={grouped.length} />
       </div>
       {grouped.length === 0 ? (
-        <EmptyState icon={Target} title="Brak prognoz goli na dzisiaj" description={byId.size === 0 ? "Nie ma dziś meczów w terminarzu." : "Silnik utworzy prognozy po potwierdzeniu wystarczającej historii wyników obu drużyn. Brakujących danych nie zastępujemy zgadywaniem."} />
+        <EmptyState icon={Target} title="Brak prognoz goli na dzisiaj" description={byId.size === 0 ? "Brak potwierdzonych, przyszłych meczów na dzisiaj z dokładną godziną rozpoczęcia. Mecze live, zakończone i bez godziny pozostają w historii, ale nie trafiają do prognoz przedmeczowych." : "Silnik utworzy prognozy po potwierdzeniu wystarczającej historii wyników obu drużyn. Brakujących danych nie zastępujemy zgadywaniem."} />
       ) : (
         <div className="grid gap-3">
           {grouped.map(([matchId, items]) => {
@@ -82,6 +87,7 @@ export function GoalsView() {
                       <div className="min-w-0">
                         <div className="text-sm font-medium">{LABELS[p.selection ?? ""] ?? p.selection}</div>
                         <div className="num text-xs text-muted-foreground">{fmtPct(p.probability)} prawdopodobieństwa</div>
+                        {p.rejection_reason && <div className="mt-1 max-w-[240px] text-[11px] text-amber-400">{p.rejection_reason}</div>}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <SelectionBadge status={p.selection_status} />
