@@ -1,0 +1,173 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { fmtOdds, fmtPct } from "@/lib/format";
+import { fmtDateTime } from "@/lib/time";
+import { Activity, BookOpen, CalendarClock, CheckCircle2, CircleHelp, Database, ShieldAlert, TrendingUp } from "lucide-react";
+import type { Match, MatchResult, OddsSnapshot, Prediction } from "@/lib/types";
+
+type FormLine = { w: number; d: number; l: number };
+type RecentGame = { opponent: string; score: string; outcome: "W" | "D" | "L"; kickoff: string | null };
+type Props = {
+  match: Match | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  predictions: Prediction[];
+  odds: OddsSnapshot | undefined;
+  result: MatchResult | undefined;
+  matches: Match[];
+  results: MatchResult[];
+};
+
+function readSavedForm(notes: string | null | undefined) {
+  if (!notes) return null;
+  const marker = "[MONEYBALL_FORM]";
+  const index = notes.indexOf(marker);
+  if (index < 0) return null;
+  try {
+    const raw = notes.slice(index + marker.length).split(/\\r?\\n/)[0].trim();
+    const parsed = JSON.parse(raw);
+    const valid = (v: unknown): v is FormLine => !!v && typeof v === "object" &&
+      ["w", "d", "l"].every((k) => Number.isFinite(Number((v as Record<string, unknown>)[k]))) &&
+      Number((v as Record<string, unknown>).w) + Number((v as Record<string, unknown>).d) + Number((v as Record<string, unknown>).l) === 5;
+    if (!valid(parsed.home) || !valid(parsed.away)) return null;
+    return { home: parsed.home as FormLine, away: parsed.away as FormLine, fetchedAt: parsed.fetched_at as string | undefined };
+  } catch { return null; }
+}
+
+function recentFor(team: string, current: Match, matches: Match[], results: MatchResult[]): RecentGame[] {
+  const byId = new Map(results.filter((r) => r.verified === true).map((r) => [r.match_id, r]));
+  return matches
+    .filter((m) => m.id !== current.id && m.kickoff_at && current.kickoff_at &&
+      new Date(m.kickoff_at).getTime() < new Date(current.kickoff_at).getTime() &&
+      (m.home_team === team || m.away_team === team) && byId.has(m.id))
+    .map((m) => {
+      const r = byId.get(m.id)!;
+      const hg = Number(r.home_goals ?? (r as any).home_score);
+      const ag = Number(r.away_goals ?? (r as any).away_score);
+      const home = m.home_team === team;
+      const gf = home ? hg : ag;
+      const ga = home ? ag : hg;
+      return { opponent: home ? String(m.away_team) : String(m.home_team), score: home ? `${hg}:${ag}` : `${ag}:${hg}`, outcome: gf > ga ? "W" as const : gf === ga ? "D" as const : "L" as const, kickoff: m.kickoff_at };
+    })
+    .sort((a, b) => new Date(b.kickoff ?? 0).getTime() - new Date(a.kickoff ?? 0).getTime())
+    .slice(0, 5);
+}
+
+const sourceLabel = (source: string | null | undefined) => {
+  if (source === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań";
+  if (source === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane";
+  if (source === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
+  if (source === "NO_VERIFIED_SOURCE") return "Brak potwierdzonego źródła";
+  return source || "Źródło nieopisane";
+};
+
+function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; saved?: FormLine }) {
+  const form = games.length ? games.map((g) => g.outcome) : saved ? [...Array(saved.w).fill("W"), ...Array(saved.d).fill("D"), ...Array(saved.l).fill("L")] as ("W" | "D" | "L")[] : [];
+  const counts = games.length ? { w: games.filter((g) => g.outcome === "W").length, d: games.filter((g) => g.outcome === "D").length, l: games.filter((g) => g.outcome === "L").length } : saved;
+  return (
+    <div className="rounded-xl border border-border bg-card/70 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-sm font-semibold">{name}</div>
+        <div className="flex gap-1" aria-label="Forma ostatnich meczów">
+          {form.map((v, i) => <span key={i} className={`flex size-7 items-center justify-center rounded-md text-xs font-bold ${v === "W" ? "bg-emerald-500/15 text-emerald-400" : v === "D" ? "bg-amber-500/15 text-amber-300" : "bg-rose-500/15 text-rose-400"}`}>{v}</span>)}
+          {!form.length && <span className="text-xs text-muted-foreground">Brak danych</span>}
+        </div>
+      </div>
+      {counts && <div className="mb-2 text-xs text-muted-foreground">Ostatnie 5: {counts.w} zwycięstw · {counts.d} remisów · {counts.l} porażek</div>}
+      {games.length > 0 ? <div className="space-y-1.5">{games.map((g, i) => <div key={i} className="flex items-center justify-between gap-2 text-xs"><span className="min-w-0 truncate text-muted-foreground">{g.opponent}</span><span className="num shrink-0 font-medium">{g.score}</span><span className={`w-5 text-right font-bold ${g.outcome === "W" ? "text-emerald-400" : g.outcome === "D" ? "text-amber-300" : "text-rose-400"}`}>{g.outcome}</span></div>)}</div> : <p className="text-xs text-muted-foreground">{saved ? "Forma pobrana z karty meczu FootyNomad; bez listy pojedynczych wyników." : "Nie znaleziono pięciu zweryfikowanych wyników w lokalnej historii."}</p>}
+    </div>
+  );
+}
+
+export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odds, result, matches, results }: Props) {
+  if (!match) return null;
+  const saved = readSavedForm(match.notes);
+  const homeGames = recentFor(String(match.home_team), match, matches, results);
+  const awayGames = recentFor(String(match.away_team), match, matches, results);
+  const ordered = [...predictions].sort((a, b) => {
+    const at = a.prediction_type === "1X2" ? 0 : 1;
+    const bt = b.prediction_type === "1X2" ? 0 : 1;
+    return at - bt || Number(b.probability ?? -1) - Number(a.probability ?? -1);
+  });
+  const mainPick = ordered.find((p) => p.prediction_type === "1X2");
+  const coverage = (mainPick as any)?.data_coverage ?? ordered.find((p) => (p as any).data_coverage)?.data_coverage;
+  const source = (mainPick as any)?.data_source ?? ordered.find((p) => (p as any).data_source)?.data_source;
+  const rationale = (mainPick as any)?.rationale ?? (mainPick as any)?.notes ?? (mainPick as any)?.rejection_reason;
+  const isNoData = source === "NO_VERIFIED_SOURCE" || (!!coverage && (coverage as any).baseline_only === true);
+  const confidence = mainPick?.confidence;
+  const statusText = result ? `Wynik: ${result.home_goals ?? (result as any).home_score ?? "?"} : ${result.away_goals ?? (result as any).away_score ?? "?"}` : "Oczekuje na wynik";
+  const dcPicks = ordered.filter((p) => p.prediction_type === "DC");
+  const oneXtwoPicks = ordered.filter((p) => p.prediction_type === "1X2");
+  const method = (coverage as any)?.method;
+  const showSaved = !!saved;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] max-w-3xl overflow-y-auto border-border bg-background p-4 sm:p-6">
+        <DialogHeader className="pr-7 text-left">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{match.status ?? "status nieznany"}</Badge>
+            {match.gender && <Badge variant="secondary">{match.gender === "women" ? "Kobiety" : match.gender === "men" ? "Mężczyźni" : match.gender === "mixed" ? "Mieszane" : "Płeć nieustalona"}</Badge>}
+          </div>
+          <DialogTitle className="text-xl leading-tight sm:text-2xl">{match.home_team} – {match.away_team}</DialogTitle>
+          <DialogDescription>{match.league ?? "Rozgrywki nieznane"}{match.country ? ` · ${match.country}` : ""}{match.kickoff_at ? ` · ${fmtDateTime(match.kickoff_at)}` : ""}</DialogDescription>
+        </DialogHeader>
+
+        <section className="surface-card p-3 sm:p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold"><BookOpen className="size-4 text-primary"/> Podsumowanie meczu</div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div><div className="text-xs text-muted-foreground">Spotkanie</div><div className="mt-1 font-semibold">{match.home_team}</div><div className="text-muted-foreground">vs</div><div className="font-semibold">{match.away_team}</div></div>
+            <div><div className="text-xs text-muted-foreground">Termin / status</div><div className="mt-1 font-semibold">{match.kickoff_at ? fmtDateTime(match.kickoff_at) : "Brak terminu"}</div><div className="mt-1 text-xs text-muted-foreground">{statusText}</div></div>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 font-semibold"><Activity className="size-4 text-primary"/> Forma drużyn</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormCard name={String(match.home_team)} games={homeGames} saved={saved?.home}/>
+            <FormCard name={String(match.away_team)} games={awayGames} saved={saved?.away}/>
+          </div>
+          <p className="text-[11px] text-muted-foreground">W = wygrana, D = remis, L = porażka. W pierwszej kolejności pokazujemy wyniki zweryfikowane; dane FootyNomad oznaczamy osobno.</p>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 font-semibold"><TrendingUp className="size-4 text-primary"/> Prognoza MONEYBALL</div>
+          {ordered.length ? (
+            <div className="grid gap-2">
+              {oneXtwoPicks.map((p) => <div key={p.id} className="rounded-xl border border-border bg-card/70 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold">1X2 · typ {p.pick}</div><Badge variant={p.selection_status === "WYBRANY" ? "default" : "outline"}>{p.selection_status ?? "bez statusu"}</Badge></div><div className="mt-2 text-2xl font-bold num">{fmtPct(p.probability)}</div><div className="mt-1 text-xs text-muted-foreground">{p.rejection_reason || (p as any).rationale || "Typ zapisany w historii modelu."}</div></div>)}
+              {dcPicks.length > 0 && <div className="rounded-xl border border-border bg-card/70 p-3"><div className="mb-2 font-semibold">Double Chance · wszystkie warianty</div><div className="grid grid-cols-3 gap-2">{dcPicks.map((p) => <div key={p.id} className="rounded-lg bg-secondary/70 p-2 text-center"><div className="font-bold">{p.pick}</div><div className="num mt-1 text-lg font-semibold">{fmtPct(p.probability)}</div><div className="mt-1 text-[10px] text-muted-foreground">{p.selection_status === "WYBRANY" ? "WYBRANY" : "ODRZUCONY"}</div></div>)}</div></div>}
+            </div>
+          ) : <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Nie ma jeszcze zapisanej prognozy dla tego meczu. Uruchom analizę, aby wygenerować typ.</div>}
+        </section>
+
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 font-semibold"><Database className="size-4 text-primary"/> Dlaczego taki wybór?</div>
+          <div className="rounded-xl border border-border bg-card/70 p-3 text-sm">
+            <div className="mb-2 flex flex-wrap items-center gap-2"><span className="font-semibold">Źródło analizy:</span><Badge variant="secondary">{sourceLabel(source)}</Badge></div>
+            {rationale && <p className="leading-relaxed">{rationale}</p>}
+            {mainPick?.rejection_reason && <p className="mt-2 text-warning">Powód odrzucenia: {mainPick.rejection_reason}</p>}
+            {method && <p className="mt-2 text-xs text-muted-foreground">Metoda: {String(method)}</p>}
+            {confidence && <p className="mt-2 text-xs text-muted-foreground">Pokrycie modelu: {confidence}%</p>}
+            {!rationale && !method && <p className="text-muted-foreground">Model nie zapisał szczegółowego uzasadnienia. Nie dopowiadamy przyczyn, których nie ma w danych.</p>}
+          </div>
+          {isNoData && <div className="flex gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"><ShieldAlert className="mt-0.5 size-4 shrink-0"/><span>Brak potwierdzonych danych do mocnej prognozy. Typ jest zachowany w rejestrze jako ODRZUCONY i nie powinien trafiać do kuponu.</span></div>}
+        </section>
+
+        <section className="space-y-2">
+          <div className="flex items-center gap-2 font-semibold"><CalendarClock className="size-4 text-primary"/> Kursy i kontrola danych</div>
+          <div className="rounded-xl border border-border bg-card/70 p-3">
+            {odds ? <><div className="mb-2 text-sm font-semibold">{odds.bookmaker ?? "Źródło kursów nieznane"}</div><div className="grid grid-cols-3 gap-2 text-center">{[["1",odds.odds_1],["X",odds.odds_x],["2",odds.odds_2]].map(([label,value])=><div key={String(label)} className="rounded-lg bg-secondary/70 p-2"><div className="text-xs text-muted-foreground">{label}</div><div className="num font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div><p className="mt-2 text-[11px] text-muted-foreground">Aktualizacja: {fmtDateTime(odds.captured_at)}</p></> : <p className="text-sm text-muted-foreground">Brak zapisanych kursów dla tego spotkania.</p>}
+            <div className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+              <div>Skład i kontuzje: brak potwierdzonych danych w tej karcie.</div>
+              <div>xG / xGA: brak potwierdzonych danych w tej karcie.</div>
+              <div>Historia H2H i taktyka: nie są obecnie przechowywane w modelu.</div>
+              {showSaved && saved?.fetchedAt && <div>Forma FootyNomad pobrana: {fmtDateTime(saved.fetchedAt)}</div>}
+              <div className="flex items-center gap-1 pt-1"><CircleHelp className="size-3.5"/> Dane nieobecne nie są zastępowane wymyślonymi wartościami.</div>
+            </div>
+          </div>
+        </section>
+        <div className="flex justify-end"><Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij analizę</Button></div>
+      </DialogContent>
+    </Dialog>
+  );
+}
