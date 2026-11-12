@@ -2,7 +2,7 @@
 """Build a compact, keyless StatsBomb Open Data xG index.
 
 StatsBomb publishes selected event-level competitions for research and football
-analytics. This index aggregates shot-level StatsBomb xG to team-match xG.
+analytics. This index aggregates shot-level StatsBomb xG to team-match xG. It includes all published women's competition-seasons and all available men's seasons from 2020 onward, plus selected older international tournaments and 2018/19 Champions League.
 Attribution is required; see the source terms in the output metadata.
 """
 from __future__ import annotations
@@ -66,7 +66,18 @@ def selected_competitions():
         gender = str(comp.get("competition_gender", "")).lower()
         name = str(comp.get("competition_name", ""))
         season = str(comp.get("season_name", ""))
-        include = gender == "female" or (gender == "male" and (name, season) in SELECTED_MEN)
+        season_start = re.match(r"^(\\d{4})", season)
+        is_recent_men_season = bool(season_start and int(season_start.group(1)) >= 2020)
+        # Keep all available women's event seasons, and expand men's coverage
+        # to every published 2020+ competition-season. Retain selected historic
+        # international tournaments and the 2018/19 Champions League archive.
+        include = gender == "female" or (
+            gender == "male" and (
+                is_recent_men_season
+                or (name, season) in SELECTED_MEN
+                or (name, season) == ("Champions League", "2018/2019")
+            )
+        )
         if include:
             key = (int(comp["competition_id"]), int(comp["season_id"]))
             selected[key] = comp
