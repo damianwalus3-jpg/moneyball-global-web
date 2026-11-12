@@ -81,6 +81,9 @@ export interface MatchResult {
   away_goals: number | null;
   outcome_1x2: Outcome | null;
   source: string | null;
+  verified?: boolean | null;
+  verified_at?: string | null;
+  finished_at?: string | null;
   settled_at: string | null;
   notes: string | null;
   created_at: string | null;
