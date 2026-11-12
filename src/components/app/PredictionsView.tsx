@@ -9,6 +9,7 @@ import { hitRate, impliedProbability } from "@/lib/domain";
 import { fmtOdds, fmtPct, matchLabel } from "@/lib/format";
 import { useAction, useTable } from "@/lib/queries";
 import { fmtDateTime } from "@/lib/time";
+import { isEuropeanMatch } from "@/lib/geography";
 import type { Prediction, PredictionType } from "@/lib/types";
 
 export function PredictionsView({ type }: { type: PredictionType }) {
@@ -18,8 +19,10 @@ export function PredictionsView({ type }: { type: PredictionType }) {
   const [q, setQ] = useState("");
   const [edit, setEdit] = useState<Prediction | null>(null);
   const [open, setOpen] = useState(false);
-  const byId = useMemo(() => new Map(matches.map((m) => [m.id, m])), [matches]);
-  const list = all
+  const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
+  const byId = useMemo(() => new Map(europeanMatches.map((m) => [m.id, m])), [europeanMatches]);
+  const europeanPredictions = all.filter((p) => byId.has(p.match_id));
+  const list = europeanPredictions
     .filter((p) => p.prediction_type === type)
     .filter((p) => sel === "all" || p.selection_status === sel)
     .filter((p) => {
@@ -27,7 +30,7 @@ export function PredictionsView({ type }: { type: PredictionType }) {
       return !q || `${matchLabel(m)} ${m?.league ?? ""}`.toLowerCase().includes(q.toLowerCase());
     })
     .sort((a, b) => (byId.get(b.match_id)?.kickoff_at ?? "").localeCompare(byId.get(a.match_id)?.kickoff_at ?? ""));
-  const hr = hitRate(all.filter((p) => p.prediction_type === type && p.selection_status === "WYBRANY").map((p) => p.result_status));
+  const hr = hitRate(europeanPredictions.filter((p) => p.prediction_type === type && p.selection_status === "WYBRANY").map((p) => p.result_status));
   const toggle = useAction((p: Prediction) =>
     updateRow("predictions", p.id, { selection_status: p.selection_status === "ODRZUCONY" ? "WYBRANY" : "ODRZUCONY" }),
   );
@@ -41,7 +44,7 @@ export function PredictionsView({ type }: { type: PredictionType }) {
         title={title}
         description="Prawdopodobieństwo modelu jest zapisywane osobno od kursu bukmachera."
         actions={
-          <Button onClick={() => { setEdit(null); setOpen(true); }} disabled={matches.length === 0}>
+          <Button onClick={() => { setEdit(null); setOpen(true); }} disabled={europeanMatches.length === 0}>
             <Plus /> Dodaj prognozę
           </Button>
         }
@@ -62,7 +65,7 @@ export function PredictionsView({ type }: { type: PredictionType }) {
         <EmptyState
           icon={Target}
           title="Brak prognoz"
-          description={matches.length === 0 ? "Najpierw dodaj mecze lub zaimportuj skan w Terminarzu." : "Dodaj prognozę lub zmień filtry."}
+          description={europeanMatches.length === 0 ? "Najpierw wykonaj europejski skan w Terminarzu." : "Dodaj prognozę lub zmień filtry."}
         />
       ) : (
         <div className="grid gap-2">
@@ -90,7 +93,7 @@ export function PredictionsView({ type }: { type: PredictionType }) {
           })}
         </div>
       )}
-      <PredictionForm open={open} onOpenChange={setOpen} type={type} prediction={edit} matches={matches} />
+      <PredictionForm open={open} onOpenChange={setOpen} type={type} prediction={edit} matches={europeanMatches} />
     </div>
   );
 }
