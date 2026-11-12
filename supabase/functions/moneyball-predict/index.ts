@@ -111,16 +111,18 @@ async function readPublicSourceForms(date:string){
    }
   for(const f of (Array.isArray(j?.fixtures)?j.fixtures:[])){
     const h=formFromPublic(f.home_form),a=formFromPublic(f.away_form);
-    if(h&&a)byPair.set(normTeam(f.home_team)+"|"+normTeam(f.away_team),{home:h,away:a,source:h.source==="ESPN_WOMEN_LAST10"||a.source==="ESPN_WOMEN_LAST10"?"ESPN_WOMEN_LAST10":"OPENMATCHDAY_LAST10"});
+    const genderKey=String(f.gender||"").toLowerCase()==="women"?"women":"men";
+    if(h&&a)byPair.set(normTeam(f.home_team)+"|"+normTeam(f.away_team)+"|"+genderKey,{home:h,away:a,source:h.source==="ESPN_WOMEN_LAST10"||a.source==="ESPN_WOMEN_LAST10"?"ESPN_WOMEN_LAST10":"OPENMATCHDAY_LAST10"});
     // Preserve one-sided form when the opponent has no tracked league results.
-    for(const [team,form] of [[f.home_team,h],[f.away_team,a]] as any[]){if(!form)continue;const key=normTeam(team),arr=byTeam.get(key)||[];arr.push({form,country:String(f.country||"").toLowerCase(),competition:String(f.competition||"").toLowerCase()});byTeam.set(key,arr);}
+    for(const [team,form] of [[f.home_team,h],[f.away_team,a]] as any[]){if(!form)continue;const key=normTeam(team),arr=byTeam.get(key)||[];arr.push({form,country:String(f.country||"").toLowerCase(),competition:String(f.competition||"").toLowerCase(),gender:genderKey});byTeam.set(key,arr);}
    }
   return {byPair,byTeam,eloByTeam,eloMeta,fixtures:Number(j?.european_fixtures||0),error:null};
  }catch(e){console.error("OpenMatchday supplemental form unavailable:",String(e));return {byPair,byTeam,eloByTeam,eloMeta:null,fixtures:0,error:String(e)};}
 }
 function publicFormForMatch(m:any,index:any){
- const exact=index.byPair.get(normTeam(m.home_team)+"|"+normTeam(m.away_team));if(exact)return exact;
- const choose=(team:string)=>{const rows=index.byTeam.get(normTeam(team))||[];if(!rows.length)return null;const country=String(m.country||"").toLowerCase(),comp=String(m.league||m.competition||"").toLowerCase();const ranked=rows.map((x:any)=>({...x,score:(country&&x.country.includes(country)?3:0)+(comp&&(x.competition.includes(comp)||comp.includes(x.competition))?2:0)})).sort((a:any,b:any)=>b.score-a.score);if(ranked.length>1&&ranked[0].score===ranked[1].score)return null;return ranked[0].form;};
+ const targetGender=String(m.gender||"").toLowerCase()==="women"?"women":"men";
+ const exact=index.byPair.get(normTeam(m.home_team)+"|"+normTeam(m.away_team)+"|"+targetGender);if(exact)return exact;
+ const choose=(team:string)=>{const rows=(index.byTeam.get(normTeam(team))||[]).filter((x:any)=>targetGender==="women"?x.gender==="women":x.gender!=="women");if(!rows.length)return null;const country=String(m.country||"").toLowerCase(),comp=String(m.league||m.competition||"").toLowerCase();const ranked=rows.map((x:any)=>({...x,score:(country&&x.country.includes(country)?3:0)+(comp&&(x.competition.includes(comp)||comp.includes(x.competition))?2:0)})).sort((a:any,b:any)=>b.score-a.score);if(ranked.length>1&&ranked[0].score===ranked[1].score)return null;return ranked[0].form;};
   const home=choose(String(m.home_team)),away=choose(String(m.away_team));return home||away?{home,away,source:home?.source==="ESPN_WOMEN_LAST10"||away?.source==="ESPN_WOMEN_LAST10"?"ESPN_WOMEN_LAST10":"OPENMATCHDAY_LAST10"}:null;
 }
 function poisson(lambda:number,k:number){let p=Math.exp(-lambda);for(let i=1;i<=k;i++)p*=lambda/i;return p;}
