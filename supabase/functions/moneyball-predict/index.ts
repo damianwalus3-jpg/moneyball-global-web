@@ -177,7 +177,7 @@ function historyModel(home:string,away:string,kickoff:string,history:any[],footy
  const hLocal=teamRows(normTeam(home)),aLocal=teamRows(normTeam(away)),hf={...(footyForm?.home||{}),...(publicForm?.home||{})},af={...(footyForm?.away||{}),...(publicForm?.away||{})};
  const choose=(local:any[],fallback:any)=>{
   const supplemental=Array.isArray(fallback?.last10)?fallback.last10:(Array.isArray(fallback?.last5)?fallback.last5:[]);
-  const externalRows=supplemental.map((x:any)=>({date:String(x.date||"").slice(0,10),opponent:String(x.opponent||""),gf:Number(x.goals_for||0),ga:Number(x.goals_against||0),xg_for:x.xg_for==null?null:Number(x.xg_for),xg_against:x.xg_against==null?null:Number(x.xg_against),pts:x.result==="W"?3:x.result==="D"?1:0}));
+  const externalRows=supplemental.map((x:any)=>({date:String(x.date||"").slice(0,10),opponent:String(x.opponent||""),gf:Number(x.goals_for||0),ga:Number(x.goals_against||0),xg_for:x.xg_for==null?null:Number(x.xg_for),xg_against:x.xg_against==null?null:Number(x.xg_against),pts:x.result==="W"?3:x.result==="D"?1:0})).filter((x:any)=>{const t=Date.parse(String(x.date||"")+"T00:00:00Z");return Number.isFinite(t)&&t<cutoff&&cutoff-t<=240*24*60*60*1000;});
   const merged=[...local,...externalRows].filter((x:any)=>Number.isFinite(x.gf)&&Number.isFinite(x.ga)).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||"")));
   const seen=new Set<string>(),rows=merged.filter((x:any)=>{const k=[x.date,normTeam(x.opponent),x.gf,x.ga].join("|");if(seen.has(k))return false;seen.add(k);return true;}).slice(0,10);
   if(rows.length>=3)return {rows,matches:rows.length,form:fallback||null,source:fallback?.source||"VERIFIED_MATCH_HISTORY"};
