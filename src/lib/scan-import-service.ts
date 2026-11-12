@@ -27,9 +27,13 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     if (isEuropeanMatch(m) && m.kickoff_at && m.home_team && m.away_team)
       existingByKey.set(matchKey(new Date(m.kickoff_at).toISOString(), m.home_team, m.away_team), m);
 
+  const existingByExternalId = new Map<string, Match>();
+  for (const m of existing)
+    if (isEuropeanMatch(m) && m.external_id) existingByExternalId.set(m.external_id, m);
+
   const idByKey = new Map<string, string>();
   const toInsert = europeanMatches.filter((m) => {
-    const e = existingByKey.get(m.key);
+    const e = existingByKey.get(m.key) || (m.external_id ? existingByExternalId.get(m.external_id) : undefined);
     if (e) idByKey.set(m.key, e.id);
     return !e;
   });
@@ -38,6 +42,9 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     "matches",
     toInsert.map((m) => ({
       scan_run_id: scan.id,
+      external_id: m.external_id ?? null,
+      source: m.source ?? source.trim() ?? "import CSV",
+      competition: m.league,
       kickoff_at: m.kickoff_at,
       league: m.league,
       country: m.country,
