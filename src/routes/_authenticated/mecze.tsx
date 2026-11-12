@@ -13,7 +13,7 @@ import { SettleMatchDialog } from "@/components/app/SettleMatchDialog";
 import { MatchForm } from "@/components/forms/MatchForm";
 import { OddsForm, ScanRunForm } from "@/components/forms/SimpleForms";
 import { deleteRow } from "@/lib/db";
-import { buildCouponBatch, isCouponCandidate } from "@/lib/domain";
+import { MATCH_STATUS_LABELS, buildCouponBatch, isCouponCandidate } from "@/lib/domain";
 import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
