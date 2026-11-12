@@ -8,7 +8,7 @@ export interface SaveBatchOptions {
   recordStake: boolean;
 }
 
-/** Validates and stores a batch of 3-leg coupons with their legs. */
+/** Validates and stores single or three-leg coupons with their legs. */
 export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOptions) {
   const errors = validateBatch(coupons);
   if (errors.length) throw new Error(errors.join(" "));
@@ -44,7 +44,7 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
         result_status: "pending",
       })),
     );
-    if (insertedLegs.length !== 3) throw new Error("Nie udało się zapisać kompletu 3 zdarzeń kuponu.");
+    if (insertedLegs.length !== legsPerCoupon) throw new Error(`Nie udało się zapisać kompletu ${legsPerCoupon} zdarzeń kuponu.`);
     if (opts.recordStake && opts.stake && opts.stake > 0) {
       await insertRow("bankroll_transactions", {
         occurred_at: new Date().toISOString(),
