@@ -8,6 +8,8 @@ export interface ParsedMatch {
   league: string;
   country: string | null;
   gender?: "men" | "women" | "mixed" | "unknown" | null;
+  external_id?: string | null;
+  source?: string | null;
   home_team: string;
   away_team: string;
 }
