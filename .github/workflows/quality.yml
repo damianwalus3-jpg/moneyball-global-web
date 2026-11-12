@@ -22,6 +22,11 @@ jobs:
         run: bun install
       - name: TypeScript check
         run: bunx tsc --noEmit
+      - name: Verify predictor uses the generated history dataset
+        run: |
+          grep -Fq 'OUT = Path("public-data/team-history.json")' scripts/build_public_football_data.py
+          grep -Fq 'public-data/team-history.json' supabase/functions/moneyball-predict/index.ts
+          ! grep -Fq 'public-data/team-form.json' supabase/functions/moneyball-predict/index.ts
       - name: Tests
         run: bun run test
       - name: Production build
