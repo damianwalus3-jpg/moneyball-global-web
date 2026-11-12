@@ -39,7 +39,7 @@ def norm(s: str) -> str:
 
 def infer_gender(*values: str) -> str:
     text = " ".join(str(value or "") for value in values).lower()
-    if re.search(r"\\b(women|womens|woman|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\\b", text):
+    if re.search(r"\b(women|womens|woman|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\b", text):
         return "women"
     return "men"
 
