@@ -88,6 +88,13 @@ type PublicSourceFixture = {
 };
 type PublicSourcePayload = { ok?: boolean; european_fixtures?: number; fixtures?: PublicSourceFixture[] };
 
+const COUNTRY_ALIASES: Record<string,string> = {
+  "the netherlands":"Netherlands", "czech republic":"Czechia", "türkiye":"Turkey",
+  "united kingdom":"United Kingdom", "republic of ireland":"Ireland"
+};
+function normalizeCountry(value:string):string {
+  return COUNTRY_NAMES[value.toUpperCase()] || COUNTRY_ALIASES[value.toLowerCase()] || value;
+}
 function brusselsDate(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/Brussels", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date(iso));
 }
@@ -112,7 +119,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
           key: matchKey(kickoff, f.home_team, f.away_team),
           kickoff_at: kickoff,
           league: f.competition || "Nieznane rozgrywki",
-          country: f.country || null,
+          country: f.country ? normalizeCountry(f.country) : null,
           gender: f.gender || "unknown",
           external_id: f.external_id || null,
           source: f.source || "Moneyball public sources",
