@@ -130,13 +130,14 @@ export function PageLoader() {
 
 export function DataError({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
+  const errorMessage = error instanceof Error ? error.message : String(error ?? "Nieznany błąd");
   return (
     <div className="surface-card mx-auto mt-6 max-w-xl p-6">
       <div className="flex items-center gap-2 text-destructive">
         <AlertTriangle className="size-5" />
         <h2 className="text-xl font-semibold uppercase">Nie udało się pobrać danych</h2>
       </div>
-      <p className="mt-2 break-words text-sm text-muted-foreground">{error.message}</p>
+      <p className="mt-2 break-words text-sm text-muted-foreground">{errorMessage}</p>
       <p className="mt-2 text-sm text-muted-foreground">
         Jeśli to niezgodność tabel lub kolumn, uruchom diagnostykę schematu w ustawieniach.
       </p>
