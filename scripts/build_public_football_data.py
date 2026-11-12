@@ -39,7 +39,7 @@ def norm(s: str) -> str:
 
 def infer_gender(*values: str) -> str:
     text = re.sub(r"[^a-z0-9]+", " ", " ".join(str(value or "") for value in values).lower())
-    if re.search(r"\b(women|womens|woman|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\b", text):
+    if re.search(r"\b(women|womens|woman|w|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\b", text):
         return "women"
     return "men"
 
@@ -212,7 +212,7 @@ def validate_football_txt_parser():
         raise SystemExit(f"Football.TXT parser regression: {rows}")
     if rows[1][0] != "2027-01-02" or rows[1][3:5] != (0, 0):
         raise SystemExit(f"Football.TXT year rollover regression: {rows}")
-    if infer_gender("ENG_1_womens-super-league") != "women" or infer_gender("BUL_1_premier-league") != "men":
+    if infer_gender("ENG_1_womens-super-league") != "women" or infer_gender("Barcelona W") != "women" or infer_gender("West Ham United") != "men" or infer_gender("BUL_1_premier-league") != "men":
         raise SystemExit("Competition gender classification regression")
 
 
