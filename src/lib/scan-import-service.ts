@@ -43,7 +43,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     toInsert.map((m) => ({
       scan_run_id: scan.id,
       external_id: m.external_id ?? null,
-      source: m.source ?? source.trim() ?? "import CSV",
+      source: m.source ?? (source.trim() || "import CSV"),
       competition: m.league,
       kickoff_at: m.kickoff_at,
       league: m.league,
