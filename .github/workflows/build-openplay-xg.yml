@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public-data/openplay-xg.json public-data/openplay-xg-backtest.json
+          git add public-data/openplay-xg.json public-data/openplay-xg-summary.json public-data/openplay-xg-backtest.json
           if git diff --cached --quiet; then
             echo "OpenPlay data is unchanged."
             exit 0
