@@ -37,6 +37,13 @@ def norm(s: str) -> str:
     s = re.sub(r"\b(fc|cf|sc|ac|afc|club)\b", " ", s)
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", s)).strip()
 
+def infer_gender(*values: str) -> str:
+    text = " ".join(str(value or "") for value in values).lower()
+    if re.search(r"\\b(women|womens|woman|frauen|femenina|femenino|feminin|female|damallsvenskan|wsl|liga[- ]?f)\\b", text):
+        return "women"
+    return "men"
+
+
 def number(row, key):
     try:
         value = row.get(key, "")
@@ -205,6 +212,8 @@ def validate_football_txt_parser():
         raise SystemExit(f"Football.TXT parser regression: {rows}")
     if rows[1][0] != "2027-01-02" or rows[1][3:5] != (0, 0):
         raise SystemExit(f"Football.TXT year rollover regression: {rows}")
+    if infer_gender("ENG_1_womens-super-league") != "women" or infer_gender("BUL_1_premier-league") != "men":
+        raise SystemExit("Competition gender classification regression")
 
 
 def load_international_results():
@@ -291,7 +300,7 @@ def main():
                         "red_for": number(row, prefix + "red"),
                         "red_against": number(row, suffix + "red"),
                         "competition": folder, "country": country,
-                        "source": "OpenMatchday"
+                        "source": "OpenMatchday", "gender": infer_gender(folder, home, away)
                     }
                     team_rows.setdefault(key, {"name": team, "matches": []})["matches"].append(item)
 
@@ -314,7 +323,7 @@ def main():
                 "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
                 "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
                 "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
-                "competition":competition,"country":country,"source":"OpenFootball Leagues","source_path":source_path}
+                "competition":competition,"country":country,"source":"OpenFootball Leagues","source_path":source_path,"gender":infer_gender(competition,source_path,home,away)}
             team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
 
     text_rows, text_files, text_loaded, text_failed = load_openfootball_text_results()
@@ -328,7 +337,7 @@ def main():
                 "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
                 "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
                 "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
-                "competition":competition,"country":"INT","source":"OpenFootball Text","source_path":source_path}
+                "competition":competition,"country":"INT","source":"OpenFootball Text","source_path":source_path,"gender":infer_gender(competition,source_path,home,away)}
             team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
 
     international_rows, international_files, international_loaded, international_failed = load_international_results()
@@ -341,7 +350,7 @@ def main():
                 "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
                 "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
                 "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
-                "competition":competition,"country":"INT","source":"OpenFootball Internationals","source_path":source_path}
+                "competition":competition,"country":"INT","source":"OpenFootball Internationals","source_path":source_path,"gender":"men"}
             team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
             alias = TEAM_ALIASES.get(key)
             if alias: team_rows.setdefault(alias, {"name":team,"matches":[]})["matches"].append(item)
@@ -351,7 +360,7 @@ def main():
         # A club may appear in a league and a cup; deduplicate exact same fixture rows.
         seen, unique = set(), []
         for item in sorted(entry["matches"], key=lambda x: x["date"], reverse=True):
-            dedupe = (item["date"], norm(item["opponent"]), item["goals_for"], item["goals_against"])
+            dedupe = (item["date"], norm(item["opponent"]), item["goals_for"], item["goals_against"], item.get("gender", "unknown"))
             if dedupe in seen:
                 continue
             seen.add(dedupe)
@@ -361,7 +370,7 @@ def main():
         key: {
             "name": entry["name"],
             "matches": [
-                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against","shots_for","shots_against","shots_on_target_for","shots_on_target_against","corners_for","corners_against","fouls_for","fouls_against","yellow_for","yellow_against","red_for","red_against","competition","country","source","source_path")}
+                {field: item.get(field) for field in ("date","opponent","result","goals_for","goals_against","shots_for","shots_against","shots_on_target_for","shots_on_target_against","corners_for","corners_against","fouls_for","fouls_against","yellow_for","yellow_against","red_for","red_against","competition","country","source","source_path","gender")}
                 for item in entry["matches"][:10]
             ]
         }
