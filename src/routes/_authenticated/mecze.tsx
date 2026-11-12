@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, ScanLine, Ticket } from "lucide-react";
+import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Flag, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { deleteRow } from "@/lib/db";
 import { MATCH_STATUS_LABELS, buildCouponBatch, isCouponCandidate } from "@/lib/domain";
 import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
+import { syncResults } from "@/lib/results";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime, fmtDayLong, fmtTime } from "@/lib/time";
 import type { Match, ScanRun } from "@/lib/types";
@@ -109,6 +110,9 @@ function Mecze() {
 
   const del = useAction((id: string) => deleteRow("matches", id), { success: "Usunięto mecz" });
   const delScan = useAction((id: string) => deleteRow("scan_runs", id), { success: "Usunięto skan" });
+  const refreshResults = useAction(() => syncResults(7), {
+    success: (r) => `Wyniki sprawdzone · ${r.results_saved ?? 0} zapisów · ${r.alternate_results_matched ?? 0} dopasowań ze źródeł dodatkowych · ${r.predictions_settled ?? 0} rozliczeń prognoz`,
+  });
 
   const runTodayAnalysis = async (date = brusselsDayKey(new Date())) => {
     if (analysisRunning) return;
@@ -138,6 +142,7 @@ function Mecze() {
       if (!data?.ok) throw new Error(data?.error || "Skan nie został zakończony.");
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? data.total_found ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
+      try { await refreshResults.mutateAsync(undefined); } catch { /* refreshResults already reports the source error; keep the completed fixture scan */ }
       await runTodayAnalysis(date);
     } catch (e) {
       toast.error("Nie udało się wykonać skanu: " + (e instanceof Error ? e.message : String(e)));
@@ -177,6 +182,10 @@ function Mecze() {
         description="Wszystkie zeskanowane mecze — także te z prognozami ODRZUCONY."
         actions={
           <>
+            <Button variant="outline" onClick={() => refreshResults.mutate(undefined)} disabled={refreshResults.isPending || globalScanRunning || analysisRunning}>
+              <RefreshCw className={refreshResults.isPending ? "animate-spin" : ""} />
+              {refreshResults.isPending ? "Sprawdzam wyniki…" : "Odśwież wyniki"}
+            </Button>
             <Button onClick={runTodayScan} disabled={globalScanRunning || analysisRunning}>
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
               {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
@@ -343,6 +352,11 @@ function Mecze() {
                           <div className="num text-xs text-muted-foreground">
                             Kursy{o.bookmaker ? ` (${o.bookmaker})` : ""}: 1 {fmtOdds(o.odds_1)} · X {fmtOdds(o.odds_x)} · 2{" "}
                             {fmtOdds(o.odds_2)}
+                          </div>
+                        )}
+                        {r && (
+                          <div className="text-xs text-muted-foreground">
+                            {r.verified === true ? "WYNIK POTWIERDZONY" : "WYNIK DO WERYFIKACJI"}{r.source ? ` · źródło: ${r.source}` : ""}
                           </div>
                         )}
                       </div>
