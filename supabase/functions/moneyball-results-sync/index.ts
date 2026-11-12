@@ -313,7 +313,7 @@ Deno.serve(async(req:Request)=>{
     const map=new Map(matches.filter((m:any)=>m.external_id).map((m:any)=>[String(m.external_id),m]));
     const normTeam=(v:string)=>String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim().replace(/\\s+/g," ");
     const genderOf=(m:any)=>["men","women"].includes(String(m?.gender||"").toLowerCase())?String(m.gender).toLowerCase():"unknown";
-    const genderCompatible=(a:any,b:any)=>{const ga=genderOf(a),gb=genderOf(b);return ga===gb||ga==="unknown"||gb==="unknown";};
+    const genderSafeRows=(rows:any[],targetGender:string)=>{const known=new Set(rows.map(genderOf).filter((g:string)=>g!=="unknown"));if(targetGender!=="unknown")return rows.filter((x:any)=>genderOf(x)===targetGender||(genderOf(x)==="unknown"&&known.size<=1));return known.size<=1?rows:[];};
     const byTeams=new Map<string,any[]>();
     for(const m of (matches||[])){
      const key=normTeam(m.home_team)+"|"+normTeam(m.away_team);
@@ -338,10 +338,8 @@ Deno.serve(async(req:Request)=>{
      let safeTeamMatches:any[]=[];
      if(exact){
       const anchorGender=genderOf(exact);
-      if(anchorGender!=="unknown")safeTeamMatches=exactTeamMatches.filter((x:any)=>x.id!==exact.id&&genderCompatible(x,exact));
-      else {const known=new Set(exactTeamMatches.map(genderOf).filter((g:string)=>g!=="unknown"));safeTeamMatches=known.size<=1?exactTeamMatches.filter((x:any)=>x.id!==exact.id):[];}
-     }else if(feedGender!=="unknown")safeTeamMatches=exactTeamMatches.filter((x:any)=>genderCompatible(x,f));
-     else {const known=new Set(exactTeamMatches.map(genderOf).filter((g:string)=>g!=="unknown"));safeTeamMatches=known.size<=1?exactTeamMatches:[];}
+      safeTeamMatches=genderSafeRows(exactTeamMatches,anchorGender).filter((x:any)=>x.id!==exact.id);
+     }else safeTeamMatches=genderSafeRows(exactTeamMatches,feedGender);
      const fallbackMatch=exactTeamMatches.length===0?matchFeedToDb({source:"FootyNomad",external_id:String(f.external_id),home:f.home_team,away:f.away_team,home_score:f.home_score,away_score:f.away_score,status:f.status,date,url:"https://footynomad.com/fixture/"+String(f.external_id),raw:f},matches):null;
      // Never settle men's and women's fixtures together. If a feed has no gender and same-team candidates span both genders, leave name-only matches unresolved rather than guess.
      const candidates=exact?[exact,...safeTeamMatches]:(safeTeamMatches.length?safeTeamMatches:(fallbackMatch?[fallbackMatch]:[]));
