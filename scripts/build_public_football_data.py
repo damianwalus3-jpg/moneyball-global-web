@@ -184,7 +184,9 @@ def main():
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday public CSV + OpenFootball Internationals",\n        "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",\n        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball Internationals: CC0 1.0"],
+        "source": "OpenMatchday public CSV + OpenFootball Internationals",
+        "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",
+        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball Internationals: CC0 1.0"],
         "source_url": "https://github.com/oladeeayo/open-matchday",
         "attribution": "OpenMatchday contributors; informational non-commercial use; upstream provider rights apply.",
         "coverage": {
