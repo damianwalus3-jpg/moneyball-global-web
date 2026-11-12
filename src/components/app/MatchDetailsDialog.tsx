@@ -64,17 +64,27 @@ const sourceLabel = (source: string | null | undefined) => {
   if (!source) return "Źródło nieopisane";
   if (source === "BEYONDELO_ELO_ONLY") return "BeyondELO · rating Elo bez pełnej historii formy";
   const hasElo = source.includes("+BEYONDELO_ELO");
-  const base = source.replace("+BEYONDELO_ELO", "");
-  if (base === "GITHUB_PUBLIC_LAST10_FORM") return "GitHub · OpenMatchday + OpenFootball · ostatnie 10 spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "OPENMATCHDAY_GITHUB_LAST5_FORM") return "GitHub / OpenMatchday · forma i statystyki z 5 spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "OPENMATCHDAY_LAST10_FORM") return "OpenMatchday · wyniki i gole z ostatnich 10 spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "ESPN_WOMEN_LAST10_FORM") return "ESPN · forma kobiecych lig z dostępnych ostatnich spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań" + (hasElo ? " + rating Elo" : "");
-  if (base === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane" + (hasElo ? " + rating Elo" : "");
+  const hasXg = source.includes("+HISTORICAL_XG");
+  const xgProviders = [
+    source.includes("+OPENPLAY_XG") ? "OpenPlay" : null,
+    source.includes("+STATSBOMB_XG") ? "StatsBomb" : null,
+  ].filter(Boolean);
+  const base = source.replace(/\+(BEYONDELO_ELO|HISTORICAL_XG|OPENPLAY_XG|STATSBOMB_XG)/g, "");
+  const decorate = (label: string) =>
+    label +
+    (hasElo ? " + rating Elo" : "") +
+    (hasXg ? ` + historyczne xG (${xgProviders.length ? xgProviders.join(" + ") : "źródło publiczne"})` : "");
+  if (base === "GITHUB_PUBLIC_LAST10_FORM") return decorate("GitHub · OpenMatchday + OpenFootball · ostatnie 10 spotkań");
+  if (base === "STATSBOMB_OPEN_DATA_FORM") return decorate("StatsBomb Open Data · historyczna forma wybranych rozgrywek");
+  if (base === "PITCHAPI_LAST5_XG") return decorate("PitchAPI · xG/xGA i forma z ostatnich 5 spotkań");
+  if (base === "OPENMATCHDAY_GITHUB_LAST5_FORM") return decorate("GitHub / OpenMatchday · forma i statystyki z 5 spotkań");
+  if (base === "OPENMATCHDAY_LAST10_FORM") return decorate("OpenMatchday · wyniki i gole z ostatnich 10 spotkań");
+  if (base === "ESPN_WOMEN_LAST10_FORM") return decorate("ESPN · forma kobiecych lig z dostępnych ostatnich spotkań");
+  if (base === "FOOTYNOMAD_LAST5_FORM") return decorate("FootyNomad · forma ostatnich 5 spotkań");
+  if (base === "MONEYBALL_VERIFIED_HISTORY") return decorate("Historia wyników MONEYBALL · wyniki zweryfikowane");
   if (base === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
   if (base === "NO_VERIFIED_SOURCE") return "Brak potwierdzonego źródła";
-  return source;
+  return decorate(base);
 };
 
 function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; saved?: FormLine }) {
