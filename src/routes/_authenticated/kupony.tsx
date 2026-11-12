@@ -31,8 +31,7 @@ import {
   validateCoupon,
 } from "@/lib/domain";
 import { fmtMoney, fmtOdds, fmtPct, matchLabel, parseDecimal } from "@/lib/format";
-import { requireSupabase } from "@/lib/supabase";
-import { readConfig } from "@/lib/config";
+import { syncResults } from "@/lib/results";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
 import { brusselsDayKey, fmtDateTime } from "@/lib/time";
 import type { Coupon, Prediction, Settlement } from "@/lib/types";
@@ -110,56 +109,10 @@ function Kupony() {
     },
   );
 
-  const refreshResults = useAction(
-    async () => {
-      const client = requireSupabase();
-      const config = readConfig();
-      if (!config) throw new Error("Brak konfiguracji Supabase. Otwórz Ustawienia i sprawdź połączenie.");
-      const { data: sessionData, error: sessionError } = await client.auth.getSession();
-      if (sessionError) throw new Error("Nie udało się odczytać sesji: " + sessionError.message);
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sesja wygasła. Zaloguj się ponownie.");
-
-      // Use fetch directly instead of supabase.functions.invoke: the results job can take
-      // 40+ seconds, and the SDK wrapper may surface a generic FunctionsFetchError on mobile.
-      const endpoint = config.url.replace(/\/$/, "") + "/functions/v1/moneyball-results-sync";
-      let response: Response;
-      try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            apikey: config.anonKey,
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: "{}",
-          cache: "no-store",
-          // Results sync can take over 40 seconds; allow enough time on mobile.
-          signal: AbortSignal.timeout(90_000),
-        });
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        throw new Error("Połączenie z synchronizacją wyników zostało przerwane. Żądanie nie będzie automatycznie ponawiane, aby uniknąć podwójnego rozliczenia. " + detail);
-      }
-      const raw = await response.text();
-      let data: any = null;
-      try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
-      if (!response.ok) {
-        const detail = data?.error || data?.message || raw || `HTTP ${response.status}`;
-        throw new Error(`Synchronizacja wyników: ${detail}`);
-      }
-      if (data?.ok === false) {
-        const details = Array.isArray(data.errors) ? data.errors.join("; ") : data.error;
-        throw new Error(details || "Synchronizacja wyników zgłosiła błąd.");
-      }
-      return data as { results_saved?: number; predictions_settled?: number; coupon_legs_settled?: number };
-    },
-    {
-      success: (r) =>
-        `Wyniki odświeżone · ${r.results_saved ?? 0} wyników · ${r.coupon_legs_settled ?? 0} zdarzeń kuponów rozliczonych`,
-    },
-  );
+  const refreshResults = useAction(() => syncResults(7), {
+    success: (r) =>
+      `Wyniki odświeżone · ${r.results_saved ?? 0} wyników · ${r.alternate_results_matched ?? 0} dopasowań dodatkowych · ${r.predictions_settled ?? 0} prognoz rozliczonych · ${r.coupon_legs_settled ?? 0} zdarzeń kuponów`,
+  });
 
   const manualLegs = manual.map((id) => preds.find((p) => p.id === id)!).filter(Boolean);
   const manualErrors = manual.length ? validateCoupon(manualLegs) : [];
