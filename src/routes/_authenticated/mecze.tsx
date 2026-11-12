@@ -224,7 +224,7 @@ function Mecze() {
       <PageHeader
         eyebrow="Europe/Brussels"
         title="Terminarz / Mecze"
-        description="Wszystkie zeskanowane mecze — także te z prognozami ODRZUCONY."
+        description="Europejskie mecze — także te z prognozami ODRZUCONY. Pozostałe regiony są ukryte."
         actions={
           <>
             <Button variant="outline" onClick={() => refreshResults.mutate(undefined)} disabled={refreshResults.isPending || globalScanRunning || analysisRunning}>
