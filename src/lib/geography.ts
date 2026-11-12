@@ -34,7 +34,8 @@ export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   const country = normalize(match.country);
   const competition = normalize(match.league);
   const teams = normalize(`${match.home_team ?? ""} ${match.away_team ?? ""}`);
-  if (EUROPE_COUNTRIES.has(country) || EUROPE_ISO3.has(String(match.country ?? "").trim().toUpperCase())) return true;
+  const countryParts = country.split(/[\\/,;|]+/).map((part) => part.trim()).filter(Boolean);
+  if (EUROPE_COUNTRIES.has(country) || countryParts.some((part) => EUROPE_COUNTRIES.has(part) || EUROPE_ISO3.has(part.toUpperCase())) || EUROPE_ISO3.has(String(match.country ?? "").trim().toUpperCase())) return true;
   if (/\buefa\b|european (championship|qualif|league)|uefa nations|uefa champions|uefa europa|uefa conference/.test(competition)) return true;
   if (/\bu20 elite league\b/.test(competition) &&
       /\b(england|italy|portugal|czech republic|germany|france|spain|netherlands|belgium|sweden|norway|denmark|finland|iceland|poland|croatia|serbia|austria|switzerland|scotland|wales|ireland)\b/.test(teams)) return true;
