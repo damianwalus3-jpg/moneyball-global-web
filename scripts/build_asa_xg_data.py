@@ -93,9 +93,9 @@ def main() -> None:
                 seen_games += 1
                 latest_date = max(latest_date, date)
                 match_id = f"asa:{league}:{game.get('game_id')}"
-                for name, opponent, gf, ga, xgf, xga in (
-                    (home, away, int(home_goals), int(away_goals), home_xg, away_xg),
-                    (away, home, int(away_goals), int(home_goals), away_xg, home_xg),
+                for name, opponent, gf, ga, xgf, xga, is_home in (
+                    (home, away, int(home_goals), int(away_goals), home_xg, away_xg, True),
+                    (away, home, int(away_goals), int(home_goals), away_xg, home_xg, False),
                 ):
                     key = norm_team(name)
                     if gender == "women" and "women" not in key.split():
@@ -110,6 +110,7 @@ def main() -> None:
                     entry["matches"].append({
                         "match_id": match_id,
                         "date": date,
+                        "is_home": is_home,
                         "opponent": opponent,
                         "result": "W" if gf > ga else "L" if gf < ga else "D",
                         "goals_for": gf,
