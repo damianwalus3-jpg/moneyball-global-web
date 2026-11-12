@@ -77,6 +77,9 @@ def main() -> None:
     frame = frame.dropna(subset=["match_id", "team_id", "opponent_id", "date", "xg", "xg_against"])
     frame = frame[~frame["match_id"].astype("int64").isin(issue_ids)]
     frame = frame[frame["team_id"].isin(team_names) & frame["opponent_id"].isin(team_names)]
+    source_match_count = int(frame["match_id"].nunique())
+    source_team_rows = int(len(frame))
+    source_dates = frame["date"]
     frame = frame.sort_values(["team_id", "date", "match_id"], ascending=[True, False, False])
     frame = frame.groupby("team_id", sort=False).head(MAX_MATCHES_PER_TEAM)
 
@@ -129,11 +132,9 @@ def main() -> None:
             unique.setdefault(item["match_id"], item)
         entry["matches"] = sorted(unique.values(), key=lambda x: (x["date"], x["match_id"]), reverse=True)[:MAX_MATCHES_PER_TEAM]
 
-    unique_matches = int(frame["match_id"].nunique())
-    if len(teams) < 100 or unique_matches < 10000:
-        raise SystemExit(f"OpenPlay coverage validation failed: teams={len(teams)}, matches={unique_matches}")
+    if len(teams) < 100 or source_match_count < 10000:
+        raise SystemExit(f"OpenPlay coverage validation failed: teams={len(teams)}, source_matches={source_match_count}")
 
-    dates = frame["date"]
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -145,12 +146,13 @@ def main() -> None:
         "scope": "Historical men's football event-derived team statistics; not a live feed and not a complete global or women's dataset.",
         "coverage": {
             "team_names": len(teams),
-            "team_match_rows": int(len(frame)),
-            "unique_matches": unique_matches,
+            "source_team_match_rows": source_team_rows,
+            "stored_team_match_rows": int(len(frame)),
+            "unique_matches": source_match_count,
             "competitions": sorted(str(x) for x in frame["comp"].dropna().unique()),
             "seasons": sorted(str(x) for x in frame["season"].dropna().unique()),
-            "first_match_date": dates.min().strftime("%Y-%m-%d"),
-            "last_match_date": dates.max().strftime("%Y-%m-%d"),
+            "first_match_date": source_dates.min().strftime("%Y-%m-%d"),
+            "last_match_date": source_dates.max().strftime("%Y-%m-%d"),
             "known_issue_matches_excluded": len(issue_ids),
             "matches_per_team_max": MAX_MATCHES_PER_TEAM,
         },
