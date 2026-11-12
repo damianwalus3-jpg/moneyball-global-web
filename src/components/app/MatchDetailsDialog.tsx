@@ -56,10 +56,10 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
 }
 
 const sourceLabel = (source: string | null | undefined) => {
-  if (source === "GITHUB_PUBLIC_LAST5_FORM") return "GitHub · OpenMatchday + OpenFootball · ostatnie 5 spotkań";
+  if (source === "GITHUB_PUBLIC_LAST10_FORM") return "GitHub · OpenMatchday + OpenFootball · ostatnie 5 spotkań";
   if (source === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań";
   if (source === "OPENMATCHDAY_GITHUB_LAST5_FORM") return "GitHub / OpenMatchday · forma i statystyki z 5 spotkań";
-  if (source === "OPENMATCHDAY_LAST5_FORM") return "OpenMatchday · wyniki i gole z ostatnich 5 spotkań";
+  if (source === "OPENMATCHDAY_LAST10_FORM") return "OpenMatchday · wyniki i gole z ostatnich 5 spotkań";
   if (source === "FOOTYNOMAD_LAST5_FORM") return "FootyNomad · forma ostatnich 5 spotkań";
   if (source === "MONEYBALL_VERIFIED_HISTORY") return "Historia wyników MONEYBALL · wyniki zweryfikowane";
   if (source === "VERIFIED_MARKET_DATA") return "Zweryfikowane dane rynkowe";
