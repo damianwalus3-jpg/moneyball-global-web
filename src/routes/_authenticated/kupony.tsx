@@ -72,7 +72,6 @@ function Kupony() {
   const [market, setMarket] = useState<Market>("all");
   const [count, setCount] = useState("3");
   const [couponSize, setCouponSize] = useState<CouponSize>(3);
-  const [couponSize, setCouponSize] = useState<CouponSize>(3);
   const [stake, setStake] = useState("5");
   const [recordStake, setRecordStake] = useState(true);
   const [excludeActive, setExcludeActive] = useState(true);
