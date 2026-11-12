@@ -157,7 +157,7 @@ export function AppShell({ email, children }: { email: string | null; children: 
           {NAV.map((n) => (
             <Link
               key={n.to}
-              to={n.to}
+              to={n.to as any}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent",
                 isActive(n.to) && "bg-sidebar-accent font-semibold text-primary",
@@ -190,7 +190,7 @@ export function AppShell({ email, children }: { email: string | null; children: 
           {NAV.filter((n) => MOBILE_MAIN.includes(n.to)).map((n) => (
             <Link
               key={n.to}
-              to={n.to}
+              to={n.to as any}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-[11px] text-muted-foreground",
                 isActive(n.to) && "text-primary",
@@ -222,7 +222,7 @@ export function AppShell({ email, children }: { email: string | null; children: 
             {NAV.filter((n) => !MOBILE_MAIN.includes(n.to)).map((n) => (
               <Link
                 key={n.to}
-                to={n.to}
+                to={n.to as any}
                 onClick={() => setMoreOpen(false)}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-sm",
