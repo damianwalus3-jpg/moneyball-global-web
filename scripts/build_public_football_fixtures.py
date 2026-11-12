@@ -111,7 +111,7 @@ def main():
         "source": "Open-Matchday public fixture CSV",
         "source_url": "https://github.com/oladeeayo/open-matchday",
         "attribution": "OpenMatchday contributors. Informational non-commercial use with attribution; upstream provider terms apply.",
-        "licence_notice": "Do not use commercially unless permitted by the source terms. Times are source-local; timezone and gender are not inferred.",
+        "licence_notice": "Do not use commercially unless permitted by the source terms. Kickoff times remain source-local in this file and are converted using country timezones by the app. Gender is inferred only from explicit competition labels; otherwise it remains unknown.",
         "coverage": {
             "competitions_in_index": len(folders),
             "competitions_with_fixtures": len(successful),
