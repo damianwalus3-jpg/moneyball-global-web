@@ -41,6 +41,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
       kickoff_at: m.kickoff_at,
       league: m.league,
       country: m.country,
+      gender: m.gender ?? "unknown",
       home_team: m.home_team,
       away_team: m.away_team,
       status: "scheduled",
