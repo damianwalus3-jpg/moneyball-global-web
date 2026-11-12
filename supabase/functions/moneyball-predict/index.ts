@@ -186,7 +186,10 @@ async function readGitHubPublicTeamHistory(){
   return data;
  }catch(e){return {teams:{},error:String(e),generated_at:null,coverage:null};}
 }
-async function readOpenPlayXgData(){\n try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/openplay-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(!r.ok)throw new Error("OpenPlay xG HTTP "+r.status);const data=await r.json();if(data?.schema_version!==1||!data?.teams||Object.keys(data.teams).length<100)throw new Error("OpenPlay xG validation failed");return data;}catch(e){console.error("OpenPlay xG history unavailable:",String(e));return {teams:{},error:String(e),generated_at:null,coverage:null};}\n}\nfunction githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null){
+async function readOpenPlayXgData(){
+ try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/openplay-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(!r.ok)throw new Error("OpenPlay xG HTTP "+r.status);const data=await r.json();if(data?.schema_version!==1||!data?.teams||Object.keys(data.teams).length<100)throw new Error("OpenPlay xG validation failed");return data;}catch(e){console.error("OpenPlay xG history unavailable:",String(e));return {teams:{},error:String(e),generated_at:null,coverage:null};}
+}
+function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null){
  const key=normTeam(team),teams=data?.teams||{};let entry=teams[key];
  if(!entry){
   const a=new Set(key.split(" ").filter(x=>x.length>2));
