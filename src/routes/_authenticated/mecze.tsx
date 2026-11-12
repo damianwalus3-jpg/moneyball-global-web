@@ -213,7 +213,7 @@ function Mecze() {
     setGlobalScanRunning(true);
     try {
       const date = brusselsDayKey(new Date());
-      const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date } });
+      const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date, days: 1 } });
       const edgeCount = Number(data?.combined_count ?? data?.fixtures_count ?? data?.total_found ?? 0);
       if (error || !data?.ok || edgeCount === 0) {
         // Independent keyless GitHub fallback: do not let a missing FootyNomad
@@ -239,7 +239,7 @@ function Mecze() {
       }
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       toast.success(
-        "Skan 7 dni: FootyNomad " + edgeCount + " • źródła publiczne " + (publicSummary?.sourceFixtures ?? 0) +
+        "Skan 1 dzień: FootyNomad " + edgeCount + " • źródła publiczne " + (publicSummary?.sourceFixtures ?? 0) +
         " • dodano FN " + (data.inserted ?? 0) + " / GitHub " + (publicSummary?.newMatches ?? 0) +
         (publicWarning ? " • dodatkowe źródło niedostępne" : ""),
       );
@@ -346,7 +346,7 @@ function Mecze() {
             </Button>
             <Button onClick={runTodayScan} disabled={globalScanRunning || analysisRunning}>
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
-              {globalScanRunning ? "Skanuję 7 dni…" : "Skanuj 7 dni"}
+              {globalScanRunning ? "Skanuję 1 dzień…" : "Skanuj 1 dzień"}
             </Button>
             <Button variant="outline" onClick={() => void runTodayAnalysis()} disabled={globalScanRunning || analysisRunning}>
               <BrainCircuit className={analysisRunning ? "animate-pulse" : ""} />
