@@ -241,8 +241,9 @@ function Kupony() {
       <section className="surface-card mb-6 p-4">
         <div className="mb-3 flex items-center gap-2">
           <Sparkles className="size-5 text-primary" />
-          <h2 className="text-xl font-semibold uppercase">Generator partii</h2>
+          <h2 className="text-xl font-semibold uppercase">Generator kuponów</h2>
         </div>
+        <p className="mb-3 text-sm text-muted-foreground">Skanowanie meczów nie zapisuje automatycznie kuponów. Po zakończeniu skanu sprawdź podgląd poniżej i naciśnij „GENERUJ I ZAPISZ KUPONY”. Dopiero wtedy kupony zostaną dodane do listy i bankrolla (jeśli zaznaczysz zapis stawki).</p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Rynek">
             <div className="flex gap-1">
@@ -298,8 +299,8 @@ function Kupony() {
                 </div>
               ))}
             </div>
-            <Button className="mt-4" disabled={!!stakeError || saveBatch.isPending} onClick={() => saveBatch.mutate(preview)}>
-              {saveBatch.isPending ? "Zapisywanie…" : `Zapisz partię (${preview.length})`}
+            <Button className="mt-4 font-bold" disabled={!!stakeError || saveBatch.isPending || preview.length === 0} onClick={() => saveBatch.mutate(preview)}>
+              {saveBatch.isPending ? "Tworzenie kuponów…" : `GENERUJ I ZAPISZ KUPONY (${preview.length})`}
             </Button>
           </>
         )}
