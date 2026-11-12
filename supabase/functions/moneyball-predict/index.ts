@@ -190,7 +190,7 @@ async function readOpenPlayXgData(){
  const teams:Record<string,any>={};let openplay:any=null,statsbomb:any=null;
  try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/openplay-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(r.ok){const data=await r.json();if(data?.schema_version===1&&data?.teams&&Object.keys(data.teams).length>=100)openplay=data;else throw new Error("OpenPlay xG validation failed");}}catch(e){console.error("OpenPlay xG history unavailable:",String(e));}
  try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/statsbomb-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(r.ok){const data=await r.json();if(data?.schema_version===1&&data?.teams&&Object.keys(data.teams).length>=80)statsbomb=data;}}catch(e){console.error("StatsBomb xG history unavailable:",String(e));}
- for(const source of [openplay,statsbomb])for(const [key,entry] of Object.entries(source?.teams||{})){
+ for(const [source,defaultGender] of [[openplay,"men"],[statsbomb,null]] as any[]){for(const [key,entry] of Object.entries(source?.teams||{})){
   const current=teams[key]||{name:(entry as any).name,gender:(entry as any).gender||"unknown",matches:[]};
   const merged=[...(current.matches||[]),...((entry as any).matches||[])],seen=new Set<string>();
   current.matches=merged.filter((x:any)=>{const id=String(x.match_id||[x.date,x.opponent,x.goals_for,x.goals_against].join("|"));if(seen.has(id))return false;seen.add(id);return true;}).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,30);
@@ -206,19 +206,21 @@ function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null,gend
   const candidates=Object.keys(source).map(k=>{const other=new Set(k.split(" ").filter(x=>x.length>2));return {k,score:tokens.size&&other.size?[...tokens].filter(x=>other.has(x)).length/Math.max(tokens.size,other.size):0};}).filter(x=>x.score>=0.8).sort((x,y)=>y.score-x.score);
   return candidates.length&&(!candidates[1]||candidates[0].score-candidates[1].score>=0.12)?candidates[0].k:null;
  };
- let resolvedKey=teams[key]?key:(bestKey(teams)||key);
+ const targetGender=String(gender||"men").toLowerCase()==="women"?"women":"men";
+ const resolvedKey=teams[key]?key:(bestKey(teams)||key);
  const xgKey=xgTeams[resolvedKey]?resolvedKey:(bestKey(xgTeams)||resolvedKey);
- let entry=teams[resolvedKey];
  const xgEntry=xgTeams[xgKey];
- if(!entry&&Array.isArray(xgEntry?.matches))entry={matches:xgEntry.matches.map((x:any)=>({...x,result:x.result||"D"}))};
+ const genderMatches=Array.isArray(xgEntry?.matches)?xgEntry.matches.filter((x:any)=>String(x.gender||xgEntry.gender||"unknown").toLowerCase()===targetGender):[];
+ let entry=targetGender==="women"?(genderMatches.length?{matches:genderMatches}:null):teams[resolvedKey];
+ if(!entry&&genderMatches.length)entry={matches:genderMatches.map((x:any)=>({...x,result:x.result||"D"}))};
  if(!entry||!Array.isArray(entry.matches))return null;
  const cutoff=String(kickoff||"").slice(0,10);
  const last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
  if(!last.length)return null;
  const w=last.filter((x:any)=>x.result==="W").length,d=last.filter((x:any)=>x.result==="D").length,l=last.filter((x:any)=>x.result==="L").length;
  const mean=(k:string)=>{const vals=last.map((x:any)=>x[k]).filter((x:any)=>x!==null&&x!==undefined&&Number.isFinite(Number(x)));return vals.length?+(vals.reduce((sum:number,v:any)=>sum+Number(v),0)/vals.length).toFixed(2):null;};
- const xgLast=genderMatches.length?genderMatches.filter((x:any)=>String(x.date||"")<cutoff&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against)})):[];
- return {matches:last.length,w,d,l,goals_for:last.reduce((sum:number,x:any)=>sum+Number(x.goals_for||0),0),goals_against:last.reduce((sum:number,x:any)=>sum+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:"OPENMATCHDAY_GITHUB_LAST10"};
+ const xgLast=genderMatches.filter((x:any)=>String(x.date||"")<cutoff&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against)}));
+ return {matches:last.length,w,d,l,goals_for:last.reduce((sum:number,x:any)=>sum+Number(x.goals_for||0),0),goals_against:last.reduce((sum:number,x:any)=>sum+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:targetGender==="women"?"STATSBOMB_OPEN_DATA":"OPENMATCHDAY_GITHUB_LAST10"};
 }
 
 Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{headers:C});try{
