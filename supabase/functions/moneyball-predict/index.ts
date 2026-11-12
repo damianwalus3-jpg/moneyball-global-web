@@ -143,10 +143,10 @@ function formFromPublic(f:any){
  const source=f?.source==="ESPN_FORM_LAST5"?"ESPN_FORM_LAST5":[f?.source,f?.home_form?.source,f?.away_form?.source].includes("ESPN_WOMEN_LAST10")?"ESPN_WOMEN_LAST10":"OPENMATCHDAY_LAST10";
  return {w,d,l,matches:games.length,goals_for:gf,goals_against:ga,source,last10:games,elo:f?.elo==null?null:Number(f.elo),rd:f?.rd==null?null:Number(f.rd),hfa:f?.hfa==null?null:Number(f.hfa),elo_as_of:f?.elo_as_of||null};
 }
-async function readPublicSourceForms(date:string){
+async function readPublicSourceForms(date:string,token:string){
  const byPair=new Map<string,any>(),byTeam=new Map<string,any[]>(),eloByTeam=new Map<string,any>();
  try{
-  const r=await fetch(S+"/functions/v1/moneyball-public-sources?date="+encodeURIComponent(date),{headers:{apikey:K,Accept:"application/json"},signal:AbortSignal.timeout(55000)});
+  const r=await fetch(S+"/functions/v1/moneyball-public-sources?date="+encodeURIComponent(date),{headers:{apikey:K,Authorization:"Bearer "+token,Accept:"application/json"},signal:AbortSignal.timeout(25000)});
   if(!r.ok)throw new Error("Public sources HTTP "+r.status);
   const j=await r.json();
    const eloMeta={as_of:j?.elo_ratings?.as_of||null,ratings_count:Number(j?.elo_ratings?.ratings_count||0)};
@@ -322,7 +322,7 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  if(req.method!=="POST")return out({error:"POST required"},405);
  const token=req.headers.get("Authorization")?.replace("Bearer ","");if(!token)throw Error("Zaloguj się ponownie.");
  const body=await req.json().catch(()=>({})),date=String(body.date||new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()));
- const all=await db("matches?select=id,scan_run_id,external_id,source,competition,league,country,gender,home_team,away_team,kickoff_at,kickoff_date,status,notes&order=kickoff_at.asc",token);
+ const horizonDate=new Date(date+"T12:00:00Z");horizonDate.setUTCDate(horizonDate.getUTCDate()+6);const endDate=horizonDate.toISOString().slice(0,10);const afterEnd=new Date(endDate+"T12:00:00Z");afterEnd.setUTCDate(afterEnd.getUTCDate()+1);const afterEndDate=afterEnd.toISOString().slice(0,10);const all=await db("matches?select=id,scan_run_id,external_id,source,competition,league,country,gender,home_team,away_team,kickoff_at,kickoff_date,status,notes&or=(and(kickoff_at.gte."+encodeURIComponent(date+"T00:00:00Z")+",kickoff_at.lt."+encodeURIComponent(afterEndDate+"T00:00:00Z")+"),and(kickoff_at.is.null,kickoff_date.gte."+date+",kickoff_date.lte."+endDate+"))&order=kickoff_at.asc&limit=1800",token);
  const dateFromExternalId=(m:any)=>String(m.kickoff_date||"").slice(0,10)||/:(\d{4}-\d{2}-\d{2}):/.exec(String(m.external_id||""))?.[1]||null;
   const matchDate=(m:any)=>m.kickoff_at?new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(m.kickoff_at)):dateFromExternalId(m);
   const horizonDate=new Date(date+"T12:00:00Z");horizonDate.setUTCDate(horizonDate.getUTCDate()+6);const endDate=horizonDate.toISOString().slice(0,10);
@@ -338,13 +338,13 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
   const cached=readCachedFootyForm(String(m.notes||""),String(m.home_team),String(m.away_team));
   if(cached)footyForms.set(m.id,cached);else formCandidates.push(m);
  }
- const formResults=await limitedSettled(formCandidates,10,async(m:any)=>{
+ const formResults=await limitedSettled(formCandidates.slice(0,24),6,async(m:any)=>{
   const form=await readFootyNomadForm(String(m.external_id),String(m.home_team),String(m.away_team));
   if(form){const notes=mergeFootyFormNotes(String(m.notes||""),String(m.home_team),String(m.away_team),form);await db("matches?id=eq."+m.id,token,"PATCH",{notes}).catch((e:any)=>console.error("Form cache write failed:",String(e)));}
   return {id:m.id,form};
  });
  for(const x of formResults){if(x.status==="fulfilled"&&x.value.form)footyForms.set(x.value.id,x.value.form);}
- const publicForms=await readPublicSourceForms(date);
+ const publicForms=await readPublicSourceForms(date,token);
  const githubPublic=await readGitHubPublicTeamHistory();
  const openPlayXg=await readOpenPlayXgData();
  const marketRows=await db("match_market_data?select=match_id,provider_data,captured_at&source=eq.StrikerAPI",token);const marketMap=new Map((marketRows||[]).map((x:any)=>[x.match_id,x.provider_data]));
@@ -357,7 +357,7 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
   if(preliminary.expected_home_goals!=null&&preliminary.expected_away_goals!=null)continue;
   for(const team of [String(m.home_team),String(m.away_team)]){const key=normTeam(team);if(!xgoalsCandidates.has(key))xgoalsCandidates.set(key,{team,country:String(m.country||"France"),kickoff});}
  }
- const xgoalsResults=await limitedSettled([...xgoalsCandidates.values()],8,async(item)=>({key:normTeam(item.team),form:await readXgoalsTeamForm(item.team,item.country,item.kickoff)}));
+ const xgoalsResults=await limitedSettled([...xgoalsCandidates.values()].slice(0,24),4,async(item)=>({key:normTeam(item.team),form:await readXgoalsTeamForm(item.team,item.country,item.kickoff)}));
  for(const item of xgoalsResults)if(item.status==="fulfilled"&&item.value.form)xgoalsTeamForms.set(item.value.key,item.value.form);
  const rows:any[]=[];let covered=0,missing=0;
  for(const m of matches){
