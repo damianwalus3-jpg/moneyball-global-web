@@ -291,6 +291,18 @@ function Mecze() {
     }
   }
 
+  const detailGroup = detailMatch
+    ? displayGroups.get(matchDayKey(detailMatch) ?? "brak-daty")?.find((group) => group.matches.some((m) => m.id === detailMatch.id))
+    : undefined;
+  const detailResult = detailGroup
+    ? detailGroup.matches.map((m) => resultBy.get(m.id)).find((r) => r?.verified === true) ??
+      detailGroup.matches.map((m) => resultBy.get(m.id)).find(Boolean)
+    : detailMatch ? resultBy.get(detailMatch.id) : undefined;
+  const detailOdds = detailGroup
+    ? detailGroup.matches.map((m) => latestOdds.get(m.id)).filter(Boolean)
+      .sort((a, b) => (b?.captured_at ?? "").localeCompare(a?.captured_at ?? ""))[0]
+    : detailMatch ? latestOdds.get(detailMatch.id) : undefined;
+
   return (
     <div>
       <PageHeader
@@ -562,8 +574,8 @@ function Mecze() {
           const selectedGroup = displayGroups.get(matchDayKey(detailMatch) ?? "brak-daty")?.find((g) => g.matches.some((m) => m.id === detailMatch.id));
           return selectedGroup ? selectedGroup.matches.some((m) => m.id === p.match_id) : p.match_id === detailMatch.id;
         }) : []}
-        odds={detailMatch ? latestOdds.get(detailMatch.id) : undefined}
-        result={detailMatch ? resultBy.get(detailMatch.id) : undefined}
+        odds={detailOdds}
+        result={detailResult}
         matches={matches}
         results={results}
       />
