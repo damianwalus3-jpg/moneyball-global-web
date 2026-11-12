@@ -1,10 +1,11 @@
 import { CANDIDATE_MIN_PROBABILITY, isValidPick } from "./domain";
-import { brusselsInputToISO } from "./time";
+import { brusselsDayKey, brusselsInputToISO } from "./time";
 import type { Pick, PredictionType, SelectionStatus } from "./types";
 
 export interface ParsedMatch {
   key: string;
-  kickoff_at: string;
+  kickoff_at: string | null;
+  kickoff_date?: string | null;
   league: string;
   country: string | null;
   gender?: "men" | "women" | "mixed" | "unknown" | null;
@@ -95,8 +96,9 @@ function parseKickoff(v: string): string | null {
   return brusselsInputToISO(v);
 }
 
-export function matchKey(kickoffIso: string, home: string, away: string) {
-  return `${kickoffIso.slice(0, 16)}|${home.trim().toLowerCase()}|${away.trim().toLowerCase()}`;
+export function matchKey(kickoffIso: string | null, home: string, away: string, kickoffDate?: string | null) {
+  const timeKey = kickoffIso ? kickoffIso.slice(0, 16) : `DATE:${kickoffDate || "unknown"}`;
+  return `${timeKey}|${home.trim().toLowerCase()}|${away.trim().toLowerCase()}`;
 }
 
 /**
@@ -133,6 +135,7 @@ export function parseScanRows(
       matches.set(key, {
         key,
         kickoff_at: kickoff,
+        kickoff_date: brusselsDayKey(kickoff),
         league,
         country: get(row, "country") || null,
         home_team: home,
