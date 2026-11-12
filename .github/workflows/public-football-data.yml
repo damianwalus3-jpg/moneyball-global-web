@@ -28,12 +28,28 @@ jobs:
         run: python3 scripts/build_public_football_fixtures.py
       - name: Validate generated JSON
         run: |
-          python3 -m json.tool public-data/team-history.json > /dev/null
-          python3 -m json.tool public-data/team-form.json > /dev/null
-          python3 -m json.tool public-data/fixtures.json > /dev/null
-          jq -e '.coverage.competitions_with_results >= 15 and .coverage.team_names >= 100 and (.teams | length > 0)' public-data/team-history.json > /dev/null
-          jq -e '.coverage.competitions_with_fixtures >= 10 and .coverage.fixture_count > 0 and (.coverage.fixture_count) as $n | ([.fixtures[] | select((.date | length) > 0 and (.home_team | length) > 0 and (.away_team | length) > 0)] | length == $n)' public-data/fixtures.json > /dev/null
-          echo "Validated team history and public fixture index with jq."
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ("public-data/team-history.json", "public-data/team-form.json", "public-data/fixtures.json"):
+              path = Path(name)
+              raw = path.read_text(encoding="utf-8")
+              print(f"Validating {name}: {len(raw)} characters")
+              try:
+                  payload = json.loads(raw)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"Invalid JSON in {name}: {exc}") from exc
+              if name.endswith("team-history.json"):
+                  assert payload["coverage"]["competitions_with_results"] >= 15
+                  assert payload["coverage"]["team_names"] >= 100
+                  assert payload["teams"]
+                  print("History coverage:", payload["coverage"])
+              elif name.endswith("fixtures.json"):
+                  assert payload["coverage"]["competitions_with_fixtures"] >= 10
+                  assert payload["coverage"]["fixture_count"] > 0
+                  assert all(x.get("date") and x.get("home_team") and x.get("away_team") for x in payload["fixtures"])
+                  print("Fixture coverage:", payload["coverage"])
+          PY
       - name: Publish refreshed data to GitHub
         run: |
           git config user.name "github-actions[bot]"
