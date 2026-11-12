@@ -230,7 +230,8 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  });
  for(const x of formResults){if(x.status==="fulfilled"&&x.value.form)footyForms.set(x.value.id,x.value.form);}
  const publicForms=await readPublicSourceForms(date);
- const githubPublic=await readGitHubPublicTeamHistory();\n const openPlayXg=await readOpenPlayXgData();
+ const githubPublic=await readGitHubPublicTeamHistory();
+ const openPlayXg=await readOpenPlayXgData();
  const marketRows=await db("match_market_data?select=match_id,provider_data,captured_at&source=eq.StrikerAPI",token);const marketMap=new Map((marketRows||[]).map((x:any)=>[x.match_id,x.provider_data]));
  if(!matches.length)return out({ok:true,date,total:0,created:0,updated:0,selected:0,message:"Brak zaplanowanych meczów w bazie."});
  const rows:any[]=[];let covered=0,missing=0;
