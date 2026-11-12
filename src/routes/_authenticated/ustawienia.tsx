@@ -131,6 +131,21 @@ function Ustawienia() {
         </Field>
       </section>
 
+      <section className="surface-card grid gap-3 border border-primary/30 p-4">
+        <h2 className="text-xl font-semibold uppercase">Dodatkowe źródło danych piłkarskich · PitchAPI</h2>
+        <p className="text-sm text-muted-foreground">Po aktywacji aplikacja pobiera z PitchAPI historię meczów, formę z ostatnich pięciu spotkań, xG/xGA, H2H oraz składy przewidywane i potwierdzone. Źródło obejmuje 77 lig; nie obejmuje wszystkich rezerw i rozgrywek młodzieżowych.</p>
+        <div className="flex flex-wrap gap-2">
+          <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary" href="https://pitchapi.dev/" target="_blank" rel="noreferrer">Utwórz darmowy klucz PitchAPI</a>
+          <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary" href="https://pitchapi.dev/" target="_blank" rel="noreferrer">Dokumentacja API</a>
+          <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-secondary" href="https://supabase.com/dashboard/project/gzgeklcukrclgwbsmbsp/settings/functions" target="_blank" rel="noreferrer">Supabase · Edge Function Secrets</a>
+        </div>
+        <div className="rounded-lg bg-secondary/60 p-3 text-sm">
+          <p className="font-semibold">Wymagana zmienna serwerowa</p>
+          <code className="mt-1 block select-all">PITCHAPI_API_KEY</code>
+          <p className="mt-2 text-xs text-muted-foreground">Wklej wartość klucza wyłącznie w Supabase → Edge Function Secrets. Nie wpisuj jej do aplikacji, GitHuba ani czatu. Po dodaniu klucza ponownie uruchom „Skanuj dzisiaj” lub „Analizuj mecze”.</p>
+        </div>
+      </section>
+
       <section className="surface-card grid gap-3 p-4">
         <h2 className="text-xl font-semibold uppercase">Zmiana hasła</h2>
         <p className="text-sm text-muted-foreground">Gdy jesteś zalogowany, możesz zmienić hasło bez wysyłania wiadomości resetującej. Zmiana nie jest powiązana z aktualizacjami aplikacji.</p>
