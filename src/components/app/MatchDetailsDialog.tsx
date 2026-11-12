@@ -56,6 +56,7 @@ function recentFor(team: string, current: Match, matches: Match[], results: Matc
 }
 
 const sourceLabel = (source: string | null | undefined) => {
+  if (source === "PITCHAPI_LAST5_XG") return "PitchAPI · xG/xGA i forma z ostatnich 5 spotkań";
   if (source === "PITCHAPI_XG_FORM") return "PitchAPI · xG/xGA z ostatnich 5 spotkań";
   if (source === "PITCHAPI_LAST5_FORM") return "PitchAPI · forma ostatnich 5 spotkań";
   if (source === "OPENMATCHDAY_LAST5_FORM") return "OpenMatchday · wyniki i gole z ostatnich 5 spotkań";
