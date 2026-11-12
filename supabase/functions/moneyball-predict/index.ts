@@ -256,27 +256,40 @@ function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null,gend
   const candidates=Object.keys(source).map(k=>{const other=new Set(k.split(" ").filter(x=>x.length>2));return {k,score:tokens.size&&other.size?[...tokens].filter(x=>other.has(x)).length/Math.max(tokens.size,other.size):0};}).filter(x=>x.score>=0.8).sort((x,y)=>y.score-x.score);
   return candidates.length&&(!candidates[1]||candidates[0].score-candidates[1].score>=0.12)?candidates[0].k:null;
  };
- const rawGender=String(gender||"unknown").toLowerCase();const targetGender=rawGender==="women"?"women":rawGender==="men"?"men":"unknown";if(targetGender==="unknown")return null;
+ const rawGender=String(gender||"unknown").toLowerCase();
+ const targetGender=rawGender==="women"?"women":rawGender==="men"?"men":"unknown";
+ const ageGroup=/(?:\bu(?:15|16|17|18|19|20|21|23)\b|\bunder[- ]?(?:15|16|17|18|19|20|21|23)\b|\b(?:reserve|reserves|academy|youth|b team|ii|iii)\b)/i.test(team);
+ if(targetGender==="unknown"&&!ageGroup)return null;
  const resolvedKey=teams[key]?key:(bestKey(teams)||key);
+ const teamEntry=teams[resolvedKey];
+ const teamMatches=Array.isArray(teamEntry?.matches)?teamEntry.matches.filter((x:any)=>{
+  const g=String(x.gender||teamEntry.gender||"unknown").toLowerCase();
+  if(targetGender==="women")return g==="women";
+  if(targetGender==="men")return g!=="women";
+  return true;
+ }):[];
  const xgLookupKey=targetGender==="women"&&xgTeams[key+" women"]?key+" women":key;
  const xgKey=xgTeams[xgLookupKey]?xgLookupKey:(xgTeams[resolvedKey]?resolvedKey:(bestKey(xgTeams,xgLookupKey)||resolvedKey));
  const xgEntry=xgTeams[xgKey];
  const genderMatches=targetGender!=="unknown"&&Array.isArray(xgEntry?.matches)?xgEntry.matches.filter((x:any)=>String(x.gender||xgEntry.gender||"unknown").toLowerCase()===targetGender):[];
- let usedXgHistoryForForm=targetGender==="women"&&genderMatches.length>0;
- let entry=targetGender==="women"?(genderMatches.length?{matches:genderMatches}:null):teams[resolvedKey];
- if(!entry&&genderMatches.length){entry={matches:genderMatches.map((x:any)=>({...x,result:x.result||"D"}))};usedXgHistoryForForm=true;}
+ let usedXgHistoryForForm=teamMatches.length===0&&genderMatches.length>0;
+ const entry=teamMatches.length?{matches:teamMatches}:genderMatches.length?{matches:genderMatches}:null;
  if(!entry||!Array.isArray(entry.matches))return null;
  const cutoff=String(kickoff||"").slice(0,10);
  let last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
  const kickoffDate=Date.parse(cutoff+"T00:00:00Z");
  const recentEnough=(rows:any[])=>rows.length&&Number.isFinite(kickoffDate)&&Number.isFinite(Date.parse(String(rows[0].date||"")+"T00:00:00Z"))&&kickoffDate-Date.parse(String(rows[0].date||"")+"T00:00:00Z")<=240*24*60*60*1000;
- // If the general form archive is absent or stale, use the gender-matched xG source's own score history.
- if(!recentEnough(last)&&genderMatches.length){last=genderMatches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({...x,result:x.result||"D"}));usedXgHistoryForForm=true;}
+ // Prefer the team's own gender-tagged results; use gender-matched xG results only as a recent fallback.
+ if(!recentEnough(last)&&genderMatches.length){
+  const xgForm=genderMatches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,10).map((x:any)=>({...x,result:x.result||"D"}));
+  if(recentEnough(xgForm)){last=xgForm;usedXgHistoryForForm=true;}
+ }
  if(!recentEnough(last))return null;
  const w=last.filter((x:any)=>x.result==="W").length,d=last.filter((x:any)=>x.result==="D").length,l=last.filter((x:any)=>x.result==="L").length;
  const mean=(k:string)=>{const vals=last.map((x:any)=>x[k]).filter((x:any)=>x!==null&&x!==undefined&&Number.isFinite(Number(x)));return vals.length?+(vals.reduce((sum:number,v:any)=>sum+Number(v),0)/vals.length).toFixed(2):null;};
- const cutoffMs=Date.parse(cutoff+"T00:00:00Z"),xgMinDate=new Date(cutoffMs-540*24*60*60*1000).toISOString().slice(0,10);const xgLast=genderMatches.filter((x:any)=>String(x.date||"")<cutoff&&String(x.date||"")>=xgMinDate&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against),source:String(x.source||"HISTORICAL_XG")}));
- return {matches:last.length,w,d,l,goals_for:last.reduce((sum:number,x:any)=>sum+Number(x.goals_for||0),0),goals_against:last.reduce((sum:number,x:any)=>sum+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:usedXgHistoryForForm?(String(last[0]?.source||"").toLowerCase().includes("american_soccer_analysis")?"AMERICAN_SOCCER_ANALYSIS":String(last[0]?.source||"").toLowerCase().includes("statsbomb")?"STATSBOMB_OPEN_DATA":"KEYLESS_GITHUB_LAST10"):"KEYLESS_GITHUB_LAST10",xg_gender_eligible:targetGender!=="unknown"};
+ const cutoffMs=Date.parse(cutoff+"T00:00:00Z"),xgMinDate=new Date(cutoffMs-540*24*60*60*1000).toISOString().slice(0,10);
+ const xgLast=genderMatches.filter((x:any)=>String(x.date||"")<cutoff&&String(x.date||"")>=xgMinDate&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against),source:String(x.source||"HISTORICAL_XG")}));
+ return {matches:last.length,w,d,l,goals_for:last.reduce((sum:number,x:any)=>sum+Number(x.goals_for||0),0),goals_against:last.reduce((sum:number,x:any)=>sum+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:usedXgHistoryForForm?(String(last[0]?.source||"").toLowerCase().includes("american_soccer_analysis")?"AMERICAN_SOCCER_ANALYSIS":String(last[0]?.source||"").toLowerCase().includes("statsbomb")?"STATSBOMB_OPEN_DATA":"KEYLESS_GITHUB_LAST10"):"KEYLESS_GITHUB_LAST10",xg_gender_eligible:targetGender!=="unknown",gender_history_matches:teamMatches.length};
 }
 
 Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{headers:C});try{
