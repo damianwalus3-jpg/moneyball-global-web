@@ -87,11 +87,23 @@ export function AppShell({ email, children }: { email: string | null; children: 
       running = true;
       lastAttemptAt = Date.now();
       try {
-        const { error } = await sb.functions.invoke("footynomad-sync", {
+        // Fixture import and result settlement are separate backend jobs.
+        // Run both on app entry and on the 15-minute refresh cycle.
+        const fixtureSync = await sb.functions.invoke("footynomad-sync", {
           body: { date: brusselsDate() },
         });
-        if (error) throw error;
-        if (!disposed) {
+        if (fixtureSync.error) {
+          console.error("[MONEYBALL] Synchronizacja terminarza nie powiodła się:", fixtureSync.error);
+        }
+
+        const resultSync = await sb.functions.invoke("moneyball-results-sync");
+        if (resultSync.error) {
+          console.error("[MONEYBALL] Synchronizacja wyników nie powiodła się:", resultSync.error);
+        } else if (resultSync.data?.ok === false) {
+          console.error("[MONEYBALL] Rozliczanie wyników zgłosiło błędy:", resultSync.data.errors ?? resultSync.data.error);
+        }
+
+        if (!disposed && (!fixtureSync.error || !resultSync.error)) {
           await qc.invalidateQueries({ queryKey: ["table"] });
         }
       } catch (error) {
