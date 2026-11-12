@@ -39,7 +39,24 @@ function Panel() {
   );
   const hr1 = hitRate(validPicks.filter((p) => p.prediction_type === "1X2").map((p) => p.result_status));
   const hrDc = hitRate(validPicks.filter((p) => p.prediction_type === "DC").map((p) => p.result_status));
-  const candidates = new Set(europeanPredictions.filter((p) => isCouponCandidate(p, byId.get(p.match_id), now)).map((p) => p.match_id)).size;
+  // Keep the dashboard candidate count identical to the default coupon generator:
+  // Europe only, Brussels-today kickoff, selected/pending prediction, and no match
+  // already used by a pending coupon. This avoids counting week-ahead fixtures here.
+  const todayPendingCouponIds = new Set(
+    coupons.filter((c) => (c.status ?? "pending") === "pending").map((c) => c.id),
+  );
+  const activeCouponMatchIds = new Set(
+    couponLegs.filter((leg) => todayPendingCouponIds.has(leg.coupon_id)).map((leg) => leg.match_id),
+  );
+  const candidates = new Set(
+    europeanPredictions
+      .filter((p) => isCouponCandidate(p, byId.get(p.match_id), now))
+      .filter((p) => {
+        const kickoff = byId.get(p.match_id)?.kickoff_at;
+        return !!kickoff && brusselsDayKey(kickoff) === today && !activeCouponMatchIds.has(p.match_id);
+      })
+      .map((p) => p.match_id),
+  ).size;
   const resultIds = new Set(results.map((r) => r.match_id));
   const toSettle = europeanMatches.filter((m) => m.kickoff_at && new Date(m.kickoff_at).getTime() < now && !resultIds.has(m.id) && m.status !== "cancelled" && m.status !== "postponed").length;
 
