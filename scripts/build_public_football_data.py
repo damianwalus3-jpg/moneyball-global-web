@@ -193,7 +193,11 @@ def main():
             "competitions_indexed": len(folders),
             "competitions_with_results": successful,
             "team_names": len(teams),
-            "result_rows_read": total_rows,\n            "international_files_indexed": international_files,\n            "international_files_loaded": international_loaded,\n            "international_matches_read": len(international_rows),\n            "international_fetch_errors": international_failed,
+            "result_rows_read": total_rows,
+            "international_files_indexed": international_files,
+            "international_files_loaded": international_loaded,
+            "international_matches_read": len(international_rows),
+            "international_fetch_errors": international_failed,
             "failed_competitions": failed[:30]
         },
         "teams": teams
