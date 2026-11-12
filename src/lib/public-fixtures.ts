@@ -79,6 +79,7 @@ async function loadFixtures(): Promise<FixturePayload> {
 /** Imports verified public fixture rows for one Brussels calendar date; no predictions are fabricated. */
 type PublicSourceFixture = {
   kickoff_at: string | null;
+  date?: string | null;
   home_team: string;
   away_team: string;
   competition: string;
@@ -103,6 +104,7 @@ function brusselsDate(iso: string): string {
 /** Merges the live multi-source keyless feed with the scheduled GitHub CSV index. */
 export async function importPublicFixturesForDate(date: string, existing: Match[]) {
   const candidates = new Map<string, ParsedMatch>();
+  const identityKey = (date:string,home:string,away:string) => matchKey(null,home,away,date);
   let liveFixtures = 0, staticFixtures = 0, liveErrors = 0;
 
   // Live no-key sources: OpenMatchday, ESPN public scoreboard, OpenLigaDB,
@@ -113,13 +115,16 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
       const { data, error } = await sb.functions.invoke("moneyball-public-sources", { body: { date } });
       if (!error && data?.ok && Array.isArray((data as PublicSourcePayload).fixtures)) {
         for (const f of (data as PublicSourcePayload).fixtures || []) {
-          if (!f.kickoff_at || !f.home_team || !f.away_team) continue;
-          const parsedDate = new Date(f.kickoff_at);
-          if (!Number.isFinite(parsedDate.getTime()) || brusselsDate(f.kickoff_at) !== date) continue;
-          const kickoff = parsedDate.toISOString();
+          if (!f.home_team || !f.away_team) continue;
+          const fixtureDate = (f.date || date).slice(0,10);
+          const parsedDate = f.kickoff_at ? new Date(f.kickoff_at) : null;
+          if (parsedDate && (!Number.isFinite(parsedDate.getTime()) || brusselsDate(f.kickoff_at!) !== date)) continue;
+          if (!parsedDate && fixtureDate !== date) continue;
+          const kickoff = parsedDate ? parsedDate.toISOString() : null;
           const row: ParsedMatch = {
-            key: matchKey(kickoff, f.home_team, f.away_team),
+            key: matchKey(kickoff, f.home_team, f.away_team, fixtureDate),
             kickoff_at: kickoff,
+            kickoff_date: fixtureDate,
             league: f.competition || "Nieznane rozgrywki",
             country: f.country ? normalizeCountry(f.country) : null,
             gender: f.gender || "unknown",
@@ -128,7 +133,11 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
             home_team: f.home_team,
             away_team: f.away_team,
           };
-          if (isEuropeanMatch(row)) candidates.set(row.key, row);
+          if (isEuropeanMatch(row)) {
+            const identity = identityKey(fixtureDate,f.home_team,f.away_team);
+            const prior = candidates.get(identity);
+            if (!prior || (!prior.kickoff_at && row.kickoff_at)) candidates.set(identity,row);
+          }
         }
         liveFixtures = candidates.size;
       } else if (error) {
@@ -144,15 +153,15 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
   // Static GitHub feed is an independent fallback and also fills any live-feed gaps.
   try {
     const payload = await loadFixtures();
-    for (const f of payload.fixtures.filter(x => x.date === date && x.time_local && x.home_team && x.away_team)) {
+    for (const f of payload.fixtures.filter(x => x.date === date && x.home_team && x.away_team)) {
       const country = COUNTRY_NAMES[f.country_code] ?? f.country_code;
-      const time = f.time_local!;
       const timezone = TIME_ZONES[f.country_code] || DEFAULT_EUROPE_TZ;
-      const kickoff = zonedLocalToIso(f.date, time, timezone);
-      if (brusselsDate(kickoff) !== date) continue;
+      const kickoff = f.time_local ? zonedLocalToIso(f.date, f.time_local, timezone) : null;
+      if (kickoff && brusselsDate(kickoff) !== date) continue;
       const row: ParsedMatch = {
-        key: matchKey(kickoff, f.home_team, f.away_team),
+        key: matchKey(kickoff, f.home_team, f.away_team, f.date),
         kickoff_at: kickoff,
+        kickoff_date: f.date,
         league: f.competition,
         country,
         gender: f.gender || "unknown",
@@ -161,7 +170,11 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
         home_team: f.home_team,
         away_team: f.away_team,
       };
-      if (isEuropeanMatch(row) && !candidates.has(row.key)) candidates.set(row.key, row);
+      if (isEuropeanMatch(row)) {
+        const identity = identityKey(f.date,f.home_team,f.away_team);
+        const prior = candidates.get(identity);
+        if (!prior || (!prior.kickoff_at && row.kickoff_at)) candidates.set(identity,row);
+      }
     }
     staticFixtures = candidates.size - liveFixtures;
   } catch {
