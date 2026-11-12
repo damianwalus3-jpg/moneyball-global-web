@@ -110,7 +110,6 @@ export interface FileRoutesByFullPath {
   '/bankroll': typeof AuthenticatedBankrollRoute
   '/double-chance': typeof AuthenticatedDoubleChanceRoute
   '/gole': typeof AuthenticatedGoleRoute
-  '/gole': typeof AuthenticatedGoleRoute
   '/historia': typeof AuthenticatedHistoriaRoute
   '/kupony': typeof AuthenticatedKuponyRoute
   '/mecze': typeof AuthenticatedMeczeRoute
@@ -126,6 +125,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/bankroll': typeof AuthenticatedBankrollRoute
   '/double-chance': typeof AuthenticatedDoubleChanceRoute
+  '/gole': typeof AuthenticatedGoleRoute
   '/historia': typeof AuthenticatedHistoriaRoute
   '/kupony': typeof AuthenticatedKuponyRoute
   '/mecze': typeof AuthenticatedMeczeRoute
