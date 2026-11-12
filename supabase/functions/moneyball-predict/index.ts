@@ -355,46 +355,60 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
  for(let i=0;i<insertRows.length;i+=50){
   await db("predictions?on_conflict=owner_id,match_id,model_version,market,selection",token,"POST",insertRows.slice(i,i+50),"resolution=merge-duplicates,return=minimal");
  }
- // Build at most one new TEST coupon per run and market, only from three distinct fixtures with >=75% probabilities.
+ // Build or validate at most one TEST coupon per run and market.
+ // Incomplete pending coupons are cancelled and refunded before a valid replacement is created.
  const eligible=rows.filter(x=>x.market==="DOUBLE_CHANCE"&&x.verdict==="WYBRANY"&&x.probability>=75&&x.probability!==null).sort((a,b)=>b.probability-a.probability);
  const picks:any[]=[];const seen=new Set();for(const p of eligible){if(!seen.has(p.match_id)){seen.add(p.match_id);picks.push(p);}if(picks.length===3)break;}
  let couponCreated=false;
  if(picks.length===3){
-  const prior=await db("coupons?select=id&name=eq.MONEYBALL%20AUTO%20TEST%20"+date+"&coupon_type=eq.TEST",token);
-  if(!prior?.length){
-   const resolved:any[]=[];
-   for(const p of picks){
-    const q=await db("predictions?select=id,match_id,prediction_type,pick,probability,odds&match_id=eq."+p.match_id+"&model_version=eq."+encodeURIComponent(V)+"&market=eq.DOUBLE_CHANCE&selection=eq."+p.selection,token);
-    if(q?.[0])resolved.push({prediction:q[0],candidate:p});
-   }
-   if(resolved.length===3){
-    const autoName="MONEYBALL AUTO TEST "+date;
-    const existingAuto=await db("coupons?select=id,status&name=eq."+encodeURIComponent(autoName)+"&coupon_type=eq.TEST",token);
-    if(existingAuto?.length){
-     const existingCoupon=existingAuto[0];
-     const existingLegs=await db("coupon_legs?select=id&coupon_id=eq."+existingCoupon.id,token);
-     if(existingCoupon.status==="pending"&&Array.isArray(existingLegs)&&existingLegs.length===3){
-      const existingStake=await db("bankroll_transactions?select=id&coupon_id=eq."+existingCoupon.id+"&transaction_type=eq.stake",token);
-      if(!Array.isArray(existingStake)||existingStake.length===0){
-       await db("bankroll_transactions",token,"POST",{occurred_at:new Date().toISOString(),type:"stake",amount:5,coupon_id:existingCoupon.id,note:"Stawka wirtualna 5 EUR: "+autoName});
-      }
-      couponCreated=true;
+  const resolved:any[]=[];
+  for(const p of picks){
+   const q=await db("predictions?select=id,match_id,prediction_type,pick,probability,odds&match_id=eq."+p.match_id+"&model_version=eq."+encodeURIComponent(V)+"&market=eq.DOUBLE_CHANCE&selection=eq."+p.selection,token);
+   if(q?.[0])resolved.push({prediction:q[0],candidate:p});
+  }
+  if(resolved.length===3&&new Set(resolved.map(x=>x.prediction.match_id)).size===3){
+   const autoName="MONEYBALL AUTO TEST "+date;
+   let existingAuto=await db("coupons?select=id,status,name&name=eq."+encodeURIComponent(autoName)+"&coupon_type=eq.TEST",token);
+   if(existingAuto?.length){
+    const existingCoupon=existingAuto[0];
+    const existingLegs=await db("coupon_legs?select=id&coupon_id=eq."+existingCoupon.id,token);
+    if(existingCoupon.status==="pending"&&Array.isArray(existingLegs)&&existingLegs.length===3){
+     const existingStake=await db("bankroll_transactions?select=id&coupon_id=eq."+existingCoupon.id+"&type=eq.stake",token);
+     if(!Array.isArray(existingStake)||existingStake.length===0){
+      await db("bankroll_transactions",token,"POST",{occurred_at:new Date().toISOString(),type:"stake",transaction_type:"stake",amount:5,coupon_id:existingCoupon.id,note:"Stawka wirtualna 5 EUR: "+autoName});
      }
-    }else{
-     const combinedProbability=+(resolved.reduce((acc:any,x:any)=>acc*(Number(x.prediction.probability)/100),1)*100).toFixed(1);
-     const c=await db("coupons",token,"POST",{name:autoName,coupon_type:"TEST",target_legs:3,status:"pending",stake:5,combined_probability:combinedProbability,notes:"Automatycznie wygenerowany kupon Double Chance; trzy różne mecze, próg >=75%. Stawka wirtualna 5 EUR. Łączne prawdopodobieństwo to iloczyn szacunków przy założeniu niezależności; bez kursów nie wyliczamy zwrotu."});
-     const cid=c?.[0]?.id;
-     if(cid){
-      const legRows=resolved.map((x:any,i:number)=>({coupon_id:cid,prediction_id:x.prediction.id,match_id:x.prediction.match_id,prediction_type:x.prediction.prediction_type,pick:x.prediction.pick,probability:x.prediction.probability,odds:x.prediction.odds,leg_number:i+1,status:"pending",result_status:"pending"}));
-      try{
-       const inserted=await db("coupon_legs",token,"POST",legRows);
-       if(!Array.isArray(inserted)||inserted.length!==3)throw new Error("Kupon nie otrzymał kompletu trzech nóg.");
-       await db("bankroll_transactions",token,"POST",{occurred_at:new Date().toISOString(),type:"stake",amount:5,coupon_id:cid,note:"Stawka wirtualna 5 EUR: "+autoName});
-       couponCreated=true;
-      }catch(e){
-       await db("coupons?id=eq."+cid,token,"PATCH",{status:"cancelled",notes:"Niekompletny zapis automatycznego kuponu; wymaga kontroli. "+String(e).slice(0,400)}).catch(()=>undefined);
-       throw e;
-      }
+     couponCreated=true;
+    }else if(existingCoupon.status==="pending"&&(!Array.isArray(existingLegs)||existingLegs.length!==3)){
+     const now=new Date().toISOString();
+     await db("coupons?id=eq."+existingCoupon.id,token,"PATCH",{name:autoName+" • ANULOWANY AUDYT",status:"cancelled",settled_at:now,notes:"Anulowano niekompletny kupon (wymagane dokładnie 3 różne mecze). Wirtualna stawka została zwrócona; utworzono poprawny kupon zastępczy."});
+     if(Array.isArray(existingLegs)&&existingLegs.length){
+      await db("coupon_legs?coupon_id=eq."+existingCoupon.id,token,"PATCH",{status:"void",result_status:"void"});
+     }
+     const priorStake=await db("bankroll_transactions?select=id&coupon_id=eq."+existingCoupon.id+"&type=eq.stake",token);
+     const priorRefund=await db("bankroll_transactions?select=id&coupon_id=eq."+existingCoupon.id+"&type=eq.payout",token);
+     if(Array.isArray(priorStake)&&priorStake.length>0&&(!Array.isArray(priorRefund)||priorRefund.length===0)){
+      await db("bankroll_transactions",token,"POST",{occurred_at:now,type:"payout",transaction_type:"payout",amount:5,coupon_id:existingCoupon.id,note:"Zwrot wirtualnej stawki za niekompletny kupon"});
+     }
+     existingAuto=[];
+    }else if(existingCoupon.status==="cancelled"){
+     await db("coupons?id=eq."+existingCoupon.id,token,"PATCH",{name:autoName+" • POPRZEDNI ANULOWANY"});
+     existingAuto=[];
+    }
+   }
+   if(!existingAuto?.length){
+    const combinedProbability=+(resolved.reduce((acc:any,x:any)=>acc*(Number(x.prediction.probability)/100),1)*100).toFixed(1);
+    const c=await db("coupons",token,"POST",{name:autoName,coupon_type:"TEST",target_legs:3,status:"pending",stake:5,combined_probability:combinedProbability,notes:"Automatycznie wygenerowany kupon Double Chance; dokładnie trzy różne mecze, próg >=75%. Stawka wirtualna 5 EUR. Łączne prawdopodobieństwo to iloczyn szacunków przy założeniu niezależności; bez kursów nie wyliczamy zwrotu."});
+    const cid=c?.[0]?.id;
+    if(cid){
+     const legRows=resolved.map((x:any,i:number)=>({coupon_id:cid,prediction_id:x.prediction.id,match_id:x.prediction.match_id,prediction_type:x.prediction.prediction_type,pick:x.prediction.pick,probability:x.prediction.probability,odds:x.prediction.odds,leg_number:i+1,status:"pending",result_status:"pending"}));
+     try{
+      const inserted=await db("coupon_legs",token,"POST",legRows);
+      if(!Array.isArray(inserted)||inserted.length!==3)throw new Error("Kupon nie otrzymał kompletu trzech zdarzeń.");
+      await db("bankroll_transactions",token,"POST",{occurred_at:new Date().toISOString(),type:"stake",transaction_type:"stake",amount:5,coupon_id:cid,note:"Stawka wirtualna 5 EUR: "+autoName});
+      couponCreated=true;
+     }catch(e){
+      await db("coupons?id=eq."+cid,token,"PATCH",{status:"cancelled",settled_at:new Date().toISOString(),notes:"Niekompletny zapis automatycznego kuponu; wymaga kontroli. "+String(e).slice(0,400)}).catch(()=>undefined);
+      throw e;
      }
     }
    }
