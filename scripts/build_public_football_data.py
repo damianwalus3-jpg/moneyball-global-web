@@ -32,6 +32,7 @@ def get(url: str, attempts: int = 3) -> str:
 def norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
+    s = re.sub(r"\b(women|w)\b", " women ", s)
     s = re.sub(r"\b(fc|cf|sc|ac|afc|club)\b", " ", s)
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", s)).strip()
 
