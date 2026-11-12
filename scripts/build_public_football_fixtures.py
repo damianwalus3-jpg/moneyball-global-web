@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build upcoming fixtures from Open-Matchday's public CSV fixture spine.
+"""Build upcoming fixtures from Open-Matchday's public CSV fixture spine (pipeline v4).
 
 The source timestamps are venue-local strings; this file deliberately does not
 invent a timezone or a match status. Source coverage and freshness are explicit.
