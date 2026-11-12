@@ -121,7 +121,7 @@ Deno.serve(async(req)=>{
      const preserved=oldNotes.includes(marker)?oldNotes.slice(0,oldNotes.indexOf(marker)):oldNotes;
      const mergedNotes=(preserved?preserved+"\\n\\n":"")+marker+JSON.stringify(noteData);
      if(source==="FootyNomad"||String(existing.source)===source){
-      const patch:any={kickoff_at:row.kickoff_at,kickoff_date:row.kickoff_date,status:row.status,league:row.league,gender:row.gender,country:row.country,notes:mergedNotes};
+      const patch:any={scan_run_id:run.id,kickoff_at:row.kickoff_at,kickoff_date:row.kickoff_date,status:row.status,league:row.league,gender:row.gender,country:row.country,notes:mergedNotes};
       if(source==="FootyNomad"&&String(existing.source)!=="FootyNomad"){patch.source=source;patch.external_id=sourceId;promotedToPrimary++;}
       await db("matches?id=eq."+existing.id,token,"PATCH",patch);
       updated++;
