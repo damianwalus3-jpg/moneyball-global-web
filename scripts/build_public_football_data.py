@@ -68,6 +68,47 @@ TEAM_ALIASES = {
     "democratic republic of congo": "congo dr",
 }
 
+OPENFOOTBALL_TREE = "https://api.github.com/repos/openfootball/football.json/git/trees/master?recursive=1"
+OPENFOOTBALL_SEASONS = ("2026-27", "2025-26", "2024-25")
+OPENFOOTBALL_LEAGUES = {
+    "at.1", "at.2", "be.1", "de.1", "de.2", "en.1", "en.2", "en.3", "en.4",
+    "es.1", "es.2", "fr.1", "fr.2", "gr.1", "it.1", "it.2", "nl.1", "pt.1",
+    "sco.1", "tr.1", "uefa.cl", "uefa.el", "uefa.ecl"
+}
+
+def load_openfootball_league_results():
+    tree = json.loads(get(OPENFOOTBALL_TREE))
+    paths = sorted(
+        item["path"] for item in tree.get("tree", [])
+        if item.get("type") == "blob"
+        and item["path"].split("/", 1)[0] in OPENFOOTBALL_SEASONS
+        and item["path"].rsplit("/", 1)[-1].removesuffix(".json") in OPENFOOTBALL_LEAGUES
+        and item["path"].endswith(".json")
+    )
+    def fetch_one(path):
+        url = "https://raw.githubusercontent.com/openfootball/football.json/master/" + path
+        return path, json.loads(get(url))
+    loaded, failed = [], []
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = [pool.submit(fetch_one, path) for path in paths]
+        for future in as_completed(futures):
+            try: loaded.append(future.result())
+            except Exception as exc: failed.append(str(exc)[:180])
+    rows = []
+    for path, payload in loaded:
+        competition = str(payload.get("name") or path.rsplit("/", 1)[-1])
+        for match in payload.get("matches", []):
+            date = str(match.get("date") or "")[:10]
+            home, away = str(match.get("team1") or "").strip(), str(match.get("team2") or "").strip()
+            score = match.get("score")
+            ft = score.get("ft") if isinstance(score, dict) else None
+            if not date or not home or not away or not isinstance(ft, list) or len(ft) != 2:
+                continue
+            try: hg, ag = int(ft[0]), int(ft[1])
+            except (TypeError, ValueError): continue
+            rows.append((date, home, away, hg, ag, competition, path))
+    return rows, len(paths), len(loaded), failed[:20]
+
 def load_international_results():
     tree = json.loads(get(INTERNATIONAL_TREE))
     paths = sorted(item["path"] for item in tree.get("tree", [])
@@ -155,6 +196,19 @@ def main():
                     }
                     team_rows.setdefault(key, {"name": team, "matches": []})["matches"].append(item)
 
+    openfootball_rows, openfootball_files, openfootball_loaded, openfootball_failed = load_openfootball_league_results()
+    for date, home, away, hg, ag, competition, source_path in openfootball_rows:
+        for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, hg)):
+            key = norm(team)
+            if not key: continue
+            result = "W" if gf > ga else "L" if gf < ga else "D"
+            item = {"date":date,"opponent":opponent,"result":result,"goals_for":gf,"goals_against":ga,
+                "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
+                "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
+                "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
+                "competition":competition,"country":"EU","source":"OpenFootball Leagues","source_path":source_path}
+            team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
+
     international_rows, international_files, international_loaded, international_failed = load_international_results()
     for date, home, away, hg, ag, competition, source_path in international_rows:
         for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, hg)):
@@ -184,7 +238,7 @@ def main():
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday public CSV + OpenFootball Internationals",
+        "source": "OpenMatchday public CSV + OpenFootball European leagues + OpenFootball Internationals",
         "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",
         "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball Internationals: CC0 1.0"],
         "source_url": "https://github.com/oladeeayo/open-matchday",
@@ -196,6 +250,10 @@ def main():
             "result_rows_read": total_rows,
             "international_files_indexed": international_files,
             "international_files_loaded": international_loaded,
+            "openfootball_league_files_indexed": openfootball_files,
+            "openfootball_league_files_loaded": openfootball_loaded,
+            "openfootball_league_matches_read": len(openfootball_rows),
+            "openfootball_league_fetch_errors": openfootball_failed,
             "international_matches_read": len(international_rows),
             "international_fetch_errors": international_failed,
             "failed_competitions": failed[:30]
