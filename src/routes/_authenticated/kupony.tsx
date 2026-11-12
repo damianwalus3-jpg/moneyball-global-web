@@ -244,6 +244,9 @@ function Kupony() {
           <h2 className="text-xl font-semibold uppercase">Generator kuponów</h2>
         </div>
         <p className="mb-3 text-sm text-muted-foreground">Skanowanie meczów nie zapisuje automatycznie kuponów. Po zakończeniu skanu sprawdź podgląd poniżej i naciśnij „GENERUJ I ZAPISZ KUPONY”. Dopiero wtedy kupony zostaną dodane do listy i bankrolla (jeśli zaznaczysz zapis stawki).</p>
+        <Button className="mb-4 w-full text-base font-bold" size="lg" disabled={!!stakeError || saveBatch.isPending || preview.length === 0} onClick={() => saveBatch.mutate(preview)}>
+          <Ticket className="mr-2 size-5" /> {saveBatch.isPending ? "TWORZENIE KUPONÓW…" : `GENERUJ I ZAPISZ KUPONY (${preview.length})`}
+        </Button>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Rynek">
             <div className="flex gap-1">
