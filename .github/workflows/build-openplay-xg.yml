@@ -1,0 +1,49 @@
+name: Build OpenPlay historical xG data
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/build_openplay_xg_data.py
+      - .github/workflows/build-openplay-xg.yml
+  schedule:
+    - cron: "17 4 1 * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: openplay-xg-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the public OpenPlay reader
+        run: python -m pip install --upgrade pip openplay==0.1.0
+
+      - name: Build and validate historical xG index
+        run: python scripts/build_openplay_xg_data.py
+
+      - name: Commit generated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public-data/openplay-xg.json
+          if git diff --cached --quiet; then
+            echo "OpenPlay data is unchanged."
+            exit 0
+          fi
+          git commit -m "Update OpenPlay historical xG data"
+          git push
