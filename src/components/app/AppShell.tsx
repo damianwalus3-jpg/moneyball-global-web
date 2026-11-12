@@ -26,6 +26,7 @@ type NavTo =
   | "/mecze"
   | "/prognozy-1x2"
   | "/double-chance"
+  | "/gole"
   | "/kupony"
   | "/historia"
   | "/statystyki"
@@ -37,13 +38,14 @@ const NAV: { to: NavTo; label: string; short: string; icon: LucideIcon }[] = [
   { to: "/mecze", label: "Terminarz / Mecze", short: "Mecze", icon: CalendarDays },
   { to: "/prognozy-1x2", label: "Prognozy 1X2", short: "1X2", icon: Target },
   { to: "/double-chance", label: "Double Chance", short: "DC", icon: ShieldHalf },
+  { to: "/gole", label: "Prognozy goli", short: "Gole", icon: Target },
   { to: "/kupony", label: "Kupony", short: "Kupony", icon: Ticket },
   { to: "/historia", label: "Historia / Rozliczenia", short: "Historia", icon: History },
   { to: "/statystyki", label: "Statystyki", short: "Statystyki", icon: BarChart3 },
   { to: "/bankroll", label: "Bankroll", short: "Bankroll", icon: Wallet },
   { to: "/ustawienia", label: "Ustawienia", short: "Ustawienia", icon: Settings },
 ];
-const MOBILE_MAIN: NavTo[] = ["/panel", "/mecze", "/prognozy-1x2", "/double-chance", "/kupony"];
+const MOBILE_MAIN: NavTo[] = ["/panel", "/mecze", "/prognozy-1x2", "/double-chance", "/gole", "/kupony"];
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -184,7 +186,7 @@ export function AppShell({ email, children }: { email: string | null; children: 
 
       {/* Mobile bottom nav */}
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur lg:hidden">
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-7">
           {NAV.filter((n) => MOBILE_MAIN.includes(n.to)).map((n) => (
             <Link
               key={n.to}
