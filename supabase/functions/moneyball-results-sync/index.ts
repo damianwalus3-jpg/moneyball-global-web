@@ -52,7 +52,7 @@ function similarTeam(a:string,b:string){const x=teamKey(a),y=teamKey(b);if(!x||!
 async function limitedSettled<T,R>(items:T[],limit:number,fn:(item:T)=>Promise<R>):Promise<PromiseSettledResult<R>[]>{const out:any[]=new Array(items.length);let cursor=0;const workers=Array.from({length:Math.min(limit,items.length)},async()=>{while(true){const i=cursor++;if(i>=items.length)return;try{out[i]={status:"fulfilled",value:await fn(items[i])};}catch(reason){out[i]={status:"rejected",reason};}}});await Promise.all(workers);return out;}
 async function readAlternateResults(startDate:string,endDate:string):Promise<ScoreFeed[]>{
  const out:ScoreFeed[]=[];
- const matchFields="select=id,external_id,home_team,away_team,owner_id,country,league,kickoff_at,kickoff_date,status";
+ const matchFields="select=id,external_id,home_team,away_team,owner_id,country,league,gender,kickoff_at,kickoff_date,status";
  const timedMatches=await db("matches?"+matchFields+"&kickoff_at=gte."+encodeURIComponent(startDate+"T00:00:00Z")+"&kickoff_at=lt."+encodeURIComponent(endDate+"T23:59:59Z")).catch(()=>[]);
  const dateOnlyMatches=await db("matches?"+matchFields+"&kickoff_at=is.null&kickoff_date=gte."+encodeURIComponent(startDate)+"&kickoff_date=lte."+encodeURIComponent(endDate)).catch(()=>[]);
  const unresolved=[...(timedMatches||[]),...(dateOnlyMatches||[])],todayKey=day(new Date());
@@ -303,7 +303,7 @@ Deno.serve(async(req:Request)=>{
    try{
     // Query a wide UTC window, then filter by the actual Brussels calendar day.
     const start=new Date(Date.parse(date+"T00:00:00.000Z")-86400000),end=new Date(Date.parse(date+"T00:00:00.000Z")+2*86400000);
-     const matchFields="select=id,external_id,home_team,away_team,country,league,kickoff_at,kickoff_date,status,owner_id";
+     const matchFields="select=id,external_id,home_team,away_team,country,league,gender,kickoff_at,kickoff_date,status,owner_id";
      const ownerFilter=ownerId?"&owner_id=eq."+encodeURIComponent(ownerId):"";
      const rawMatches=await db("matches?"+matchFields+"&kickoff_at=gte."+encodeURIComponent(start.toISOString())+"&kickoff_at=lt."+encodeURIComponent(end.toISOString())+ownerFilter);
      const rawDateOnly=await db("matches?"+matchFields+"&kickoff_at=is.null&kickoff_date=eq."+encodeURIComponent(date)+ownerFilter);
@@ -312,6 +312,8 @@ Deno.serve(async(req:Request)=>{
     const existingResultByMatch=new Map((existingResults||[]).map((r:any)=>[r.match_id,r]));
     const map=new Map(matches.filter((m:any)=>m.external_id).map((m:any)=>[String(m.external_id),m]));
     const normTeam=(v:string)=>String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim().replace(/\\s+/g," ");
+    const genderOf=(m:any)=>["men","women"].includes(String(m?.gender||"").toLowerCase())?String(m.gender).toLowerCase():"unknown";
+    const genderCompatible=(a:any,b:any)=>{const ga=genderOf(a),gb=genderOf(b);return ga===gb||ga==="unknown"||gb==="unknown";};
     const byTeams=new Map<string,any[]>();
     for(const m of (matches||[])){
      const key=normTeam(m.home_team)+"|"+normTeam(m.away_team);
@@ -331,9 +333,18 @@ Deno.serve(async(req:Request)=>{
     for(const f of fixtures){
      if(f.status!=="finished"||!Number.isInteger(f.home_score)||!Number.isInteger(f.away_score))continue;
      const exact=map.get(String(f.external_id));
-     const exactTeamMatches=byTeams.get(normTeam(f.home_team)+"|"+normTeam(f.away_team))||[];const fallbackMatch=exactTeamMatches.length===0?matchFeedToDb({source:"FootyNomad",external_id:String(f.external_id),home:f.home_team,away:f.away_team,home_score:f.home_score,away_score:f.away_score,status:f.status,date,url:"https://footynomad.com/fixture/"+String(f.external_id),raw:f},matches):null;
-     // If the same fixture exists under multiple source IDs, settle every same-day row so legacy/import duplicates do not remain pending.
-     const candidates=exact?[exact,...exactTeamMatches.filter((x:any)=>x.id!==exact.id)]:(exactTeamMatches.length?exactTeamMatches:(fallbackMatch?[fallbackMatch]:[]));
+     const exactTeamMatches=byTeams.get(normTeam(f.home_team)+"|"+normTeam(f.away_team))||[];
+     const feedGender=genderOf(f);
+     let safeTeamMatches:any[]=[];
+     if(exact){
+      const anchorGender=genderOf(exact);
+      if(anchorGender!=="unknown")safeTeamMatches=exactTeamMatches.filter((x:any)=>x.id!==exact.id&&genderCompatible(x,exact));
+      else {const known=new Set(exactTeamMatches.map(genderOf).filter((g:string)=>g!=="unknown"));safeTeamMatches=known.size<=1?exactTeamMatches.filter((x:any)=>x.id!==exact.id):[];}
+     }else if(feedGender!=="unknown")safeTeamMatches=exactTeamMatches.filter((x:any)=>genderCompatible(x,f));
+     else {const known=new Set(exactTeamMatches.map(genderOf).filter((g:string)=>g!=="unknown"));safeTeamMatches=known.size<=1?exactTeamMatches:[];}
+     const fallbackMatch=exactTeamMatches.length===0?matchFeedToDb({source:"FootyNomad",external_id:String(f.external_id),home:f.home_team,away:f.away_team,home_score:f.home_score,away_score:f.away_score,status:f.status,date,url:"https://footynomad.com/fixture/"+String(f.external_id),raw:f},matches):null;
+     // Never settle men's and women's fixtures together. If a feed has no gender and same-team candidates span both genders, leave name-only matches unresolved rather than guess.
+     const candidates=exact?[exact,...safeTeamMatches]:(safeTeamMatches.length?safeTeamMatches:(fallbackMatch?[fallbackMatch]:[]));
      for(const m of candidates)eligible.push({f,m,matchMethod:exact?"external_id":"team_names"});
     }
     matched+=eligible.length;matchedById+=eligible.filter((x:any)=>x.matchMethod==="external_id").length;matchedByNames+=eligible.filter((x:any)=>x.matchMethod==="team_names").length;
