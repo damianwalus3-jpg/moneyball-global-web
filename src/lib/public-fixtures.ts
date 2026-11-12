@@ -2,6 +2,7 @@ import { importScan } from "./scan-import-service";
 import { matchKey, type ParsedMatch, type ParsedScan } from "./scan-import";
 import type { Match } from "./types";
 import { isEuropeanMatch } from "./geography";
+import { getSupabase } from "./supabase";
 
 type PublicFixture = {
   date: string;
@@ -75,31 +76,89 @@ async function loadFixtures(): Promise<FixturePayload> {
 }
 
 /** Imports verified public fixture rows for one Brussels calendar date; no predictions are fabricated. */
+type PublicSourceFixture = {
+  kickoff_at: string | null;
+  home_team: string;
+  away_team: string;
+  competition: string;
+  country: string;
+  gender?: "men" | "women" | "mixed" | "unknown";
+  external_id?: string;
+  source?: string;
+};
+type PublicSourcePayload = { ok?: boolean; european_fixtures?: number; fixtures?: PublicSourceFixture[] };
+
+function brusselsDate(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/Brussels", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date(iso));
+}
+
+/** Merges the live multi-source keyless feed with the scheduled GitHub CSV index. */
 export async function importPublicFixturesForDate(date: string, existing: Match[]) {
-  const payload = await loadFixtures();
-  const rows: ParsedMatch[] = payload.fixtures
-    .filter(f => f.date === date && f.time_local && f.home_team && f.away_team)
-    .map(f => {
+  const candidates = new Map<string, ParsedMatch>();
+  let liveFixtures = 0, staticFixtures = 0, liveErrors = 0;
+
+  // Live no-key sources: OpenMatchday, ESPN public scoreboard, OpenLigaDB,
+  // TheSportsDB and BeyondELO. The aggregator reports missing times explicitly.
+  const sb = getSupabase();
+  if (sb) {
+    const { data, error } = await sb.functions.invoke("moneyball-public-sources", { body: { date } });
+    if (!error && data?.ok && Array.isArray((data as PublicSourcePayload).fixtures)) {
+      for (const f of (data as PublicSourcePayload).fixtures || []) {
+        if (!f.kickoff_at || !f.home_team || !f.away_team) continue;
+        const parsedDate = new Date(f.kickoff_at);
+        if (!Number.isFinite(parsedDate.getTime()) || brusselsDate(f.kickoff_at) !== date) continue;
+        const kickoff = parsedDate.toISOString();
+        const row: ParsedMatch = {
+          key: matchKey(kickoff, f.home_team, f.away_team),
+          kickoff_at: kickoff,
+          league: f.competition || "Nieznane rozgrywki",
+          country: f.country || null,
+          gender: f.gender || "unknown",
+          external_id: f.external_id || null,
+          source: f.source || "Moneyball public sources",
+          home_team: f.home_team,
+          away_team: f.away_team,
+        };
+        if (isEuropeanMatch(row)) candidates.set(row.key, row);
+      }
+      liveFixtures = candidates.size;
+    } else if (error) {
+      liveErrors++;
+    }
+  }
+
+  // Static GitHub feed is an independent fallback and also fills any live-feed gaps.
+  try {
+    const payload = await loadFixtures();
+    for (const f of payload.fixtures.filter(x => x.date === date && x.time_local && x.home_team && x.away_team)) {
       const country = COUNTRY_NAMES[f.country_code] ?? f.country_code;
       const time = f.time_local!;
       const timezone = TIME_ZONES[f.country_code] || DEFAULT_EUROPE_TZ;
       const kickoff = zonedLocalToIso(f.date, time, timezone);
-      return {
+      if (brusselsDate(kickoff) !== date) continue;
+      const row: ParsedMatch = {
         key: matchKey(kickoff, f.home_team, f.away_team),
-        external_id: f.fixture_id,
-        source: "OpenMatchday",
         kickoff_at: kickoff,
         league: f.competition,
         country,
         gender: f.gender || "unknown",
+        external_id: null,
+        source: "OpenMatchday GitHub",
         home_team: f.home_team,
         away_team: f.away_team,
       };
-    })
-    .filter(isEuropeanMatch);
+      if (isEuropeanMatch(row) && !candidates.has(row.key)) candidates.set(row.key, row);
+    }
+    staticFixtures = candidates.size - liveFixtures;
+  } catch {
+    // The live aggregator can still provide a usable scan when GitHub Pages is unavailable.
+  }
 
-  if (!rows.length) return { newMatches: 0, reusedMatches: 0, predictions: 0, sourceFixtures: 0, generatedAt: payload.generated_at };
-  const parsed: ParsedScan = { matches: rows, predictions: [], errors: [] };
-  const result = await importScan(parsed, existing, "OpenMatchday GitHub · terminarz publiczny");
-  return { ...result, sourceFixtures: rows.length, generatedAt: payload.generated_at };
+  const rows = [...candidates.values()];
+  if (!rows.length) {
+    return { newMatches:0, reusedMatches:0, predictions:0, sourceFixtures:0, liveFixtures, staticFixtures, liveErrors };
+  }
+  const parsed: ParsedScan = { matches:rows, predictions:[], errors:[] };
+  const result = await importScan(parsed, existing, "Moneyball · źródła publiczne bez kluczy");
+  return { ...result, sourceFixtures:rows.length, liveFixtures, staticFixtures, liveErrors };
 }
