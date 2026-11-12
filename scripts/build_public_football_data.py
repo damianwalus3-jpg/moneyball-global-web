@@ -32,8 +32,8 @@ def get(url: str, attempts: int = 3) -> str:
 def norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
-    s = re.sub(r"\\b(fc|cf|sc|ac|afc|club)\\b", " ", s)
-    return re.sub(r"\\s+", " ", re.sub(r"[^a-z0-9]+", " ", s)).strip()
+    s = re.sub(r"\b(fc|cf|sc|ac|afc|club)\b", " ", s)
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", s)).strip()
 
 def number(row, key):
     try:
@@ -59,7 +59,7 @@ def load_folder(folder: str):
 
 def main():
     index = get(BASE + "/LEAGUE_INDEX.md")
-    folders = sorted(set(re.findall(r"^\\|\\s*\\x60([A-Za-z0-9_-]+)\\x60\\s*\\|", index, re.M)))
+    folders = sorted(set(re.findall(r"^\|\s*`([A-Za-z0-9_-]+)`\s*\|", index, re.M)))
     if not folders:
         raise SystemExit("No league folders found in OpenMatchday LEAGUE_INDEX.md")
     team_rows = {}
