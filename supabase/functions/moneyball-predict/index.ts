@@ -233,8 +233,16 @@ async function readOpenPlayXgData(){
    const sourceGender=defaultGender||(entry as any).gender||"unknown";
    const current=teams[key]||{name:(entry as any).name,gender:sourceGender,matches:[]};
    const incoming=((entry as any).matches||[]).map((x:any)=>({...x,gender:x.gender||sourceGender}));
-   const merged=[...(current.matches||[]),...incoming],seen=new Set<string>();
-   current.matches=merged.filter((x:any)=>{const id=String(x.match_id||[x.date,x.opponent,x.goals_for,x.goals_against].join("|"));if(seen.has(id))return false;seen.add(id);return true;}).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,30);
+   const merged=[...(current.matches||[]),...incoming],deduped=new Map<string,any>();
+   const sourcePriority=(x:any)=>{const s=String(x.source||"").toLowerCase();return s.includes("statsbomb")?3:s.includes("american_soccer_analysis")?2:s.includes("openplay")?1:0;};
+   for(const match of merged){
+    const opponent=normTeam(match.opponent||"");
+    const hasScore=match.goals_for!=null&&match.goals_against!=null;
+    const key=match.date&&opponent?String(match.date)+"|"+opponent+(hasScore?"|"+match.goals_for+"|"+match.goals_against:""):String(match.match_id||JSON.stringify(match));
+    const existing=deduped.get(key);
+    if(!existing||sourcePriority(match)>sourcePriority(existing))deduped.set(key,match);
+   }
+   current.matches=[...deduped.values()].sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,30);
    if(current.gender==="unknown")current.gender=sourceGender;
    teams[key]=current;
   }
