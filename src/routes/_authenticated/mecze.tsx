@@ -252,11 +252,43 @@ function Mecze() {
         : (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? ""));
     });
 
-  const groups = new Map<string, Match[]>();
+  // Collapse duplicate provider rows only in the schedule presentation.
+  // Underlying match, prediction, result and coupon records remain untouched.
+  const normFixtureTeam = (value: string | null | undefined) =>
+    String(value ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
+      .toLowerCase().replace(/\\b(fc|cf|sc|afc|club|football|de|the)\\b/g, " ")
+      .replace(/[^a-z0-9]+/g, " ").trim().replace(/\\s+/g, " ");
+  const fixtureBase = (m: Match) =>
+    [matchDayKey(m) ?? "brak-daty", normFixtureTeam(m.home_team), normFixtureTeam(m.away_team)].join("|");
+  const providerPriority = (m: Match) =>
+    (String(m.source ?? "").toLowerCase() === "footynomad" ? 100 : 0) +
+    (m.gender && m.gender !== "unknown" ? 10 : 0) + (m.kickoff_at ? 1 : 0);
+  const byFixture = new Map<string, Match[]>();
   for (const m of filtered) {
-    const k = matchDayKey(m) ?? "brak-daty";
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k)!.push(m);
+    const key = fixtureBase(m);
+    const bucket = byFixture.get(key) ?? [];
+    bucket.push(m);
+    byFixture.set(key, bucket);
+  }
+  const displayGroups = new Map<string, { primary: Match; matches: Match[] }[]>();
+  for (const [base, bucket] of byFixture) {
+    const knownGenders = [...new Set(bucket.map((m) => m.gender).filter((g): g is "men" | "women" => g === "men" || g === "women"))];
+    const genderBuckets = new Map<string, Match[]>();
+    for (const m of bucket) {
+      const gender = m.gender === "men" || m.gender === "women"
+        ? m.gender
+        : knownGenders.length === 1 ? knownGenders[0] : "unknown";
+      const rows = genderBuckets.get(gender) ?? [];
+      rows.push(m);
+      genderBuckets.set(gender, rows);
+    }
+    for (const [gender, rows] of genderBuckets) {
+      const primary = [...rows].sort((a, b) => providerPriority(b) - providerPriority(a))[0];
+      const day = matchDayKey(primary) ?? "brak-daty";
+      const list = displayGroups.get(day) ?? [];
+      list.push({ primary, matches: rows });
+      displayGroups.set(day, list);
+    }
   }
 
   return (
@@ -412,14 +444,21 @@ function Mecze() {
         />
       ) : (
         <div className="grid gap-5">
-          {[...groups.entries()].map(([day, list]) => (
+          {[...displayGroups.entries()].map(([day, list]) => (
             <section key={day}>
               <h2 className="eyebrow mb-2 capitalize">{day === "brak-daty" ? "Bez daty" : fmtDayLong(list[0].kickoff_at ?? `${day}T12:00:00.000Z`)}</h2>
               <div className="grid gap-2">
-                {list.map((m) => {
-                  const r = resultBy.get(m.id);
-                  const c = predCount.get(m.id);
-                  const o = latestOdds.get(m.id);
+                {list.map((group) => {
+                  const m = group.primary;
+                  const groupIds = new Set(group.matches.map((row) => row.id));
+                  const r = group.matches.map((row) => resultBy.get(row.id)).find((row) => row?.verified === true) ??
+                    group.matches.map((row) => resultBy.get(row.id)).find(Boolean);
+                  const c = group.matches.reduce((acc, row) => {
+                    const count = predCount.get(row.id);
+                    return { x12: acc.x12 + (count?.x12 ?? 0), dc: acc.dc + (count?.dc ?? 0), sel: acc.sel + (count?.sel ?? 0) };
+                  }, { x12: 0, dc: 0, sel: 0 });
+                  const o = group.matches.map((row) => latestOdds.get(row.id)).filter(Boolean)
+                    .sort((a, b) => (b?.captured_at ?? "").localeCompare(a?.captured_at ?? ""))[0];
                   return (
                     <article
                       key={m.id}
@@ -452,7 +491,10 @@ function Mecze() {
                               {MATCH_STATUS_LABELS[m.status ?? "scheduled"] ?? m.status}
                             </Badge>
                           )}
-                          {c ? (
+                          {group.matches.length > 1 && (
+                            <Badge variant="outline">Połączono {group.matches.length} rekordy</Badge>
+                          )}
+                          {c.x12 + c.dc > 0 ? (
                             <>
                               <Badge variant="secondary">1X2: {c.x12}</Badge>
                               <Badge variant="secondary">DC: {c.dc}</Badge>
@@ -496,6 +538,7 @@ function Mecze() {
                           title="Usunąć mecz?"
                           description="Usunięcie meczu może usunąć też jego prognozy i wynik (zależnie od ustawień bazy). Tej operacji nie można cofnąć."
                           onConfirm={() => del.mutate(m.id)}
+                          disabled={group.matches.length > 1}
                         />
                       </div>
                     </article>
@@ -511,7 +554,10 @@ function Mecze() {
         match={detailMatch}
         open={detailMatch != null}
         onOpenChange={(open) => !open && setDetailMatch(null)}
-        predictions={detailMatch ? preds.filter((p) => p.match_id === detailMatch.id) : []}
+        predictions={detailMatch ? preds.filter((p) => {
+          const selectedGroup = displayGroups.get(matchDayKey(detailMatch) ?? "brak-daty")?.find((g) => g.matches.some((m) => m.id === detailMatch.id));
+          return selectedGroup ? selectedGroup.matches.some((m) => m.id === p.match_id) : p.match_id === detailMatch.id;
+        }) : []}
         odds={detailMatch ? latestOdds.get(detailMatch.id) : undefined}
         result={detailMatch ? resultBy.get(detailMatch.id) : undefined}
         matches={matches}
