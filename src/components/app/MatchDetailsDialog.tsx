@@ -25,8 +25,9 @@ function readSavedForm(notes: string | null | undefined) {
   const index = notes.indexOf(marker);
   if (index < 0) return null;
   try {
-    const raw = notes.slice(index + marker.length).split(/\\r?\\n/)[0].trim();
-    const parsed = JSON.parse(raw);
+    const raw = notes.slice(index + marker.length).split(/\\r?\\n|\\\\n/)[0].trim();
+    let parsed: any;
+    try { parsed = JSON.parse(raw); } catch { parsed = JSON.parse(raw.replace(/\\\\+"/g, '"' ).replace(/\\\\\\\\n/g, "")); }
     const valid = (v: unknown): v is FormLine => !!v && typeof v === "object" &&
       ["w", "d", "l"].every((k) => Number.isFinite(Number((v as Record<string, unknown>)[k]))) &&
       Number((v as Record<string, unknown>).w) + Number((v as Record<string, unknown>).d) + Number((v as Record<string, unknown>).l) === 5;
@@ -63,7 +64,7 @@ const sourceLabel = (source: string | null | undefined) => {
 };
 
 function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; saved?: FormLine }) {
-  const form = games.length ? games.map((g) => g.outcome) : saved ? [...Array(saved.w).fill("W"), ...Array(saved.d).fill("D"), ...Array(saved.l).fill("L")] as ("W" | "D" | "L")[] : [];
+  const form = games.map((g) => g.outcome);
   const counts = games.length ? { w: games.filter((g) => g.outcome === "W").length, d: games.filter((g) => g.outcome === "D").length, l: games.filter((g) => g.outcome === "L").length } : saved;
   return (
     <div className="rounded-xl border border-border bg-card/70 p-3">
@@ -71,7 +72,8 @@ function FormCard({ name, games, saved }: { name: string; games: RecentGame[]; s
         <div className="min-w-0 truncate text-sm font-semibold">{name}</div>
         <div className="flex gap-1" aria-label="Forma ostatnich meczów">
           {form.map((v, i) => <span key={i} className={`flex size-7 items-center justify-center rounded-md text-xs font-bold ${v === "W" ? "bg-emerald-500/15 text-emerald-400" : v === "D" ? "bg-amber-500/15 text-amber-300" : "bg-rose-500/15 text-rose-400"}`}>{v}</span>)}
-          {!form.length && <span className="text-xs text-muted-foreground">Brak danych</span>}
+          {!form.length && saved && <><span className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-400">W {saved.w}</span><span className="rounded-md bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-300">D {saved.d}</span><span className="rounded-md bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-400">L {saved.l}</span></>}
+          {!form.length && !saved && <span className="text-xs text-muted-foreground">Brak danych</span>}
         </div>
       </div>
       {counts && <div className="mb-2 text-xs text-muted-foreground">Ostatnie 5: {counts.w} zwycięstw · {counts.d} remisów · {counts.l} porażek</div>}
@@ -156,7 +158,7 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
         <section className="space-y-2">
           <div className="flex items-center gap-2 font-semibold"><CalendarClock className="size-4 text-primary"/> Kursy i kontrola danych</div>
           <div className="rounded-xl border border-border bg-card/70 p-3">
-            {odds ? <><div className="mb-2 text-sm font-semibold">{odds.bookmaker ?? "Źródło kursów nieznane"}</div><div className="grid grid-cols-3 gap-2 text-center">{[["1",odds.odds_1],["X",odds.odds_x],["2",odds.odds_2]].map(([label,value])=><div key={String(label)} className="rounded-lg bg-secondary/70 p-2"><div className="text-xs text-muted-foreground">{label}</div><div className="num font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div><p className="mt-2 text-[11px] text-muted-foreground">Aktualizacja: {fmtDateTime(odds.captured_at)}</p></> : <p className="text-sm text-muted-foreground">Brak zapisanych kursów dla tego spotkania.</p>}
+            {odds ? <><div className="mb-2 text-sm font-semibold">{odds.bookmaker ?? "Źródło kursów nieznane"}</div><div className="grid grid-cols-3 gap-2 text-center">{[["1",odds.odds_1],["X",odds.odds_x],["2",odds.odds_2]].map(([label,value])=><div key={String(label)} className="rounded-lg bg-secondary/70 p-2"><div className="text-xs text-muted-foreground">{label}</div><div className="num font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div><p className="mt-2 text-[11px] text-muted-foreground">Aktualizacja: {fmtDateTime(odds.captured_at)}</p><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[["1X", odds.odds_1x], ["X2", odds.odds_x2], ["12", odds.odds_12]].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-secondary/50 p-2"><div className="text-[10px] text-muted-foreground">{label}</div><div className="num text-sm font-semibold">{fmtOdds(value as number | null)}</div></div>)}</div></> : <p className="text-sm text-muted-foreground">Brak zapisanych kursów dla tego spotkania.</p>}
             <div className="mt-3 space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
               <div>Skład i kontuzje: brak potwierdzonych danych w tej karcie.</div>
               <div>xG / xGA: brak potwierdzonych danych w tej karcie.</div>
