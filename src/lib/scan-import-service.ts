@@ -23,9 +23,13 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
   });
 
   const existingByKey = new Map<string, Match>();
-  for (const m of existing)
-    if (isEuropeanMatch(m) && m.kickoff_at && m.home_team && m.away_team)
-      existingByKey.set(matchKey(new Date(m.kickoff_at).toISOString(), m.home_team, m.away_team), m);
+  const existingByDayKey = new Map<string, Match>();
+  for (const m of existing) {
+    if (!isEuropeanMatch(m) || !m.home_team || !m.away_team) continue;
+    const day = m.kickoff_date || (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null);
+    if (m.kickoff_at) existingByKey.set(matchKey(new Date(m.kickoff_at).toISOString(), m.home_team, m.away_team), m);
+    if (day) existingByDayKey.set(matchKey(null, m.home_team, m.away_team, day), m);
+  }
 
   const existingByExternalId = new Map<string, Match>();
   for (const m of existing)
@@ -33,7 +37,8 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
 
   const idByKey = new Map<string, string>();
   const toInsert = europeanMatches.filter((m) => {
-    const e = existingByKey.get(m.key) || (m.external_id ? existingByExternalId.get(m.external_id) : undefined);
+    const dayKey = matchKey(null, m.home_team, m.away_team, m.kickoff_date ?? (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null));
+    const e = existingByKey.get(m.key) || (m.external_id ? existingByExternalId.get(m.external_id) : undefined) || existingByDayKey.get(dayKey);
     if (e) idByKey.set(m.key, e.id);
     return !e;
   });
@@ -46,6 +51,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
       source: m.source ?? (source.trim() || "import CSV"),
       competition: m.league,
       kickoff_at: m.kickoff_at,
+      kickoff_date: m.kickoff_date ?? (m.kickoff_at ? brusselsDayKey(m.kickoff_at) : null),
       league: m.league,
       country: m.country,
       gender: m.gender ?? "unknown",
@@ -55,7 +61,7 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     })),
   );
   for (const m of inserted)
-    idByKey.set(matchKey(new Date(m.kickoff_at!).toISOString(), m.home_team!, m.away_team!), m.id);
+    idByKey.set(matchKey(m.kickoff_at ? new Date(m.kickoff_at).toISOString() : null, m.home_team!, m.away_team!, m.kickoff_date), m.id);
 
   const preds = europeanPredictions.map((p) => {
     const match_id = idByKey.get(p.matchKey);
