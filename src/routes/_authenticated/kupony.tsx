@@ -55,7 +55,9 @@ export const Route = createFileRoute("/_authenticated/kupony")({
   component: Kupony,
 });
 
-type Market = "all" | "1X2" | "DC";\ntype CouponSize = 1 | 3;
+type Market = "all" | "1X2" | "DC";
+type CouponSize = 1 | 3;
+type CouponSize = 1 | 3;
 
 function Kupony() {
   const matches = useTable("matches");
@@ -68,7 +70,9 @@ function Kupony() {
   const byId = useMemo(() => new Map(europeanMatches.map((m) => [m.id, m])), [europeanMatches]);
 
   const [market, setMarket] = useState<Market>("all");
-  const [count, setCount] = useState("3");\n  const [couponSize, setCouponSize] = useState<CouponSize>(3);
+  const [count, setCount] = useState("3");
+  const [couponSize, setCouponSize] = useState<CouponSize>(3);
+  const [couponSize, setCouponSize] = useState<CouponSize>(3);
   const [stake, setStake] = useState("5");
   const [recordStake, setRecordStake] = useState(true);
   const [excludeActive, setExcludeActive] = useState(true);
@@ -208,6 +212,11 @@ function Kupony() {
         <Button className="mb-4 w-full text-base font-bold" size="lg" disabled={!!stakeError || saveBatch.isPending || preview.length === 0} onClick={() => saveBatch.mutate(preview)}>
           <Ticket className="mr-2 size-5" /> {saveBatch.isPending ? "TWORZENIE KUPONÓW…" : `GENERUJ I ZAPISZ KUPONY (${preview.length})`}
         </Button>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">Rodzaj kuponu:</span>
+          <Button type="button" size="sm" variant={couponSize === 1 ? "default" : "outline"} onClick={() => { setCouponSize(1); setCount("5"); setManual([]); }}>Pojedyncze (1 mecz)</Button>
+          <Button type="button" size="sm" variant={couponSize === 3 ? "default" : "outline"} onClick={() => { setCouponSize(3); setCount("3"); setManual([]); }}>AKO (3 mecze)</Button>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Rynek">
             <div className="flex gap-1">
