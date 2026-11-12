@@ -74,7 +74,7 @@ const sourceLabel = (source: string | null | undefined) => {
     label +
     (hasElo ? " + rating Elo" : "") +
     (hasXg ? ` + historyczne xG (${xgProviders.length ? xgProviders.join(" + ") : "źródło publiczne"})` : "");
-  if (base === "GITHUB_PUBLIC_LAST10_FORM") return decorate("GitHub · OpenMatchday + OpenFootball · ostatnie 10 spotkań");
+  if (base === "KEYLESS_GITHUB_LAST10_FORM" || base === "GITHUB_PUBLIC_LAST10_FORM") return decorate("GitHub · OpenMatchday + OpenFootball JSON/text · ostatnie 10 spotkań");
   if (base === "STATSBOMB_OPEN_DATA_FORM") return decorate("StatsBomb Open Data · historyczna forma wybranych rozgrywek");
   if (base === "PITCHAPI_LAST5_XG") return decorate("PitchAPI · xG/xGA i forma z ostatnich 5 spotkań");
   if (base === "OPENMATCHDAY_GITHUB_LAST5_FORM") return decorate("GitHub / OpenMatchday · forma i statystyki z 5 spotkań");
@@ -132,6 +132,7 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
   const dcPicks = ordered.filter((p) => p.prediction_type === "DC");
   const oneXtwoPicks = ordered.filter((p) => p.prediction_type === "1X2");
   const method = (coverage as any)?.method;
+  const publicHistoryCoverage = (coverage as any)?.github_data_coverage;
   const showSaved = !!saved;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,6 +187,18 @@ export function MatchDetailsDialog({ match, open, onOpenChange, predictions, odd
               {(coverage as any).away_form?.avg_shots_for != null && <div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie strzały gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_form.avg_shots_for).toFixed(1)} / mecz</div></div>}
               {(coverage as any).home_form?.avg_corners_for != null && <div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie rożne gospodarzy</div><div className="mt-1 font-semibold">{Number((coverage as any).home_form.avg_corners_for).toFixed(1)} / mecz</div></div>}
               {(coverage as any).away_form?.avg_corners_for != null && <div className="rounded-lg bg-secondary/60 p-2"><div className="text-muted-foreground">Średnie rożne gości</div><div className="mt-1 font-semibold">{Number((coverage as any).away_form.avg_corners_for).toFixed(1)} / mecz</div></div>}
+            </div>}
+            {publicHistoryCoverage && <div className="mt-3 rounded-lg bg-secondary/60 p-3 text-xs">
+              <div className="font-semibold">Zakres publicznej bazy historii</div>
+              <div className="mt-1 text-muted-foreground">
+                {Number(publicHistoryCoverage.team_names || 0).toLocaleString("pl-BE")} zespołów ·
+                {Number(publicHistoryCoverage.openfootball_text_matches_read || 0).toLocaleString("pl-BE")} meczów OpenFootball TXT ·
+                {Number(publicHistoryCoverage.openfootball_league_matches_read || 0).toLocaleString("pl-BE")} meczów OpenFootball JSON
+              </div>
+              <div className="mt-1 text-muted-foreground">
+                {Number(publicHistoryCoverage.openmatchday_competitions_with_results || 0).toLocaleString("pl-BE")} rozgrywek OpenMatchday ·
+                {Number(publicHistoryCoverage.international_matches_read || 0).toLocaleString("pl-BE")} meczów reprezentacji
+              </div>
             </div>}
             <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed"><div className="mb-1 font-semibold text-primary">Jak czytać ten typ?</div><p>1X2 wskazuje najbardziej prawdopodobny wynik: 1 = wygrana gospodarzy, X = remis, 2 = wygrana gości. Double Chance sumuje prawdopodobieństwa dwóch wyników (np. 1X = 1 + X). Typ może zostać WYBRANY tylko po spełnieniu progów modelu; sam wysoki procent nie gwarantuje trafienia.</p></div>
             {!rationale && !method && <p className="text-muted-foreground">Model nie zapisał szczegółowego uzasadnienia. Nie dopowiadamy przyczyn, których nie ma w danych.</p>}
