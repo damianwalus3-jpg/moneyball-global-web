@@ -104,7 +104,7 @@ function brusselsDate(iso: string): string {
 /** Merges the live multi-source keyless feed with the scheduled GitHub CSV index. */
 export async function importPublicFixturesForDate(date: string, existing: Match[]) {
   const candidates = new Map<string, ParsedMatch>();
-  const identityKey = (date:string,home:string,away:string) => matchKey(null,home,away,date);
+  const identityKey = (date:string,home:string,away:string,gender?:string|null) => matchKey(null,home,away,date,gender);
   let liveFixtures = 0, staticFixtures = 0, liveErrors = 0;
 
   // Live no-key sources: OpenMatchday, ESPN public scoreboard, OpenLigaDB,
@@ -122,7 +122,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
           if (!parsedDate && fixtureDate !== date) continue;
           const kickoff = parsedDate ? parsedDate.toISOString() : null;
           const row: ParsedMatch = {
-            key: matchKey(kickoff, f.home_team, f.away_team, fixtureDate),
+            key: matchKey(kickoff, f.home_team, f.away_team, fixtureDate, f.gender),
             kickoff_at: kickoff,
             kickoff_date: fixtureDate,
             league: f.competition || "Nieznane rozgrywki",
@@ -134,7 +134,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
             away_team: f.away_team,
           };
           if (isEuropeanMatch(row)) {
-            const identity = identityKey(fixtureDate,f.home_team,f.away_team);
+            const identity = identityKey(fixtureDate,f.home_team,f.away_team,f.gender);
             const prior = candidates.get(identity);
             if (!prior || (!prior.kickoff_at && row.kickoff_at)) candidates.set(identity,row);
           }
@@ -159,7 +159,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
       const kickoff = f.time_local ? zonedLocalToIso(f.date, f.time_local, timezone) : null;
       if (kickoff && brusselsDate(kickoff) !== date) continue;
       const row: ParsedMatch = {
-        key: matchKey(kickoff, f.home_team, f.away_team, f.date),
+        key: matchKey(kickoff, f.home_team, f.away_team, f.date, f.gender),
         kickoff_at: kickoff,
         kickoff_date: f.date,
         league: f.competition,
@@ -171,7 +171,7 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
         away_team: f.away_team,
       };
       if (isEuropeanMatch(row)) {
-        const identity = identityKey(f.date,f.home_team,f.away_team);
+        const identity = identityKey(f.date,f.home_team,f.away_team,f.gender);
         const prior = candidates.get(identity);
         if (!prior || (!prior.kickoff_at && row.kickoff_at)) candidates.set(identity,row);
       }
