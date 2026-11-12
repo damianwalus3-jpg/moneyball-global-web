@@ -17,6 +17,7 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
   }
   const batchId = crypto.randomUUID();
   let created = 0;
+  const createdCouponIds: string[] = [];
   for (const [i, legs] of coupons.entries()) {
     let couponId: string | null = null;
     try {
@@ -53,11 +54,14 @@ export async function saveCouponBatch(coupons: Prediction[][], opts: SaveBatchOp
         note: `Stawka: ${coupon.name ?? "kupon"}`,
       });
     }
+    createdCouponIds.push(coupon.id);
     created++;
     } catch (error) {
-      if (couponId) {
-        await deleteWhere("coupon_legs", "coupon_id", couponId).catch(() => undefined);
-        await deleteRow("coupons", couponId).catch(() => undefined);
+      const rollbackIds = [...createdCouponIds, ...(couponId ? [couponId] : [])].reverse();
+      for (const id of rollbackIds) {
+        await deleteWhere("bankroll_transactions", "coupon_id", id).catch(() => undefined);
+        await deleteWhere("coupon_legs", "coupon_id", id).catch(() => undefined);
+        await deleteRow("coupons", id).catch(() => undefined);
       }
       throw error;
     }
