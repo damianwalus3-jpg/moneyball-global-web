@@ -21,7 +21,7 @@ export function MatchPicker({
 }) {
   const [open, setOpen] = useState(false);
   const sorted = useMemo(
-    () => [...matches].sort((a, b) => (b.kickoff_at ?? "").localeCompare(a.kickoff_at ?? "")),
+    () => [...matches].sort((a, b) => (b.kickoff_at ?? b.kickoff_date ?? "").localeCompare(a.kickoff_at ?? a.kickoff_date ?? "")),
     [matches],
   );
   const current = matches.find((m) => m.id === value);
