@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-12T17:21:37.577292+00:00",
+  "generated_at": "2026-11-12T17:22:49.693168+00:00",
   "source": "American Soccer Analysis public API",
   "license": "CC BY-SA 4.0",
   "attribution": "American Soccer Analysis (ASA), https://www.americansocceranalysis.com/",
@@ -46,6 +46,88 @@
       "brier": -0.008906,
       "log_loss": -0.012209,
       "ece_top_class": 0.042357
+    }
+  },
+  "double_chance": {
+    "goals_only_raw": {
+      "1X": {
+        "accuracy_at_0_5": 0.703264,
+        "brier": 0.20272,
+        "log_loss": 0.594389,
+        "ece": 0.070345
+      },
+      "X2": {
+        "accuracy_at_0_5": 0.557864,
+        "brier": 0.241566,
+        "log_loss": 0.675415,
+        "ece": 0.083849
+      },
+      "12": {
+        "accuracy_at_0_5": 0.777448,
+        "brier": 0.171208,
+        "log_loss": 0.525182,
+        "ece": 0.017027
+      }
+    },
+    "xg_raw": {
+      "1X": {
+        "accuracy_at_0_5": 0.738872,
+        "brier": 0.198016,
+        "log_loss": 0.584602,
+        "ece": 0.110049
+      },
+      "X2": {
+        "accuracy_at_0_5": 0.548961,
+        "brier": 0.237371,
+        "log_loss": 0.666182,
+        "ece": 0.093068
+      },
+      "12": {
+        "accuracy_at_0_5": 0.777448,
+        "brier": 0.17207,
+        "log_loss": 0.527525,
+        "ece": 0.0031
+      }
+    },
+    "goals_only_calibrated": {
+      "1X": {
+        "accuracy_at_0_5": 0.700297,
+        "brier": 0.202954,
+        "log_loss": 0.595226,
+        "ece": 0.079933
+      },
+      "X2": {
+        "accuracy_at_0_5": 0.545994,
+        "brier": 0.246829,
+        "log_loss": 0.686195,
+        "ece": 0.097711
+      },
+      "12": {
+        "accuracy_at_0_5": 0.777448,
+        "brier": 0.173356,
+        "log_loss": 0.531143,
+        "ece": 0.064498
+      }
+    },
+    "xg_calibrated": {
+      "1X": {
+        "accuracy_at_0_5": 0.718101,
+        "brier": 0.199732,
+        "log_loss": 0.5885,
+        "ece": 0.098115
+      },
+      "X2": {
+        "accuracy_at_0_5": 0.534125,
+        "brier": 0.241832,
+        "log_loss": 0.675488,
+        "ece": 0.110611
+      },
+      "12": {
+        "accuracy_at_0_5": 0.777448,
+        "brier": 0.172669,
+        "log_loss": 0.529251,
+        "ece": 0.021634
+      }
     }
   }
 }
