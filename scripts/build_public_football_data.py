@@ -193,6 +193,20 @@ def load_openfootball_text_results():
     return rows, len(tasks), loaded, failures[:30]
 
 
+def validate_football_txt_parser():
+    sample = """= Parser Test League
+  Fri Dec 30 2026
+    20:45 Home FC                 v Away FC                 2-1 (1-0)
+  Sun Jan 2
+           Third FC               v Fourth FC               0-0
+"""
+    rows = parse_football_txt("2026-27_test.txt", sample, "test/repo")
+    if len(rows) != 2 or rows[0][0] != "2026-12-30" or rows[0][3:5] != (2, 1):
+        raise SystemExit(f"Football.TXT parser regression: {rows}")
+    if rows[1][0] != "2027-01-02" or rows[1][3:5] != (0, 0):
+        raise SystemExit(f"Football.TXT year rollover regression: {rows}")
+
+
 def load_international_results():
     tree = json.loads(get(INTERNATIONAL_TREE))
     paths = sorted(item["path"] for item in tree.get("tree", [])
@@ -228,6 +242,7 @@ def load_international_results():
     return rows, len(paths), len(loaded), failed[:20]
 
 def main():
+    validate_football_txt_parser()
     index = get(BASE + "/LEAGUE_INDEX.md")
     folders = sorted(set(re.findall(r"`([A-Z]{3}_[A-Za-z0-9_-]+)`", index)))
     if not folders:
