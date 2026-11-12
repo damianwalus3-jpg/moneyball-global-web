@@ -119,7 +119,7 @@ def main():
                 continue
             seen.add(dedupe)
             unique.append(item)
-        teams[key] = {"name": entry["name"], "matches": unique[:12]}
+        teams[key] = {"name": entry["name"], "matches": unique[:5]}
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
