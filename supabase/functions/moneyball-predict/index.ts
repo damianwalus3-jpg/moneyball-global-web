@@ -250,7 +250,7 @@ function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null,gend
  };
  const rawGender=String(gender||"unknown").toLowerCase();const targetGender=rawGender==="women"?"women":rawGender==="men"?"men":"unknown";if(targetGender==="unknown")return null;
  const resolvedKey=teams[key]?key:(bestKey(teams)||key);
- const xgLookupKey=targetGender==="women"&&!xgTeams[key]&&xgTeams[key+" women"]?key+" women":key;
+ const xgLookupKey=targetGender==="women"&&xgTeams[key+" women"]?key+" women":key;
  const xgKey=xgTeams[xgLookupKey]?xgLookupKey:(xgTeams[resolvedKey]?resolvedKey:(bestKey(xgTeams,xgLookupKey)||resolvedKey));
  const xgEntry=xgTeams[xgKey];
  const genderMatches=targetGender!=="unknown"&&Array.isArray(xgEntry?.matches)?xgEntry.matches.filter((x:any)=>String(x.gender||xgEntry.gender||"unknown").toLowerCase()===targetGender):[];
