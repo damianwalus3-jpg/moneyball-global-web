@@ -190,18 +190,25 @@ async function readOpenPlayXgData(){
  try{const r=await fetch("https://raw.githubusercontent.com/damianwalus3-jpg/moneyball-global-web/main/public-data/openplay-xg.json",{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(18000)});if(!r.ok)throw new Error("OpenPlay xG HTTP "+r.status);const data=await r.json();if(data?.schema_version!==1||!data?.teams||Object.keys(data.teams).length<100)throw new Error("OpenPlay xG validation failed");return data;}catch(e){console.error("OpenPlay xG history unavailable:",String(e));return {teams:{},error:String(e),generated_at:null,coverage:null};}
 }
 function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null){
- const key=normTeam(team),teams=data?.teams||{},xgTeams=xgData?.teams||{};let resolvedKey=key,entry=teams[key];
- if(!entry){
-  const a=new Set(key.split(" ").filter(x=>x.length>2));
-  const candidates=Object.keys(teams).map(k=>{const b=new Set(k.split(" ").filter(x=>x.length>2));return {k,score:a.size&&b.size?[...a].filter(x=>b.has(x)).length/Math.max(a.size,b.size):0};}).filter(x=>x.score>=0.8).sort((x,y)=>y.score-x.score);
-  if(candidates.length&&(!candidates[1]||candidates[0].score-candidates[1].score>=0.12)){resolvedKey=candidates[0].k;entry=teams[resolvedKey];}}
- }
- if(!entry){const xgCandidates=Object.keys(xgTeams).map(k=>{const b=new Set(k.split(" ").filter(x=>x.length>2));return {k,score:a.size&&b.size?[...a].filter(x=>b.has(x)).length/Math.max(a.size,b.size):0};}).filter(x=>x.score>=0.8).sort((x,y)=>y.score-x.score);if(xgCandidates.length&&(!xgCandidates[1]||xgCandidates[0].score-xgCandidates[1].score>=0.12))resolvedKey=xgCandidates[0].k;const xgOnly=xgTeams[resolvedKey];if(Array.isArray(xgOnly?.matches))entry={matches:xgOnly.matches.map((x:any)=>({...x,result:x.result||"D"}))};}if(!entry||!Array.isArray(entry.matches))return null;
- const cutoff=String(kickoff||"").slice(0,10),last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
+ const key=normTeam(team),teams=data?.teams||{},xgTeams=xgData?.teams||{};
+ const bestKey=(source:Record<string,any>)=>{
+  const tokens=new Set(key.split(" ").filter(x=>x.length>2));
+  const candidates=Object.keys(source).map(k=>{const other=new Set(k.split(" ").filter(x=>x.length>2));return {k,score:tokens.size&&other.size?[...tokens].filter(x=>other.has(x)).length/Math.max(tokens.size,other.size):0};}).filter(x=>x.score>=0.8).sort((x,y)=>y.score-x.score);
+  return candidates.length&&(!candidates[1]||candidates[0].score-candidates[1].score>=0.12)?candidates[0].k:null;
+ };
+ let resolvedKey=teams[key]?key:(bestKey(teams)||key);
+ const xgKey=xgTeams[resolvedKey]?resolvedKey:(bestKey(xgTeams)||resolvedKey);
+ let entry=teams[resolvedKey];
+ const xgEntry=xgTeams[xgKey];
+ if(!entry&&Array.isArray(xgEntry?.matches))entry={matches:xgEntry.matches.map((x:any)=>({...x,result:x.result||"D"}))};
+ if(!entry||!Array.isArray(entry.matches))return null;
+ const cutoff=String(kickoff||"").slice(0,10);
+ const last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
  if(!last.length)return null;
  const w=last.filter((x:any)=>x.result==="W").length,d=last.filter((x:any)=>x.result==="D").length,l=last.filter((x:any)=>x.result==="L").length;
- const mean=(k:string)=>{const vals=last.map((x:any)=>x[k]).filter((x:any)=>x!==null&&x!==undefined&&Number.isFinite(Number(x)));return vals.length?+(vals.reduce((s:number,v:any)=>s+Number(v),0)/vals.length).toFixed(2):null;};
- const xgKey=resolvedKey;const xgEntry=xgTeams[xgKey];const xgCutoff=String(kickoff||"").slice(0,10);const xgLast=Array.isArray(xgEntry?.matches)?xgEntry.matches.filter((x:any)=>String(x.date||"")<xgCutoff&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against)})):[];return {matches:last.length,w,d,l,goals_for:last.reduce((s:number,x:any)=>s+Number(x.goals_for||0),0),goals_against:last.reduce((s:number,x:any)=>s+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:"OPENMATCHDAY_GITHUB_LAST10"};
+ const mean=(k:string)=>{const vals=last.map((x:any)=>x[k]).filter((x:any)=>x!==null&&x!==undefined&&Number.isFinite(Number(x)));return vals.length?+(vals.reduce((sum:number,v:any)=>sum+Number(v),0)/vals.length).toFixed(2):null;};
+ const xgLast=Array.isArray(xgEntry?.matches)?xgEntry.matches.filter((x:any)=>String(x.date||"")<cutoff&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against)})):[];
+ return {matches:last.length,w,d,l,goals_for:last.reduce((sum:number,x:any)=>sum+Number(x.goals_for||0),0),goals_against:last.reduce((sum:number,x:any)=>sum+Number(x.goals_against||0),0),last10:last.map((x:any)=>({date:x.date,opponent:x.opponent,result:x.result,goals_for:x.goals_for,goals_against:x.goals_against,shots_for:x.shots_for,shots_against:x.shots_against,shots_on_target_for:x.shots_on_target_for,shots_on_target_against:x.shots_on_target_against,corners_for:x.corners_for,corners_against:x.corners_against,fouls_for:x.fouls_for,fouls_against:x.fouls_against,yellow_for:x.yellow_for,yellow_against:x.yellow_against,red_for:x.red_for,red_against:x.red_against})),xg_last10:xgLast,avg_shots_for:mean("shots_for"),avg_shots_against:mean("shots_against"),avg_shots_on_target_for:mean("shots_on_target_for"),avg_shots_on_target_against:mean("shots_on_target_against"),avg_corners_for:mean("corners_for"),avg_corners_against:mean("corners_against"),avg_fouls_for:mean("fouls_for"),source:"OPENMATCHDAY_GITHUB_LAST10"};
 }
 
 Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{headers:C});try{
