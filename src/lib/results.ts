@@ -28,7 +28,7 @@ export async function syncResults(days = 7): Promise<ResultsSyncResponse> {
 
   const span = Math.max(1, Math.min(7, Math.floor(days)));
   const endpoint =
-    config.url.replace(/\\/$/, "") +
+    config.url.replace(/\/$/, "") +
     "/functions/v1/moneyball-results-sync?days=" +
     String(span);
 
