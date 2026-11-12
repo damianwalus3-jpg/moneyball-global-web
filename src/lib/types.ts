@@ -21,6 +21,7 @@ export interface Match {
   id: string;
   scan_run_id: string | null;
   kickoff_at: string | null;
+  kickoff_date?: string | null;
   league: string | null;
   country: string | null;
   home_team: string | null;
