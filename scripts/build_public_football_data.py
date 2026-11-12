@@ -59,7 +59,7 @@ def load_folder(folder: str):
 
 def main():
     index = get(BASE + "/LEAGUE_INDEX.md")
-    folders = sorted(set(re.findall(r"^\|\s*`([A-Za-z0-9_-]+)`\s*\|", index, re.M)))
+    folders = sorted(set(re.findall(r"`([A-Z]{3}_[A-Za-z0-9_-]+)`", index)))
     if not folders:
         raise SystemExit("No league folders found in OpenMatchday LEAGUE_INDEX.md")
     team_rows = {}
