@@ -50,21 +50,34 @@ function Ustawienia() {
     return subscribeInstall(() => setInstallable(canInstall()));
   }, []);
 
-  async function changePassword(e: FormEvent<HTMLFormElement>) {
+  async function changePassword(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
-    if (newPassword.length < 12) return toast.error("Hasło musi mieć co najmniej 12 znaków.");
-    if (newPassword !== confirmPassword) return toast.error("Hasła się różnią.");
+    if (newPassword.length < 12) {
+      toast.error("Hasło musi mieć co najmniej 12 znaków.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Hasła się różnią.");
+      return;
+    }
     const sb = getSupabase();
-    if (!sb) return toast.error("Brak połączenia z bazą.");
+    if (!sb) {
+      toast.error("Brak połączenia z bazą.");
+      return;
+    }
     setPasswordBusy(true);
     const { data } = await sb.auth.getSession();
     if (!data.session) {
       setPasswordBusy(false);
-      return toast.error("Sesja wygasła. Zaloguj się ponownie.");
+      toast.error("Sesja wygasła. Zaloguj się ponownie.");
+      return;
     }
     const { error } = await sb.auth.updateUser({ password: newPassword });
     setPasswordBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setNewPassword("");
     setConfirmPassword("");
     toast.success("Hasło zmienione. Przy kolejnych aktualizacjach aplikacji nie trzeba go resetować.");
