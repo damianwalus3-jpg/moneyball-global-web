@@ -34,7 +34,7 @@ import { fmtMoney, fmtOdds, fmtPct, matchLabel, parseDecimal } from "@/lib/forma
 import { requireSupabase } from "@/lib/supabase";
 import { readConfig } from "@/lib/config";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
-import { fmtDateTime } from "@/lib/time";
+import { brusselsDayKey, fmtDateTime } from "@/lib/time";
 import type { Coupon, Prediction, Settlement } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/kupony")({
@@ -81,8 +81,15 @@ function Kupony() {
   }, [coupons, legs]);
 
   const now = Date.now();
+  // Coupon generation is intentionally restricted to fixtures scheduled on today's
+  // Brussels calendar date. This prevents week-ahead matches entering a daily coupon.
+  const todayKey = brusselsDayKey(new Date());
   const candidates = preds
     .filter((p) => isCouponCandidate(p, byId.get(p.match_id), now))
+    .filter((p) => {
+      const kickoff = byId.get(p.match_id)?.kickoff_at;
+      return !!kickoff && brusselsDayKey(kickoff) === todayKey;
+    })
     .filter((p) => market === "all" || p.prediction_type === market)
     .filter((p) => !excludeActive || !activeMatchIds.has(p.match_id))
     .sort((a, b) => Number(b.probability) - Number(a.probability));
@@ -209,7 +216,7 @@ function Kupony() {
       <PageHeader
         eyebrow={`3 mecze · tylko > ${CANDIDATE_MIN_PROBABILITY}%`}
         title="Kupony"
-        description="Każdy kupon to dokładnie 3 różne mecze. W jednej partii żaden mecz nie powtarza się między kuponami."
+        description="Kupony tworzone są wyłącznie z meczów rozgrywanych dzisiaj (czas Belgii). Każdy kupon ma dokładnie 3 różne mecze, a żaden mecz nie powtarza się między kuponami."
       />
       <div className="mb-4 flex justify-end">
         <Button
@@ -269,7 +276,7 @@ function Kupony() {
 
         {preview.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Za mało kandydatów: potrzeba co najmniej 3 różnych, nierozegranych meczów z prognozą WYBRANY powyżej{" "}
+            Za mało dzisiejszych kandydatów: potrzeba co najmniej 3 różnych, jeszcze nierozpoczętych meczów z prognozą WYBRANY powyżej{" "}
             {CANDIDATE_MIN_PROBABILITY}%.
           </p>
         ) : (
