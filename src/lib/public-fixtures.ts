@@ -131,7 +131,6 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
           if (isEuropeanMatch(row)) candidates.set(row.key, row);
         }
         liveFixtures = candidates.size;
-        if (error) liveErrors++;
       } else if (error) {
         liveErrors++;
       }
