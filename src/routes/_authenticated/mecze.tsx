@@ -231,7 +231,7 @@ function Mecze() {
     if (m.kickoff_at) return brusselsDayKey(m.kickoff_at);
     // OpenMatchday external IDs retain the fixture date when the source has
     // not published a kickoff time. Keep the date visible without inventing a time.
-    return /:(\\d{4}-\\d{2}-\\d{2}):/.exec(m.external_id ?? "")?.[1] ?? null;
+    return /:(\d{4}-\d{2}-\d{2}):/.exec(m.external_id ?? "")?.[1] ?? null;
   };
   const filtered = europeanMatches
     .filter((m) => {
