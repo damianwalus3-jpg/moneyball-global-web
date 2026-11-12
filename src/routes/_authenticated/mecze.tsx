@@ -213,7 +213,7 @@ function Mecze() {
       }
       await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       toast.success(
-        "Skan: FootyNomad " + edgeCount + " • źródła publiczne " + (publicSummary?.sourceFixtures ?? 0) +
+        "Skan 7 dni: FootyNomad " + edgeCount + " • źródła publiczne " + (publicSummary?.sourceFixtures ?? 0) +
         " • dodano FN " + (data.inserted ?? 0) + " / GitHub " + (publicSummary?.newMatches ?? 0) +
         (publicWarning ? " • dodatkowe źródło niedostępne" : ""),
       );
@@ -320,7 +320,7 @@ function Mecze() {
             </Button>
             <Button onClick={runTodayScan} disabled={globalScanRunning || analysisRunning}>
               <ScanLine className={globalScanRunning ? "animate-pulse" : ""} />
-              {globalScanRunning ? "Skanuję dzisiejsze mecze…" : "Skanuj dzisiaj"}
+              {globalScanRunning ? "Skanuję 7 dni…" : "Skanuj 7 dni"}
             </Button>
             <Button variant="outline" onClick={() => void runTodayAnalysis()} disabled={globalScanRunning || analysisRunning}>
               <BrainCircuit className={analysisRunning ? "animate-pulse" : ""} />
