@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - scripts/build_openplay_xg_data.py
+      - scripts/backtest_openplay_xg.py
       - .github/workflows/build-openplay-xg.yml
   schedule:
     - cron: "17 4 1 * *"
@@ -35,11 +36,14 @@ jobs:
       - name: Build and validate historical xG index
         run: python scripts/build_openplay_xg_data.py
 
+      - name: Backtest xG against a goals-only baseline
+        run: python scripts/backtest_openplay_xg.py
+
       - name: Commit generated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public-data/openplay-xg.json
+          git add public-data/openplay-xg.json public-data/openplay-xg-backtest.json
           if git diff --cached --quiet; then
             echo "OpenPlay data is unchanged."
             exit 0
