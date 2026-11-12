@@ -109,28 +109,35 @@ export async function importPublicFixturesForDate(date: string, existing: Match[
   // TheSportsDB and BeyondELO. The aggregator reports missing times explicitly.
   const sb = getSupabase();
   if (sb) {
-    const { data, error } = await sb.functions.invoke("moneyball-public-sources", { body: { date } });
-    if (!error && data?.ok && Array.isArray((data as PublicSourcePayload).fixtures)) {
-      for (const f of (data as PublicSourcePayload).fixtures || []) {
-        if (!f.kickoff_at || !f.home_team || !f.away_team) continue;
-        const parsedDate = new Date(f.kickoff_at);
-        if (!Number.isFinite(parsedDate.getTime()) || brusselsDate(f.kickoff_at) !== date) continue;
-        const kickoff = parsedDate.toISOString();
-        const row: ParsedMatch = {
-          key: matchKey(kickoff, f.home_team, f.away_team),
-          kickoff_at: kickoff,
-          league: f.competition || "Nieznane rozgrywki",
-          country: f.country ? normalizeCountry(f.country) : null,
-          gender: f.gender || "unknown",
-          external_id: f.external_id || null,
-          source: f.source || "Moneyball public sources",
-          home_team: f.home_team,
-          away_team: f.away_team,
-        };
-        if (isEuropeanMatch(row)) candidates.set(row.key, row);
+    try {
+      const { data, error } = await sb.functions.invoke("moneyball-public-sources", { body: { date } });
+      if (!error && data?.ok && Array.isArray((data as PublicSourcePayload).fixtures)) {
+        for (const f of (data as PublicSourcePayload).fixtures || []) {
+          if (!f.kickoff_at || !f.home_team || !f.away_team) continue;
+          const parsedDate = new Date(f.kickoff_at);
+          if (!Number.isFinite(parsedDate.getTime()) || brusselsDate(f.kickoff_at) !== date) continue;
+          const kickoff = parsedDate.toISOString();
+          const row: ParsedMatch = {
+            key: matchKey(kickoff, f.home_team, f.away_team),
+            kickoff_at: kickoff,
+            league: f.competition || "Nieznane rozgrywki",
+            country: f.country ? normalizeCountry(f.country) : null,
+            gender: f.gender || "unknown",
+            external_id: f.external_id || null,
+            source: f.source || "Moneyball public sources",
+            home_team: f.home_team,
+            away_team: f.away_team,
+          };
+          if (isEuropeanMatch(row)) candidates.set(row.key, row);
+        }
+        liveFixtures = candidates.size;
+        if (error) liveErrors++;
+      } else if (error) {
+        liveErrors++;
       }
-      liveFixtures = candidates.size;
-    } else if (error) {
+    } catch {
+      // A rejected Edge Function call must not prevent the independent static
+      // GitHub fixture index from filling the scan.
       liveErrors++;
     }
   }
