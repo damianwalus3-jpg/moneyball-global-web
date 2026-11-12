@@ -57,7 +57,6 @@ export const Route = createFileRoute("/_authenticated/kupony")({
 
 type Market = "all" | "1X2" | "DC";
 type CouponSize = 1 | 3;
-type CouponSize = 1 | 3;
 
 function Kupony() {
   const matches = useTable("matches");
