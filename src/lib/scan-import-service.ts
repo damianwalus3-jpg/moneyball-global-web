@@ -83,13 +83,6 @@ export async function importScan(parsed: ParsedScan, existing: Match[], source: 
     });
     for (let i = 0; i < preds.length; i += 500) await insertRows("predictions", preds.slice(i, i + 500));
   
-    await updateRow("scan_runs", scan.id, { matches_count: europeanMatches.length });
-    return {
-      newMatches: inserted.length,
-      reusedMatches: europeanMatches.length - inserted.length,
-      ignoredNonEuropean: nonEuropeanKeys.size,
-      predictions: preds.length,
-    };
     await updateRow("scan_runs", scan.id, {
       status: "completed",
       completed_at: new Date().toISOString(),
