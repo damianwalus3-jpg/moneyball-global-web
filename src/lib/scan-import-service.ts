@@ -2,6 +2,7 @@ import { insertRow, insertRows, updateRow } from "./db";
 import { matchKey, type ParsedScan } from "./scan-import";
 import type { Match } from "./types";
 import { isEuropeanMatch } from "./geography";
+import { brusselsDayKey } from "./time";
 
 /**
  * Stores a parsed scan: one scan_run, every match (reusing identical existing
