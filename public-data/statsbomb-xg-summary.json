@@ -1,19 +1,20 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-12T16:02:28.376510+00:00",
+  "generated_at": "2026-11-12T16:55:55.038079+00:00",
   "source": "StatsBomb Open Data",
   "coverage": {
-    "selected_competition_seasons": 19,
-    "source_matches": 1624,
-    "matches_with_shot_xg": 1623,
-    "team_names": 185,
-    "stored_team_match_rows": 2270,
+    "selected_competition_seasons": 20,
+    "source_matches": 1625,
+    "matches_with_shot_xg": 1624,
+    "team_names": 187,
+    "stored_team_match_rows": 2272,
     "genders": [
       "men",
       "women"
     ],
     "competitions": [
       "African Cup of Nations",
+      "Champions League",
       "Copa America",
       "FA Women's Super League",
       "FIFA World Cup",
