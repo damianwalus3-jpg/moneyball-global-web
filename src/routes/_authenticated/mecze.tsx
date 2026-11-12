@@ -183,9 +183,14 @@ function Mecze() {
       const { data, error } = await sb.functions.invoke("footynomad-sync", { body: { date } });
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Skan nie został zakończony.");
-      await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
+      await Promise.all(["matches","scan_runs","predictions","match_results","odds_snapshots","coupons","coupon_legs","bankroll_transactions"].map((table) => qc.invalidateQueries({ queryKey: ["table", table] })));
       toast.success("Skan zakończony: " + (data.combined_count ?? data.fixtures_count ?? data.total_found ?? 0) + " meczów • dodano " + (data.inserted ?? 0) + " • zaktualizowano " + (data.updated ?? 0));
-      try { await refreshResults.mutateAsync(undefined); } catch { /* refreshResults already reports the source error; keep the completed fixture scan */ }
+      // footynomad-sync now runs the shared result/coupon settlement pipeline itself.
+      // Keep the client-side synchronizer only as a fallback if that internal call failed.
+      if (data.result_sync?.ok !== true) {
+        try { await refreshResults.mutateAsync(undefined); }
+        catch { /* refreshResults already reports the source error; keep the completed fixture scan */ }
+      }
       await runTodayAnalysis(date);
     } catch (e) {
       toast.error("Nie udało się wykonać skanu: " + (e instanceof Error ? e.message : String(e)));
