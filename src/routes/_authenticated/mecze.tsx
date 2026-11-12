@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
+import { Activity, BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDelete, DataError, EmptyState, PageHeader, PageLoader } from "@/components/app/ui-bits";
 import { ScanImportDialog } from "@/components/app/ScanImportDialog";
+import { MatchDetailsDialog } from "@/components/app/MatchDetailsDialog";
 import { MatchForm } from "@/components/forms/MatchForm";
 import { OddsForm, ScanRunForm } from "@/components/forms/SimpleForms";
 import { deleteRow } from "@/lib/db";
@@ -62,6 +63,7 @@ function Mecze() {
   const [view, setView] = useState<View>("today");
   const [q, setQ] = useState("");
   const [editMatch, setEditMatch] = useState<Match | null>(null);
+  const [detailMatch, setDetailMatch] = useState<Match | null>(null);
   const [matchOpen, setMatchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [oddsFor, setOddsFor] = useState<string | null>(null);
@@ -429,6 +431,9 @@ function Mecze() {
                             {r.verified === true ? "Wynik potwierdzony" : "Wynik do weryfikacji"}{r.source ? ` · źródło: ${r.source}` : ""}
                           </div>
                         )}
+                        <Button variant="outline" size="sm" className="mt-2 h-8 gap-1.5 text-xs" onClick={() => setDetailMatch(m)}>
+                          <Activity className="size-3.5" /> Szczegóły analizy i uzasadnienie
+                        </Button>
                       </div>
 
                       <div className="col-span-2 flex items-center justify-end border-t border-border/60 pt-1 sm:col-span-1 sm:border-0 sm:pt-0">
@@ -461,6 +466,16 @@ function Mecze() {
         </div>
       )}
 
+      <MatchDetailsDialog
+        match={detailMatch}
+        open={detailMatch != null}
+        onOpenChange={(open) => !open && setDetailMatch(null)}
+        predictions={detailMatch ? preds.filter((p) => p.match_id === detailMatch.id) : []}
+        odds={detailMatch ? latestOdds.get(detailMatch.id) : undefined}
+        result={detailMatch ? resultBy.get(detailMatch.id) : undefined}
+        matches={matches}
+        results={results}
+      />
       <MatchForm open={matchOpen} onOpenChange={setMatchOpen} match={editMatch} scanRuns={scans} />
       <ScanImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <ScanRunForm open={scanOpen} onOpenChange={setScanOpen} scan={editScan} />
