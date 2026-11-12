@@ -112,6 +112,87 @@ def load_openfootball_league_results():
             rows.append((date, home, away, hg, ag, competition, path))
     return rows, len(paths), len(loaded), failed[:20]
 
+TEXT_REPOS = ("openfootball/europe", "openfootball/world", "openfootball/south-america")
+
+def parse_football_txt(path: str, raw: str, repository: str):
+    """Parse dated Football.TXT match rows; keep only played matches with a final score."""
+    year_match = re.match(r"^(\\d{4})", path.rsplit("/", 1)[-1])
+    current_year = int(year_match.group(1)) if year_match else None
+    current_month = None
+    current_date = None
+    competition = ""
+    rows = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("=") and not competition:
+            competition = stripped.lstrip("= ").strip()
+            continue
+        heading = re.match(r"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+([A-Z][a-z]{2})\\s+(\\d{1,2})(?:\\s+(\\d{4}))?$", stripped)
+        if heading:
+            month_name, day, explicit_year = heading.groups()
+            try:
+                month = datetime.strptime(month_name, "%b").month
+                if explicit_year:
+                    current_year = int(explicit_year)
+                elif current_month is not None and month < current_month - 6:
+                    current_year += 1
+                if current_year is not None:
+                    current_date = datetime.strptime(f"{current_year} {month_name} {day}", "%Y %b %d").date().isoformat()
+                    current_month = month
+            except ValueError:
+                current_date = None
+            continue
+        if not current_date or " v " not in stripped:
+            continue
+        home_part, away_part = stripped.split(" v ", 1)
+        score = re.search(r"\\s+(\\d+)-(\\d+)(?:\\s+\\(\\d+-\\d+\\))?(?:\\s+(?:AET|PEN))?\\s*$", away_part, re.I)
+        if not score:
+            continue
+        home = re.sub(r"^\\d{1,2}:\\d{2}\\s+", "", home_part).strip()
+        away = away_part[:score.start()].strip()
+        if not home or not away:
+            continue
+        rows.append((current_date, home, away, int(score.group(1)), int(score.group(2)),
+                     competition or path.rsplit("/", 1)[-1], f"{repository}/{path}"))
+    return rows
+
+
+def load_openfootball_text_results():
+    tasks = []
+    failures = []
+    for repository in TEXT_REPOS:
+        tree_url = f"https://api.github.com/repos/{repository}/git/trees/master?recursive=1"
+        try:
+            tree = json.loads(get(tree_url))
+            for item in tree.get("tree", []):
+                path = item.get("path", "")
+                if item.get("type") != "blob" or not path.endswith(".txt"):
+                    continue
+                year_match = re.search(r"/(20\\d{2})(?:-|_)", path)
+                if year_match and int(year_match.group(1)) >= 2025:
+                    tasks.append((repository, path))
+        except Exception as exc:
+            failures.append(f"{repository}: {str(exc)[:160]}")
+
+    def fetch_one(args):
+        repository, path = args
+        url = f"https://raw.githubusercontent.com/{repository}/master/{path}"
+        return repository, path, get(url)
+
+    rows, loaded = [], 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(fetch_one, task) for task in tasks]
+        for future in as_completed(futures):
+            try:
+                repository, path, raw = future.result()
+                parsed = parse_football_txt(path, raw, repository)
+                rows.extend(parsed)
+                loaded += 1
+            except Exception as exc:
+                failures.append(str(exc)[:180])
+    return rows, len(tasks), loaded, failures[:30]
+
+
 def load_international_results():
     tree = json.loads(get(INTERNATIONAL_TREE))
     paths = sorted(item["path"] for item in tree.get("tree", [])
@@ -221,6 +302,20 @@ def main():
                 "competition":competition,"country":country,"source":"OpenFootball Leagues","source_path":source_path}
             team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
 
+    text_rows, text_files, text_loaded, text_failed = load_openfootball_text_results()
+    for date, home, away, hg, ag, competition, source_path in text_rows:
+        for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, gf)):
+            key = norm(team)
+            if not key:
+                continue
+            result = "W" if gf > ga else "L" if gf < ga else "D"
+            item = {"date":date,"opponent":opponent,"result":result,"goals_for":gf,"goals_against":ga,
+                "shots_for":None,"shots_against":None,"shots_on_target_for":None,"shots_on_target_against":None,
+                "corners_for":None,"corners_against":None,"fouls_for":None,"fouls_against":None,
+                "yellow_for":None,"yellow_against":None,"red_for":None,"red_against":None,
+                "competition":competition,"country":"INT","source":"OpenFootball Text","source_path":source_path}
+            team_rows.setdefault(key, {"name":team,"matches":[]})["matches"].append(item)
+
     international_rows, international_files, international_loaded, international_failed = load_international_results()
     for date, home, away, hg, ag, competition, source_path in international_rows:
         for team, opponent, gf, ga in ((home, away, hg, ag), (away, home, ag, hg)):
@@ -260,8 +355,8 @@ def main():
     form_payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday + OpenFootball global league results + internationals",
-        "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball football.json and Internationals (CC0 1.0).",
+        "source": "OpenMatchday + OpenFootball JSON and text leagues + internationals",
+        "attribution": "OpenMatchday contributors (non-commercial informational use with attribution); OpenFootball football.json, Europe, World, South America and Internationals (CC0 1.0).",
         "teams": compact_teams
     }
     FORM_OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -269,9 +364,9 @@ def main():
     payload = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "source": "OpenMatchday public CSV + OpenFootball global leagues + OpenFootball Internationals",
+        "source": "OpenMatchday public CSV + OpenFootball global JSON/text leagues + OpenFootball Internationals",
         "source_url": "https://github.com/oladeeayo/open-matchday and https://github.com/openfootball/internationals",
-        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball football.json and Internationals: CC0 1.0"],
+        "licences": ["OpenMatchday: non-commercial informational use with attribution; upstream provider terms apply.", "OpenFootball football.json, Europe, World, South America and Internationals: CC0 1.0"],
         "source_url": "https://github.com/oladeeayo/open-matchday",
         "attribution": "OpenMatchday contributors; OpenFootball contributors (CC0 1.0); informational non-commercial use for OpenMatchday; upstream provider rights apply.",
         "coverage": {
@@ -284,6 +379,10 @@ def main():
             "openfootball_league_files_indexed": openfootball_files,
             "openfootball_league_files_loaded": openfootball_loaded,
             "openfootball_league_matches_read": len(openfootball_rows),
+            "openfootball_text_files_indexed": text_files,
+            "openfootball_text_files_loaded": text_loaded,
+            "openfootball_text_matches_read": len(text_rows),
+            "openfootball_text_fetch_errors": text_failed,
             "openfootball_league_fetch_errors": openfootball_failed,
             "international_matches_read": len(international_rows),
             "international_fetch_errors": international_failed,
