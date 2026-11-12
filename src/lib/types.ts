@@ -28,6 +28,9 @@ export interface Match {
   status: MatchStatus | null;
   external_id: string | null;
   notes: string | null;
+  gender?: "men" | "women" | "mixed" | "unknown" | null;
+  source?: string | null;
+  competition?: string | null;
   created_at: string | null;
 }
 
@@ -45,6 +48,15 @@ export interface Prediction {
   result_status: Settlement | null;
   settled_at: string | null;
   notes: string | null;
+  model_version?: string | null;
+  market?: "1X2" | "DOUBLE_CHANCE" | string | null;
+  selection?: string | null;
+  verdict?: string | null;
+  rationale?: string | null;
+  data_source?: string | null;
+  data_coverage?: Record<string, unknown> | null;
+  note?: string | null;
+  verified?: boolean | null;
   created_at: string | null;
 }
 
@@ -79,6 +91,8 @@ export interface MatchResult {
   match_id: string;
   home_goals: number | null;
   away_goals: number | null;
+  home_score?: number | null;
+  away_score?: number | null;
   outcome_1x2: Outcome | null;
   source: string | null;
   verified?: boolean | null;
