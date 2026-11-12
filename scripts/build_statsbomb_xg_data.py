@@ -155,6 +155,8 @@ def main():
             is_home = side == "home"
             name = row[side]
             key = norm(name)
+            if row["gender"] == "women" and "women" not in key.split():
+                key = (key + " women").strip()
             if not key:
                 continue
             opponent = row["away" if is_home else "home"]
