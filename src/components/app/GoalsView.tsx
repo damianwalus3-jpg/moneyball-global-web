@@ -9,12 +9,12 @@ import { isEuropeanMatch } from "@/lib/geography";
 import type { Match, Prediction } from "@/lib/types";
 
 const LABELS: Record<string, string> = {
-  OVER_1.5: "Powyżej 1,5 gola",
-  UNDER_1.5: "Poniżej 1,5 gola",
-  OVER_2.5: "Powyżej 2,5 gola",
-  UNDER_2.5: "Poniżej 2,5 gola",
-  OVER_3.5: "Powyżej 3,5 gola",
-  UNDER_3.5: "Poniżej 3,5 gola",
+  "OVER_1.5": "Powyżej 1,5 gola",
+  "UNDER_1.5": "Poniżej 1,5 gola",
+  "OVER_2.5": "Powyżej 2,5 gola",
+  "UNDER_2.5": "Poniżej 2,5 gola",
+  "OVER_3.5": "Powyżej 3,5 gola",
+  "UNDER_3.5": "Poniżej 3,5 gola",
   BTTS_YES: "Obie drużyny strzelą — TAK",
   BTTS_NO: "Obie drużyny strzelą — NIE",
 };
