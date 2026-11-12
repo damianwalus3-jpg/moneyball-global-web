@@ -57,7 +57,7 @@ function zonedLocalToIso(date: string, time: string, timeZone: string): string {
 
 async function loadFixtures(): Promise<FixturePayload> {
   const url = `${import.meta.env.BASE_URL}public-data/fixtures.json`;
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`Nie można pobrać publicznego terminarza GitHub (${response.status}).`);
   const payload = await response.json() as FixturePayload;
   if (!Array.isArray(payload.fixtures)) throw new Error("Nieprawidłowy format publicznego terminarza.");
