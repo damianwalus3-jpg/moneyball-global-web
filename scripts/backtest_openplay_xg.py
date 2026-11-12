@@ -116,6 +116,8 @@ def score_model(rows: list[dict], key: str) -> dict:
     brier_1x2 = logloss_1x2 = correct_1x2 = 0.0
     top_confidence: list[float] = []
     top_correct: list[float] = []
+    outcome_probs = {0: [], 1: [], 2: []}
+    outcome_labels = {0: [], 1: [], 2: []}
     dc_probs = {"1X": [], "X2": [], "12": []}
     dc_outcomes = {"1X": [], "X2": [], "12": []}
     dc_best_hits = 0
@@ -123,6 +125,9 @@ def score_model(rows: list[dict], key: str) -> dict:
         probs = row[key]
         actual = row["actual"]
         one_hot = [1.0 if actual == 0 else 0.0, 1.0 if actual == 1 else 0.0, 1.0 if actual == 2 else 0.0]
+        for outcome in range(3):
+            outcome_probs[outcome].append(probs[outcome])
+            outcome_labels[outcome].append(one_hot[outcome])
         brier_1x2 += sum((p - y) ** 2 for p, y in zip(probs, one_hot)) / 3
         logloss_1x2 += -math.log(max(probs[actual], 1e-15))
         top_index = max(range(3), key=lambda i: probs[i])
@@ -150,11 +155,59 @@ def score_model(rows: list[dict], key: str) -> dict:
         "1x2_log_loss": round(logloss_1x2 / n, 5),
         "1x2_top_label_calibration_ece": one_x_two_calibration["ece"],
         "1x2_reliability_bins": one_x_two_calibration["bins"],
+        "1x2_one_vs_rest": {
+            str(outcome): binary_metrics(outcome_probs[outcome], outcome_labels[outcome])
+            for outcome in range(3)
+        },
         "double_chance_best_pick_hit_pct": round(100 * dc_best_hits / n, 2),
         "double_chance_markets": {
             market: binary_metrics(dc_probs[market], dc_outcomes[market])
             for market in ("1X", "X2", "12")
         },
+    }
+
+
+def apply_temperature(probs: tuple[float, float, float], temperature: float) -> tuple[float, float, float]:
+    logits = [math.log(max(p, 1e-15)) / temperature for p in probs]
+    maximum = max(logits)
+    values = [math.exp(x - maximum) for x in logits]
+    total = sum(values)
+    return tuple(value / total for value in values)
+
+
+def fit_temperature(rows: list[dict], key: str) -> float:
+    """Fit one scalar temperature on an earlier chronological calibration window."""
+    best_temperature, best_loss = 1.0, float("inf")
+    for step in range(50, 201):
+        temperature = step / 100
+        loss = 0.0
+        for row in rows:
+            calibrated = apply_temperature(row[key], temperature)
+            loss -= math.log(max(calibrated[row["actual"]], 1e-15))
+        loss /= max(1, len(rows))
+        if loss < best_loss:
+            best_temperature, best_loss = temperature, loss
+    return best_temperature
+
+
+def temporal_calibration(rows: list[dict], key: str, train_fraction: float = 0.70) -> dict:
+    """Fit on earlier matches, evaluate on a strictly later holdout."""
+    split = int(len(rows) * train_fraction)
+    train, holdout = rows[:split], rows[split:]
+    if len(train) < 1000 or len(holdout) < 500:
+        return {"calibration_training_matches": len(train), "holdout_matches": len(holdout), "error": "Insufficient temporal coverage"}
+    temperature = fit_temperature(train, key)
+    calibrated_rows = [
+        {**row, "calibrated": apply_temperature(row[key], temperature)}
+        for row in holdout
+    ]
+    return {
+        "calibration_training_matches": len(train),
+        "holdout_matches": len(holdout),
+        "temperature": round(temperature, 3),
+        "raw": score_model(holdout, key),
+        "temperature_scaled": score_model(calibrated_rows, "calibrated"),
+        "note": "Temperature is fitted only on earlier dates and evaluated on later unseen dates; this calibration is not automatically deployed.",
     }
 
 def main() -> None:
@@ -233,6 +286,8 @@ def main() -> None:
     if len(test_rows) < 1000:
         raise SystemExit(f"Backtest coverage validation failed: only {len(test_rows)} matches with sufficient prior form.")
 
+    test_rows.sort(key=lambda row: (row["date"], row["match_id"]))
+
     results = {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -242,6 +297,10 @@ def main() -> None:
         "test_matches": len(test_rows),
         "goals_only": score_model(test_rows, "goals_only"),
         "xg_blended": score_model(test_rows, "xg_blended"),
+        "temporal_calibration": {
+            "goals_only": temporal_calibration(test_rows, "goals_only"),
+            "xg_blended": temporal_calibration(test_rows, "xg_blended"),
+        },
         "note": "Historical backtest on OpenPlay-covered men's competitions only. This is not evidence of performance on all leagues, women, youth, or the 2026/27 season.",
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
