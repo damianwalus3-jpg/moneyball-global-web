@@ -136,7 +136,7 @@ def main():
         "teams": teams
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\\n", encoding="utf-8")
+    OUT.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(OUT), **payload["coverage"]}, ensure_ascii=False))
     if successful < 15 or len(teams) < 100:
         raise SystemExit("Coverage validation failed; refusing to publish an incomplete dataset.")
