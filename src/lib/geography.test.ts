@@ -5,6 +5,7 @@ describe("isEuropeanMatch", () => {
   it("includes European domestic competitions", () => {
     expect(isEuropeanMatch({ country: "Belgium", league: "First Division A" })).toBe(true);
     expect(isEuropeanMatch({ country: "ESP", league: "Copa del Rey" })).toBe(true);
+    expect(isEuropeanMatch({ country: "Germany/Europe", league: "OpenLigaDB" })).toBe(true);
   });
 
   it("keeps UEFA competitions even when the provider says World", () => {
