@@ -257,11 +257,12 @@ function githubTeamForm(team:string,kickoff:string,data:any,xgData:any=null,gend
  if(!entry&&genderMatches.length)entry={matches:genderMatches.map((x:any)=>({...x,result:x.result||"D"}))};
  if(!entry||!Array.isArray(entry.matches))return null;
  const cutoff=String(kickoff||"").slice(0,10);
- const last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
- if(!last.length)return null;
- // Do not present a prior-season archive as current form when a team has been inactive for too long.
- const newestMatch=Date.parse(String(last[0].date||"")+"T00:00:00Z"),kickoffDate=Date.parse(cutoff+"T00:00:00Z");
- if(!Number.isFinite(newestMatch)||!Number.isFinite(kickoffDate)||kickoffDate-newestMatch>240*24*60*60*1000)return null;
+ let last=entry.matches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10);
+ const kickoffDate=Date.parse(cutoff+"T00:00:00Z");
+ const recentEnough=(rows:any[])=>rows.length&&Number.isFinite(kickoffDate)&&Number.isFinite(Date.parse(String(rows[0].date||"")+"T00:00:00Z"))&&kickoffDate-Date.parse(String(rows[0].date||"")+"T00:00:00Z")<=240*24*60*60*1000;
+ // If the general form archive is absent or stale, use the gender-matched xG source's own score history.
+ if(!recentEnough(last)&&genderMatches.length)last=genderMatches.filter((x:any)=>String(x.date||"")<cutoff).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({...x,result:x.result||"D"}));
+ if(!recentEnough(last))return null;
  const w=last.filter((x:any)=>x.result==="W").length,d=last.filter((x:any)=>x.result==="D").length,l=last.filter((x:any)=>x.result==="L").length;
  const mean=(k:string)=>{const vals=last.map((x:any)=>x[k]).filter((x:any)=>x!==null&&x!==undefined&&Number.isFinite(Number(x)));return vals.length?+(vals.reduce((sum:number,v:any)=>sum+Number(v),0)/vals.length).toFixed(2):null;};
  const cutoffMs=Date.parse(cutoff+"T00:00:00Z"),xgMinDate=new Date(cutoffMs-540*24*60*60*1000).toISOString().slice(0,10);const xgLast=genderMatches.filter((x:any)=>String(x.date||"")<cutoff&&String(x.date||"")>=xgMinDate&&x.xg_for!=null&&x.xg_against!=null&&Number.isFinite(Number(x.xg_for))&&Number.isFinite(Number(x.xg_against))).sort((a:any,b:any)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map((x:any)=>({date:x.date,opponent:x.opponent,xg_for:Number(x.xg_for),xg_against:Number(x.xg_against),goals_for:Number(x.goals_for),goals_against:Number(x.goals_against),source:String(x.source||"HISTORICAL_XG")}));
