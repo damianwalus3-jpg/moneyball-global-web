@@ -458,7 +458,7 @@ function Mecze() {
         <div className="grid gap-5">
           {[...displayGroups.entries()].map(([day, list]) => (
             <section key={day}>
-              <h2 className="eyebrow mb-2 capitalize">{day === "brak-daty" ? "Bez daty" : fmtDayLong(list[0].kickoff_at ?? `${day}T12:00:00.000Z`)}</h2>
+              <h2 className="eyebrow mb-2 capitalize">{day === "brak-daty" ? "Bez daty" : fmtDayLong(list[0].primary.kickoff_at ?? `${day}T12:00:00.000Z`)}</h2>
               <div className="grid gap-2">
                 {list.map((group) => {
                   const m = group.primary;
