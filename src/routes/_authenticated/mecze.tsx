@@ -395,9 +395,15 @@ function Mecze() {
                       </div>
 
                       <div className="min-w-0">
-                        <div className="whitespace-normal break-words text-[0.95rem] font-semibold leading-snug text-foreground sm:text-base">
+                        <button
+                          type="button"
+                          className="group/match block w-full whitespace-normal break-words text-left text-[0.95rem] font-semibold leading-snug text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-base"
+                          onClick={() => setDetailMatch(m)}
+                          aria-label={`Otwórz analizę meczu ${m.home_team} – ${m.away_team}`}
+                        >
                           {m.home_team} <span className="px-1 text-muted-foreground">–</span> {m.away_team}
-                        </div>
+                          <span className="ml-2 inline-flex align-middle text-[10px] font-medium text-primary opacity-90 group-hover/match:underline">ANALIZA ↗</span>
+                        </button>
                         <div className="mt-1 whitespace-normal break-words text-xs leading-relaxed text-muted-foreground">
                           {m.league ?? "Rozgrywki nieznane"}{m.country ? ` · ${m.country}` : ""}
                         </div>
@@ -431,8 +437,8 @@ function Mecze() {
                             {r.verified === true ? "Wynik potwierdzony" : "Wynik do weryfikacji"}{r.source ? ` · źródło: ${r.source}` : ""}
                           </div>
                         )}
-                        <Button variant="outline" size="sm" className="mt-2 h-8 gap-1.5 text-xs" onClick={() => setDetailMatch(m)}>
-                          <Activity className="size-3.5" /> Szczegóły analizy i uzasadnienie
+                        <Button variant="outline" size="sm" className="mt-2 h-9 w-full justify-center gap-2 text-xs font-semibold sm:w-auto" onClick={() => setDetailMatch(m)}>
+                          <Activity className="size-4" /> Otwórz szczegóły meczu i wyjaśnienie typu
                         </Button>
                       </div>
 
