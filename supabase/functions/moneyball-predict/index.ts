@@ -356,7 +356,7 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
   const goalAwaySupplement={...(goalPublicForm?.away||{}),...(goalGithubAway||{})};
   const goalSupplement={home:Object.keys(goalHomeSupplement).length?goalHomeSupplement:null,away:Object.keys(goalAwaySupplement).length?goalAwaySupplement:null,source:goalGithubHome||goalGithubAway?"KEYLESS_GITHUB_LAST10":goalPublicForm?.source||"OPENMATCHDAY_LAST10"};
   const goalsModel=model?.expected_home_goals!=null&&model?.expected_away_goals!=null?model:historyModel(m.home_team,m.away_team,goalKickoff,history||[],footyForms.get(m.id)||null,goalSupplement,String(m.gender||"unknown"));
-  if(model&&goalsModel.expected_home_goals!=null&&goalsModel.expected_away_goals!=null&&goalsModel.home_matches>=3&&goalsModel.away_matches>=3){
+  if(goalsModel&&goalsModel.expected_home_goals!=null&&goalsModel.expected_away_goals!=null&&goalsModel.home_matches>=3&&goalsModel.away_matches>=3){
    const lh=Number(goalsModel.expected_home_goals),la=Number(goalsModel.expected_away_goals),hp=Array.from({length:10},(_,i)=>poisson(lh,i)),ap=Array.from({length:10},(_,i)=>poisson(la,i));
    const total=Array.from({length:19},(_,t)=>{let v=0;for(let h=0;h<=9;h++){const a=t-h;if(a>=0&&a<=9)v+=hp[h]*ap[a];}return v;});
    const over=(line:number)=>total.reduce((v,p,i)=>v+(i>line?p:0),0),btts=1-hp[0]-ap[0]+hp[0]*ap[0];
@@ -370,7 +370,7 @@ Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{heade
    }
   } else {
    const reason=!model?"Brak danych do obliczenia oczekiwanych goli.":goalsModel.home_matches<3||goalsModel.away_matches<3?"Za mało zweryfikowanych ostatnich meczów: wymagane minimum 3 dla każdej drużyny.":goalsModel.source==="BASELINE_ONLY"?"Dostępny wyłącznie model bazowy — brak podstaw do prognozy goli.":"Brak wiarygodnych oczekiwanych goli w modelu Poissona.";
-   const missingCoverage={...coverage,expected_home_goals:null,expected_away_goals:null,expected_total_goals:null,goals_model:"UNAVAILABLE",xg_used:false,home_history_matches:model?.home_matches||0,away_history_matches:model?.away_matches||0};
+   const missingCoverage={...coverage,expected_home_goals:null,expected_away_goals:null,expected_total_goals:null,goals_model:"UNAVAILABLE",xg_used:false,home_history_matches:goalsModel?.home_matches||0,away_history_matches:goalsModel?.away_matches||0};
    for(const selection of ["OVER_1.5","UNDER_1.5","OVER_2.5","UNDER_2.5","OVER_3.5","UNDER_3.5","BTTS_YES","BTTS_NO"]){
     rows.push({owner_id:ownerId,match_id:m.id,scan_run_id:m.scan_run_id||null,model_version:V,market:"GOALS",selection,prediction_type:null,pick:selection,probability:null,odds:null,confidence:null,verdict:"ODRZUCONY",selection_status:"ODRZUCONY",rejection_reason:reason,rationale:"Prognoza nie została wyliczona — brak wymaganych danych wejściowych. Nie generujemy sztucznych prawdopodobieństw.",data_source:"GOALS_DATA_INSUFFICIENT",data_coverage:missingCoverage,note:JSON.stringify({source:"GOALS_DATA_INSUFFICIENT",coverage:missingCoverage}),settlement_status:"pending",result_status:"pending",verified:false});
    }
