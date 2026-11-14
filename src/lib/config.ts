@@ -1,7 +1,7 @@
 // Connection config for the owner's existing Supabase project.
 // Only the publishable/anon key is ever accepted; secret/service_role keys are rejected.
-export const DEFAULT_SUPABASE_URL = "https://gzgeklcukrclgwbsmbsp.supabase.co";
-export const EXPECTED_PROJECT_REF = "gzgeklcukrclgwbsmbsp";
+export const DEFAULT_SUPABASE_URL = "https://xwrgfaarmwnguymresjy.supabase.co";
+export const EXPECTED_PROJECT_REF = "xwrgfaarmwnguymresjy";
 
 export type OwnerColumn = "user_id" | "owner_id";
 
@@ -76,11 +76,11 @@ function envConfig(): { url?: string; key?: string } {
   return {
     // Public client configuration for the existing MONEYBALL Supabase project.
     // Publishable keys are designed for browser use; never put secret/service_role keys here.
-    url: env.VITE_SUPABASE_URL ?? "https://gzgeklcukrclgwbsmbsp.supabase.co",
+    url: env.VITE_SUPABASE_URL ?? "https://xwrgfaarmwnguymresjy.supabase.co",
     key:
       env.VITE_SUPABASE_PUBLISHABLE_KEY ??
       env.VITE_SUPABASE_ANON_KEY ??
-      "sb_publishable_YdT4Nm50NkbmjKnoQE8bNQ_aGeqzG3S",
+      "sb_publishable_E27tyjResjElwC4AWbmILw_wbtibXhX",
   };
 }
 
