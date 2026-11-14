@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Activity, BrainCircuit, CalendarDays, CircleDollarSign, FileUp, Pencil, Plus, RefreshCw, ScanLine, Ticket } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,12 @@ import { ScanImportDialog } from "@/components/app/ScanImportDialog";
 import { MatchDetailsDialog } from "@/components/app/MatchDetailsDialog";
 import { MatchForm } from "@/components/forms/MatchForm";
 import { OddsForm, ScanRunForm } from "@/components/forms/SimpleForms";
-import { deleteRow } from "@/lib/db";
+import { deleteRow, fetchProviderOdds } from "@/lib/db";
 import { MATCH_STATUS_LABELS, buildCouponBatch, isCouponCandidate } from "@/lib/domain";
 import { saveCouponBatch } from "@/lib/coupons";
 import { fmtOdds } from "@/lib/format";
 import { isEuropeanMatch } from "@/lib/geography";
+import { aggregateProviderOdds } from "@/lib/provider-odds";
 import { syncResults } from "@/lib/results";
 import { importPublicFixturesForDate } from "@/lib/public-fixtures";
 import { ensureTables, useAction, useTable } from "@/lib/queries";
@@ -75,15 +76,39 @@ function Mecze() {
   const [couponSize, setCouponSize] = useState<1 | 3>(3);
 
   const europeanMatches = useMemo(() => matches.filter(isEuropeanMatch), [matches]);
+  const todayKeyForOdds = brusselsDayKey(new Date());
+  const oddsMatchIds = useMemo(
+    () => europeanMatches
+      .filter((match) => {
+        const day = match.kickoff_at ? brusselsDayKey(match.kickoff_at) : match.kickoff_date?.slice(0, 10);
+        return day === todayKeyForOdds;
+      })
+      .map((match) => match.id)
+      .sort(),
+    [europeanMatches, todayKeyForOdds],
+  );
+  const providerOddsQuery = useQuery({
+    queryKey: ["providerOdds", todayKeyForOdds, oddsMatchIds],
+    queryFn: () => fetchProviderOdds(oddsMatchIds, new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()),
+    enabled: oddsMatchIds.length > 0,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+  });
+  const providerOddsByMatch = useMemo(
+    () => aggregateProviderOdds(providerOddsQuery.data ?? []),
+    [providerOddsQuery.data],
+  );
   const resultBy = useMemo(() => new Map(results.map((r) => [r.match_id, r])), [results]);
   const latestOdds = useMemo(() => {
-    const m = new Map<string, (typeof odds)[number]>();
-    for (const o of odds) {
-      const cur = m.get(o.match_id);
-      if (!cur || (o.captured_at ?? "") > (cur.captured_at ?? "")) m.set(o.match_id, o);
+    const latest = new Map(providerOddsByMatch);
+    for (const manual of odds) {
+      const current = latest.get(manual.match_id);
+      if (!current || (manual.captured_at ?? "") > (current.captured_at ?? "")) latest.set(manual.match_id, manual);
     }
-    return m;
-  }, [odds]);
+    return latest;
+  }, [odds, providerOddsByMatch]);
   const predCount = useMemo(() => {
     const m = new Map<string, { x12: number; dc: number; sel: number }>();
     for (const p of preds) {
