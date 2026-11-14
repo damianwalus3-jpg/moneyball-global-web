@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSupabase } from "@/lib/supabase";
 
+type RecoveryPayload = { kind: "token_hash" | "code"; value: string };
+
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
       { title: "Nowe hasło — MONEYBALL GLOBAL 2.0" },
       { name: "description", content: "Ustaw nowe hasło do panelu MONEYBALL GLOBAL 2.0." },
+      { property: "og:title", content: "Nowe hasło — MONEYBALL GLOBAL 2.0" },
+      { property: "og:description", content: "Ustaw nowe hasło do panelu." },
+      { property: "og:type", content: "website" },
     ],
   }),
   component: ResetPassword,
@@ -22,6 +27,8 @@ function ResetPassword() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [pending, setPending] = useState<RecoveryPayload | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [err, setErr] = useState("");
@@ -43,75 +50,98 @@ function ResetPassword() {
       setChecking(false);
     };
 
+    // A PASSWORD_RECOVERY session is accepted only when Supabase explicitly emits
+    // the recovery event; an ordinary existing login session is not sufficient.
     const subscription = sb.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") finish(true);
     }).data.subscription;
 
     const url = new URL(window.location.href);
-    const queryError = url.searchParams.get("error_description") || url.searchParams.get("error");
-    const code = url.searchParams.get("code");
-    const tokenHash = url.searchParams.get("token_hash");
-    const tokenType = url.searchParams.get("type");
+    const query = url.searchParams;
     const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const errorDescription =
+      query.get("error_description") ||
+      hash.get("error_description") ||
+      query.get("error") ||
+      hash.get("error");
+
+    if (errorDescription) {
+      finish(false, errorDescription.replace(/\+/g, " "));
+      return () => {
+        active = false;
+        subscription.unsubscribe();
+      };
+    }
+
+    const tokenHash = query.get("token_hash");
+    const tokenType = query.get("type");
+    const code = query.get("code");
     const hashType = hash.get("type");
     const accessToken = hash.get("access_token");
     const refreshToken = hash.get("refresh_token");
 
-    const cleanUrl = () => {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    };
+    // Important: do not consume token_hash or PKCE code during page load.
+    // Email security scanners often pre-open links. Verification is deferred
+    // until the user explicitly taps the confirmation button.
+    if (tokenHash && tokenType === "recovery") {
+      setPending({ kind: "token_hash", value: tokenHash });
+      setChecking(false);
+    } else if (code) {
+      setPending({ kind: "code", value: code });
+      setChecking(false);
+    } else if (hashType === "recovery" && accessToken && refreshToken) {
+      // Legacy implicit-flow links have already been verified by Supabase
+      // before redirecting here, so only establish the returned session.
+      sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          if (!active) return;
+          if (error) finish(false, "Link resetujący jest nieprawidłowy lub wygasł. Poproś o nowy link.");
+          else {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            finish(true);
+          }
+        })
+        .catch(() => finish(false, "Nie udało się potwierdzić linku. Sprawdź połączenie i spróbuj ponownie."));
+    } else {
+      finish(false, "Nie znaleziono danych odzyskiwania hasła. Wróć do logowania i poproś o nowy link.");
+    }
 
-    const verify = async () => {
-      try {
-        if (queryError) throw new Error(queryError.replace(/\+/g, " "));
-
-        // Backward compatibility for recovery emails sent before this SPA
-        // switched from implicit tokens to PKCE authorization codes.
-        if (code) {
-          const { error } = await sb.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          cleanUrl();
-          finish(true);
-          return;
-        }
-
-        if (tokenHash && tokenType === "recovery") {
-          const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
-          if (error) throw error;
-          cleanUrl();
-          finish(true);
-          return;
-        }
-
-        if (hashType === "recovery" && accessToken && refreshToken) {
-          const { error } = await sb.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) throw error;
-          cleanUrl();
-          finish(true);
-          return;
-        }
-
-        finish(false, "Link odzyskiwania jest nieprawidłowy lub wygasł. Wróć do logowania i wyślij nową prośbę o reset hasła.");
-      } catch (e) {
-        finish(false, e instanceof Error ? e.message : "Nie udało się zweryfikować linku odzyskiwania.");
-      }
-    };
-
-    void verify();
     return () => {
       active = false;
       subscription.unsubscribe();
     };
   }, []);
 
+  async function confirmRecoveryLink() {
+    const sb = getSupabase();
+    if (!sb || !pending || verifying) return;
+    setVerifying(true);
+    setErr("");
+    try {
+      const result = pending.kind === "token_hash"
+        ? await sb.auth.verifyOtp({ token_hash: pending.value, type: "recovery" })
+        : await sb.auth.exchangeCodeForSession(pending.value);
+      if (result.error) throw result.error;
+
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setPending(null);
+      setReady(true);
+      setErr("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setErr(/expired|invalid|otp|token|already/i.test(message)
+        ? "Ten link został już użyty, jest nieprawidłowy albo wygasł. Nie wysyłaj kolejnych próśb — skontaktuj się z pomocą lub użyj najnowszego, nieotwieranego linku."
+        : message || "Nie udało się potwierdzić linku. Spróbuj ponownie.");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    if (!ready) return setErr("Najpierw otwórz i zweryfikuj link odzyskiwania hasła.");
-    if (pw.length < 12) return setErr("Ustaw hasło o długości co najmniej 12 znaków.");
+    if (!ready) return setErr("Najpierw potwierdź link odzyskiwania hasła.");
+    if (pw.length < 12) return setErr("Hasło musi mieć co najmniej 12 znaków.");
     if (pw.length > 128) return setErr("Hasło może mieć maksymalnie 128 znaków.");
     if (pw !== pw2) return setErr("Hasła się różnią.");
 
@@ -125,8 +155,11 @@ function ResetPassword() {
       toast.success("Hasło zostało zmienione. Zaloguj się nowym hasłem.");
       await sb.auth.signOut();
       navigate({ to: "/login", replace: true });
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Nie udało się zapisać nowego hasła. Spróbuj ponownie.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nie udało się zapisać nowego hasła.";
+      setErr(/expired|invalid|otp|token/i.test(message)
+        ? "Sesja odzyskiwania wygasła. Nie zmieniono hasła; potrzebny będzie nowy, ważny link."
+        : message);
     } finally {
       setBusy(false);
     }
@@ -139,15 +172,20 @@ function ResetPassword() {
         <div className="surface-card p-6">
           <h1 className="text-3xl font-bold uppercase">Ustaw nowe hasło</h1>
           {checking ? (
-            <p className="mt-3 text-sm text-muted-foreground">Weryfikuję bezpieczny link odzyskiwania…</p>
-          ) : !ready ? (
-            <div className="mt-4 grid gap-3">
-              <p className="text-sm text-destructive">{err}</p>
-              <Button type="button" variant="outline" onClick={() => navigate({ to: "/login" })}>Wróć do logowania</Button>
+            <p className="mt-3 text-sm text-muted-foreground">Sprawdzam link odzyskiwania…</p>
+          ) : pending ? (
+            <div className="mt-5 grid gap-4">
+              <p className="text-sm text-muted-foreground">
+                Link dotarł do aplikacji. Naciśnij przycisk, aby potwierdzić go bezpiecznie i przejść do ustawienia nowego hasła.
+              </p>
+              {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
+              <Button type="button" disabled={verifying} onClick={confirmRecoveryLink}>
+                {verifying ? "Potwierdzanie linku…" : "Potwierdź link i kontynuuj"}
+              </Button>
             </div>
-          ) : (
+          ) : ready ? (
             <form onSubmit={submit} className="mt-5 grid gap-4">
-              <p className="text-sm text-muted-foreground">Link został potwierdzony. Ustaw nowe hasło — nie wpisuj dotychczasowego.</p>
+              <p className="text-sm text-muted-foreground">Link został potwierdzony. Ustaw nowe hasło.</p>
               <Field label="Nowe hasło (minimum 12 znaków)" htmlFor="pw">
                 <Input id="pw" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={pw} onChange={(e) => setPw(e.target.value)} />
               </Field>
@@ -156,7 +194,13 @@ function ResetPassword() {
               </Field>
               <Button type="submit" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz nowe hasło"}</Button>
             </form>
+          ) : (
+            <div className="mt-4 grid gap-3">
+              {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
+              <Button type="button" variant="outline" onClick={() => navigate({ to: "/login" })}>Wróć do logowania</Button>
+            </div>
           )}
+          {!pending && !checking && !ready && err && <p role="alert" className="mt-3 text-sm text-destructive">{err}</p>}
         </div>
       </div>
     </div>
