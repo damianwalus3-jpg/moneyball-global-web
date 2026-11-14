@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Brand } from "@/components/app/AppShell";
 import { Field } from "@/components/app/ui-bits";
@@ -26,8 +26,6 @@ function ResetPassword() {
   const [pw2, setPw2] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [recoveryToken, setRecoveryToken] = useState("");
-  const handled = useRef(false);
 
   useEffect(() => {
     const sb = getSupabase();
@@ -45,72 +43,69 @@ function ResetPassword() {
       setChecking(false);
     };
 
-    // Register the listener before every early-return branch so cleanup always
-    // references an initialized subscription (including custom one-time links).
     const subscription = sb.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") finish(true);
     }).data.subscription;
 
-    // Supabase may return either a PKCE code, a token_hash, or tokens in the URL hash.
-    // Never treat an ordinary logged-in session as proof that a recovery link was opened.
     const url = new URL(window.location.href);
+    const queryError = url.searchParams.get("error_description") || url.searchParams.get("error");
     const code = url.searchParams.get("code");
     const tokenHash = url.searchParams.get("token_hash");
     const tokenType = url.searchParams.get("type");
     const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
-    const oneTimeToken = hash.get("recovery");
-    if (oneTimeToken) {
-      setRecoveryToken(oneTimeToken);
-      finish(true);
-      return () => {
-        active = false;
-        subscription.unsubscribe();
-      };
-    }
     const hashType = hash.get("type");
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+
+    const cleanUrl = () => {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    };
 
     const verify = async () => {
       try {
+        if (queryError) {
+          throw new Error(queryError.replace(/\+/g, " "));
+        }
+
+        // Support existing PKCE recovery emails created before this SPA switched
+        // to implicit recovery tokens.
         if (code) {
-          // A session may already exist from an earlier login. It is NOT proof
-          // that this URL contains a valid recovery link. Exchange this exact,
-          // one-time PKCE code and accept it only if Supabase validates it.
           const { error } = await sb.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          window.history.replaceState({}, document.title, window.location.pathname);
+          cleanUrl();
           finish(true);
           return;
         }
+
+        // Support token-hash email templates configured in Supabase.
         if (tokenHash && tokenType === "recovery") {
-          const { error } = await sb.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: "recovery",
-          });
+          const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
           if (error) throw error;
+          cleanUrl();
           finish(true);
           return;
         }
-        if (hashType === "recovery" && hash.get("access_token") && hash.get("refresh_token")) {
+
+        // Browser-only SPA recovery: Supabase returns the short-lived session
+        // in the URL fragment. Verify it with Auth before enabling password change.
+        if (hashType === "recovery" && accessToken && refreshToken) {
           const { error } = await sb.auth.setSession({
-            access_token: hash.get("access_token")!,
-            refresh_token: hash.get("refresh_token")!,
+            access_token: accessToken,
+            refresh_token: refreshToken,
           });
           if (error) throw error;
+          cleanUrl();
           finish(true);
           return;
         }
-        // Never accept an existing session as proof of recovery. Only the
-        // explicit recovery payloads above can unlock the password form.
-        finish(false, "Ten link nie jest prawidłowym linkiem odzyskiwania hasła albo wygasł. Wróć do logowania i poproś o nowy link dopiero po ustąpieniu limitu e-maili.");
+
+        finish(false, "Link odzyskiwania jest nieprawidłowy lub wygasł. Wróć do logowania i wyślij nową prośbę o reset hasła.");
       } catch (e) {
         finish(false, e instanceof Error ? e.message : "Nie udało się zweryfikować linku odzyskiwania.");
       }
     };
 
-    if (!handled.current) {
-      handled.current = true;
-      void verify();
-    }
+    void verify();
     return () => {
       active = false;
       subscription.unsubscribe();
@@ -122,35 +117,24 @@ function ResetPassword() {
     setErr("");
     if (!ready) return setErr("Najpierw otwórz i zweryfikuj link odzyskiwania hasła.");
     if (pw.length < 12) return setErr("Ustaw hasło o długości co najmniej 12 znaków.");
+    if (pw.length > 128) return setErr("Hasło może mieć maksymalnie 128 znaków.");
     if (pw !== pw2) return setErr("Hasła się różnią.");
+
     const sb = getSupabase();
     if (!sb) return setErr("Brak połączenia z bazą.");
+
     setBusy(true);
-    if (recoveryToken) {
-      try {
-        const response = await fetch("https://gzgeklcukrclgwbsmbsp.supabase.co/functions/v1/moneyball-password-recovery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: recoveryToken, password: pw }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Nie udało się zmienić hasła.");
-        await sb.auth.signOut();
-        window.history.replaceState({}, document.title, window.location.pathname);
-        toast.success("Hasło zmienione. Zaloguj się nowym hasłem.");
-        navigate({ to: "/login" });
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : "Nie udało się zmienić hasła.");
-      } finally {
-        setBusy(false);
-      }
-      return;
+    try {
+      const { error } = await sb.auth.updateUser({ password: pw });
+      if (error) throw error;
+      toast.success("Hasło zostało zmienione. Możesz się zalogować nowym hasłem.");
+      await sb.auth.signOut();
+      navigate({ to: "/login", replace: true });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Nie udało się zapisać nowego hasła. Spróbuj ponownie.");
+    } finally {
+      setBusy(false);
     }
-    const { error } = await sb.auth.updateUser({ password: pw });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    toast.success("Hasło zostało zmienione. Możesz korzystać z MONEYBALL.");
-    navigate({ to: "/panel" });
   }
 
   return (
@@ -168,12 +152,12 @@ function ResetPassword() {
             </div>
           ) : (
             <form onSubmit={submit} className="mt-5 grid gap-4">
-              <p className="text-sm text-muted-foreground">Link potwierdzony. Ustaw nowe hasło — nie wpisuj dotychczasowego.</p>
+              <p className="text-sm text-muted-foreground">Link został potwierdzony. Ustaw nowe hasło — nie wpisuj dotychczasowego.</p>
               <Field label="Nowe hasło (minimum 12 znaków)" htmlFor="pw">
-                <Input id="pw" type="password" autoComplete="new-password" minLength={12} value={pw} onChange={(e) => setPw(e.target.value)} />
+                <Input id="pw" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={pw} onChange={(e) => setPw(e.target.value)} />
               </Field>
               <Field label="Powtórz nowe hasło" htmlFor="pw2" error={err}>
-                <Input id="pw2" type="password" autoComplete="new-password" minLength={12} value={pw2} onChange={(e) => setPw2(e.target.value)} />
+                <Input id="pw2" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={pw2} onChange={(e) => setPw2(e.target.value)} />
               </Field>
               <Button type="submit" disabled={busy}>{busy ? "Zapisywanie…" : "Zapisz nowe hasło"}</Button>
             </form>
