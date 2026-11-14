@@ -17,6 +17,10 @@ export function getSupabase(): SupabaseClient | null {
         autoRefreshToken: true,
         // Recovery links are parsed and verified explicitly by /reset-password.
         // Prevent auto-detection from silently creating a session before that route validates the recovery code.
+        // Browser-only SPA: implicit recovery returns short-lived tokens in the
+        // redirect fragment. This avoids losing a PKCE verifier when a mail app
+        // opens the reset link in a separate browser context.
+        flowType: "implicit",
         detectSessionInUrl: false,
         storageKey: "moneyball-auth",
       },
