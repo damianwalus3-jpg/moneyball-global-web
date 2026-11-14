@@ -33,18 +33,13 @@ function normalize(value: unknown): string {
 export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   const country = normalize(match.country);
   const competition = normalize(match.league);
-  const rawCountryParts = String(match.country ?? "").split(/[\\/,;|]+/).map(normalize).filter(Boolean);
+  const rawCountryParts = String(match.country ?? "").split(/[\/,;|]+/).map(normalize).filter(Boolean);
   const isEurope = EUROPE_COUNTRIES.has(country) ||
     rawCountryParts.some((part) => EUROPE_COUNTRIES.has(part) || EUROPE_ISO3.has(part.toUpperCase())) ||
     EUROPE_ISO3.has(String(match.country ?? "").trim().toUpperCase());
 
-  // UEFA Nations League is the only international competition in the selected scope.
-  if (/\\b(nations league|uefa nations league)\\b/.test(competition)) return true;
+  if (/\b(nations league|uefa nations league)\b/.test(competition)) return true;
   if (!isEurope) return false;
-
-  // Explicitly exclude cups, continental tournaments, qualifiers and friendlies.
-  if (/\\b(cup|copa|trophy|shield|friendly|friendlies|qualif|qualifier|champions league|europa league|conference league|world cup|super cup|play off|playoff)\\b/.test(competition)) return false;
-
-  // Include European domestic league competitions only. Unknown formats fail closed.
-  return /\\b(league|liga|ligue|lig|divisie|lyga|virsliga|meistriliiga|klasse|deild|besta deild|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\\b/.test(competition);
+  if (/\b(cup|copa|trophy|shield|friendly|friendlies|qualif|qualifier|champions league|europa league|conference league|world cup|super cup|play off|playoff)\b/.test(competition)) return false;
+  return /\b(league|liga|ligue|lig|divisie|lyga|virsliga|meistriliiga|klasse|deild|besta deild|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\b/.test(competition);
 }
