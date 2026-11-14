@@ -1,6 +1,7 @@
 import { readConfig } from "./config";
 import { requireSupabase } from "./supabase";
 import type { TableName, TableRows } from "./types";
+import type { ProviderOddsQuote } from "./provider-odds";
 
 interface PgError {
   code?: string;
@@ -65,6 +66,28 @@ export async function fetchAll<K extends TableName>(table: K): Promise<TableRows
     if (error) throw new Error(humanizeError(error, table));
     rows.push(...((data ?? []) as TableRows[K][]));
     if (!data || data.length < PAGE) break;
+  }
+  return rows;
+}
+
+/** Fetch only fresh prematch 1X2/DC quotes for the selected fixtures. */
+export async function fetchProviderOdds(matchIds: string[], since: string): Promise<ProviderOddsQuote[]> {
+  const ids = [...new Set(matchIds)].filter(Boolean);
+  if (!ids.length) return [];
+  const sb = requireSupabase();
+  const rows: ProviderOddsQuote[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await sb
+      .from("provider_odds")
+      .select("match_id,bookmaker,mapped_market,mapped_selection,odds,captured_at,phase,suspended")
+      .in("match_id", ids.slice(i, i + 100))
+      .in("mapped_market", ["1X2", "DOUBLE_CHANCE"])
+      .eq("phase", "prematch")
+      .eq("suspended", false)
+      .gt("captured_at", since)
+      .order("captured_at", { ascending: false });
+    if (error) throw new Error(humanizeError(error, "provider_odds"));
+    rows.push(...((data ?? []) as ProviderOddsQuote[]));
   }
   return rows;
 }
