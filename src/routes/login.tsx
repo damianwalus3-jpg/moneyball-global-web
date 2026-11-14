@@ -10,11 +10,12 @@ import { getSupabase, requireSupabase } from "@/lib/supabase";
 
 type Mode = "login" | "signup" | "forgot";
 
-// GitHub Pages serves this app under /moneyball-global-web/.
-// Build callback URLs from Vite's base path, not from the domain root.
+// Use the actual host root on Workers/Vercel and the project subpath on GitHub Pages.
 function appCallbackUrl(path: string): string {
-  const base = new URL(import.meta.env.BASE_URL, window.location.origin);
-  return new URL(path.replace(/^\/+/, ""), base).toString();
+  const basePath = window.location.pathname.startsWith("/moneyball-global-web/")
+    ? "/moneyball-global-web/"
+    : "/";
+  return new URL(path.replace(/^\/+/, ""), new URL(basePath, window.location.origin)).toString();
 }
 
 export const Route = createFileRoute("/login")({
