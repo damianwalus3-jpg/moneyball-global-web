@@ -46,5 +46,5 @@ export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   if (/\\b(cup|copa|trophy|shield|friendly|friendlies|qualif|qualifier|champions league|europa league|conference league|world cup|super cup|play off|playoff)\\b/.test(competition)) return false;
 
   // Include European domestic league competitions only. Unknown formats fail closed.
-  return /\\b(league|liga|ligue|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\\b/.test(competition);
+  return /\\b(league|liga|ligue|lig|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\\b/.test(competition);
 }
