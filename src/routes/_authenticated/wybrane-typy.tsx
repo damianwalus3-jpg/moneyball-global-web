@@ -18,9 +18,9 @@ export const Route = createFileRoute("/_authenticated/wybrane-typy")({
 });
 
 const GOAL_LABELS: Record<string, string> = {
-  OVER_1.5: "Gole: OVER 1.5", UNDER_1.5: "Gole: UNDER 1.5",
-  OVER_2.5: "Gole: OVER 2.5", UNDER_2.5: "Gole: UNDER 2.5",
-  OVER_3.5: "Gole: OVER 3.5", UNDER_3.5: "Gole: UNDER 3.5",
+  "OVER_1.5": "Gole: OVER 1.5", "UNDER_1.5": "Gole: UNDER 1.5",
+  "OVER_2.5": "Gole: OVER 2.5", "UNDER_2.5": "Gole: UNDER 2.5",
+  "OVER_3.5": "Gole: OVER 3.5", "UNDER_3.5": "Gole: UNDER 3.5",
   BTTS_YES: "Obie drużyny strzelą: TAK", BTTS_NO: "Obie drużyny strzelą: NIE",
 };
 const PICK_LABELS: Record<string, string> = {
