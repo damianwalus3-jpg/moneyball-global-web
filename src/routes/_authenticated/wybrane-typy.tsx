@@ -79,7 +79,7 @@ function WybraneTypy() {
         <StatCard label="Wybrane typy" value={selected.length} />
         <StatCard label="Rozliczone" value={settled.length} />
         <StatCard label="Stawka rozliczona" value={fmtMoney(totalStaked)} />
-        <StatCard label="Zysk / strata" value={validStake ? fmtMoney(net) : "—"} tone={net > 0 ? "success" : net < 0 ? "warning" : "default"} hint="Tylko rozliczone typy" />
+        <StatCard label="Zysk / strata" value={validStake ? fmtMoney(net) : "—"} tone={net > 0 ? "primary" : net < 0 ? "danger" : "default"} hint="Tylko rozliczone typy" />
       </div>
       <div className="mb-5 grid grid-cols-2 gap-3">
         <StatCard label="Zwrot z rozliczonych" value={validStake ? fmtMoney(returns) : "—"} />
