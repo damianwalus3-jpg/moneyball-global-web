@@ -56,16 +56,35 @@ const PAGE = 1000;
 
 export async function fetchAll<K extends TableName>(table: K): Promise<TableRows[K][]> {
   const sb = requireSupabase();
+  // Count once, then fetch bounded groups of pages concurrently. The previous
+  // implementation awaited every 1,000-row page serially; large tables such
+  // as predictions (18k+ rows) therefore added many avoidable round trips.
+  const { count, error: countError } = await sb
+    .from(table)
+    .select("id", { count: "exact", head: true });
+  if (countError) throw new Error(humanizeError(countError, table));
+  const total = count ?? 0;
+  if (total === 0) return [];
+
+  const pages = Math.ceil(total / PAGE);
   const rows: TableRows[K][] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb
-      .from(table)
-      .select("*")
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(humanizeError(error, table));
-    rows.push(...((data ?? []) as TableRows[K][]));
-    if (!data || data.length < PAGE) break;
+  const CONCURRENT_PAGES = 4;
+  for (let firstPage = 0; firstPage < pages; firstPage += CONCURRENT_PAGES) {
+    const pageNumbers = Array.from(
+      { length: Math.min(CONCURRENT_PAGES, pages - firstPage) },
+      (_, i) => firstPage + i,
+    );
+    const results = await Promise.all(pageNumbers.map(async (page) => {
+      const from = page * PAGE;
+      const { data, error } = await sb
+        .from(table)
+        .select("*")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(humanizeError(error, table));
+      return (data ?? []) as TableRows[K][];
+    }));
+    for (const pageRows of results) rows.push(...pageRows);
   }
   return rows;
 }
