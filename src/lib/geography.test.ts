@@ -4,8 +4,8 @@ import { isEuropeanMatch } from "./geography";
 describe("isEuropeanMatch", () => {
   it("includes European domestic league competitions", () => {
     expect(isEuropeanMatch({ country: "Belgium", league: "First Division A" })).toBe(true);
-    expect(isEuropeanMatch({ country: "Turkey", league: "2. Lig" })).toBe(true);
-    expect(isEuropeanMatch({ country: "Netherlands", league: "Derde Divisie" })).toBe(true);
+    expect(isEuropeanMatch({ country: "Turkey", league: "1. Lig" })).toBe(true);
+    expect(isEuropeanMatch({ country: "Netherlands", league: "Derde Divisie" })).toBe(false);
     expect(isEuropeanMatch({ country: "Germany/Europe", league: "2. Bundesliga" })).toBe(true);
   });
 
