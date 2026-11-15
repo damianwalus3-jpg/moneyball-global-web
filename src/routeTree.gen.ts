@@ -348,6 +348,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPrognozy1x2Route: typeof AuthenticatedPrognozy1x2Route
   AuthenticatedStatystykiRoute: typeof AuthenticatedStatystykiRoute
   AuthenticatedUstawieniaRoute: typeof AuthenticatedUstawieniaRoute
+  AuthenticatedWybraneTypyRoute: typeof AuthenticatedWybraneTypyRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -361,6 +362,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPrognozy1x2Route: AuthenticatedPrognozy1x2Route,
   AuthenticatedStatystykiRoute: AuthenticatedStatystykiRoute,
   AuthenticatedUstawieniaRoute: AuthenticatedUstawieniaRoute,
+  AuthenticatedWybraneTypyRoute: AuthenticatedWybraneTypyRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
