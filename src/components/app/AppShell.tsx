@@ -89,24 +89,27 @@ export function AppShell({ email, children }: { email: string | null; children: 
       running = true;
       lastAttemptAt = Date.now();
       try {
-        // Fixture import and result settlement are separate backend jobs.
-        // Run both on app entry and on the 15-minute refresh cycle.
-        const fixtureSync = await sb.functions.invoke("footynomad-sync", {
-          body: { date: brusselsDate() },
-        });
-        if (fixtureSync.error) {
-          console.error("[MONEYBALL] Synchronizacja terminarza nie powiodła się:", fixtureSync.error);
+        // Run independent sync jobs concurrently so one slow provider does not
+        // delay the other. Keep the dashboard cache warm: only refresh the two
+        // tables actually changed by these jobs instead of invalidating every
+        // large table (predictions, coupons, history, bankroll) on app entry.
+        const [fixtureSync, resultSync] = await Promise.allSettled([
+          sb.functions.invoke("footynomad-sync", { body: { date: brusselsDate() } }),
+          sb.functions.invoke("moneyball-results-sync"),
+        ]);
+        if (fixtureSync.status === "rejected" || (fixtureSync.status === "fulfilled" && fixtureSync.value.error)) {
+          console.error("[MONEYBALL] Synchronizacja terminarza nie powiodła się:", fixtureSync.status === "rejected" ? fixtureSync.reason : fixtureSync.value.error);
         }
-
-        const resultSync = await sb.functions.invoke("moneyball-results-sync");
-        if (resultSync.error) {
-          console.error("[MONEYBALL] Synchronizacja wyników nie powiodła się:", resultSync.error);
-        } else if (resultSync.data?.ok === false) {
-          console.error("[MONEYBALL] Rozliczanie wyników zgłosiło błędy:", resultSync.data.errors ?? resultSync.data.error);
+        if (resultSync.status === "rejected" || (resultSync.status === "fulfilled" && resultSync.value.error)) {
+          console.error("[MONEYBALL] Synchronizacja wyników nie powiodła się:", resultSync.status === "rejected" ? resultSync.reason : resultSync.value.error);
+        } else if (resultSync.status === "fulfilled" && resultSync.value.data?.ok === false) {
+          console.error("[MONEYBALL] Rozliczanie wyników zgłosiło błędy:", resultSync.value.data.errors ?? resultSync.value.data.error);
         }
-
-        if (!disposed && (!fixtureSync.error || !resultSync.error)) {
-          await qc.invalidateQueries({ queryKey: ["table"] });
+        if (!disposed) {
+          await Promise.all([
+            qc.invalidateQueries({ queryKey: ["table", "matches"] }),
+            qc.invalidateQueries({ queryKey: ["table", "match_results"] }),
+          ]);
         }
       } catch (error) {
         console.error("[MONEYBALL] Automatyczna synchronizacja nie powiodła się:", error);
@@ -115,12 +118,12 @@ export function AppShell({ email, children }: { email: string | null; children: 
       }
     };
 
-    // Always fetch fresh fixtures when the authenticated app shell is opened.
-    void syncFixtures(true);
+    // Let the first screen render and load cached data before background sync.
+    const startupSync = window.setTimeout(() => void syncFixtures(true), 1_500);
 
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void syncFixtures();
-    }, 60_000);
+    }, 15 * 60_000);
 
     const onVisible = () => {
       if (document.visibilityState === "visible") void syncFixtures();
@@ -130,6 +133,7 @@ export function AppShell({ email, children }: { email: string | null; children: 
 
     return () => {
       disposed = true;
+      window.clearTimeout(startupSync);
       window.clearInterval(interval);
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
