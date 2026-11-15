@@ -39,6 +39,8 @@ export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
     EUROPE_ISO3.has(String(match.country ?? "").trim().toUpperCase());
 
   if (/\b(nations league|uefa nations league)\b/.test(competition)) return true;
+  // Exclude youth competitions; adult reserve/U23 clubs in ordinary domestic leagues remain eligible.
+  if (/\b(u(?:17|18|19|20|21|23)|under ?(?:17|18|19|20|21|23)|youth|junior(?:s)?|academy|juvenil|jugend)\b/.test(competition)) return false;
   if (!isEurope) return false;
   if (/\b(cup|copa|trophy|shield|friendly|friendlies|qualif|qualifier|champions league|europa league|conference league|world cup|super cup|play off|playoff)\b/.test(competition)) return false;
   return /\b(league|liga|ligue|lig|divisie|lyga|virsliga|meistriliiga|klasse|deild|besta deild|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\b/.test(competition);
