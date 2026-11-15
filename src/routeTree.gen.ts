@@ -140,6 +140,7 @@ export interface FileRoutesByTo {
   '/prognozy-1x2': typeof AuthenticatedPrognozy1x2Route
   '/statystyki': typeof AuthenticatedStatystykiRoute
   '/ustawienia': typeof AuthenticatedUstawieniaRoute
+  '/wybrane-typy': typeof AuthenticatedWybraneTypyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -193,6 +194,7 @@ export interface FileRouteTypes {
     | '/prognozy-1x2'
     | '/statystyki'
     | '/ustawienia'
+    | '/wybrane-typy'
   id:
     | '__root__'
     | '/'
