@@ -24,6 +24,7 @@ import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPrognozy1x2RouteImport } from './routes/_authenticated/prognozy-1x2'
 import { Route as AuthenticatedStatystykiRouteImport } from './routes/_authenticated/statystyki'
 import { Route as AuthenticatedUstawieniaRouteImport } from './routes/_authenticated/ustawienia'
+import { Route as AuthenticatedWybraneTypyRouteImport } from './routes/_authenticated/wybrane-typy'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -101,6 +102,11 @@ const AuthenticatedUstawieniaRoute = AuthenticatedUstawieniaRouteImport.update({
   path: '/ustawienia',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedWybraneTypyRoute = AuthenticatedWybraneTypyRouteImport.update({
+  id: '/wybrane-typy',
+  path: '/wybrane-typy',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/prognozy-1x2': typeof AuthenticatedPrognozy1x2Route
   '/statystyki': typeof AuthenticatedStatystykiRoute
   '/ustawienia': typeof AuthenticatedUstawieniaRoute
+  '/wybrane-typy': typeof AuthenticatedWybraneTypyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesById {
   '/_authenticated/prognozy-1x2': typeof AuthenticatedPrognozy1x2Route
   '/_authenticated/statystyki': typeof AuthenticatedStatystykiRoute
   '/_authenticated/ustawienia': typeof AuthenticatedUstawieniaRoute
+  '/_authenticated/wybrane-typy': typeof AuthenticatedWybraneTypyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -169,6 +177,7 @@ export interface FileRouteTypes {
     | '/prognozy-1x2'
     | '/statystyki'
     | '/ustawienia'
+    | '/wybrane-typy'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -316,6 +325,13 @@ declare module '@tanstack/react-router' {
       path: '/ustawienia'
       fullPath: '/ustawienia'
       preLoaderRoute: typeof AuthenticatedUstawieniaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wybrane-typy': {
+      id: '/_authenticated/wybrane-typy'
+      path: '/wybrane-typy'
+      fullPath: '/wybrane-typy'
+      preLoaderRoute: typeof AuthenticatedWybraneTypyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
   }
