@@ -1,6 +1,7 @@
 export interface EuropeanMatchFields {
   country?: string | null;
   league?: string | null;
+  competition?: string | null;
   home_team?: string | null;
   away_team?: string | null;
 }
@@ -32,7 +33,7 @@ function normalize(value: unknown): string {
 /** Europe-only scope. UEFA competitions remain included even when providers label their country as "World". */
 export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   const country = normalize(match.country);
-  const competition = normalize(match.league);
+  const competition = normalize(match.competition || match.league);
   const rawCountryParts = String(match.country ?? "").split(/[\/,;|]+/).map(normalize).filter(Boolean);
   const isEurope = EUROPE_COUNTRIES.has(country) ||
     rawCountryParts.some((part) => EUROPE_COUNTRIES.has(part) || EUROPE_ISO3.has(part.toUpperCase())) ||
@@ -43,5 +44,5 @@ export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   if (/\b(u(?:17|18|19|20|21|23)|under ?(?:17|18|19|20|21|23)|youth|junior(?:s)?|academy|juvenil|jugend)\b/.test(competition)) return false;
   if (!isEurope) return false;
   if (/\b(cup|copa|trophy|shield|friendly|friendlies|qualif|qualifier|champions league|europa league|conference league|world cup|super cup|play off|playoff)\b/.test(competition)) return false;
-  return /\b(league|liga|ligue|lig|divisie|lyga|virsliga|meistriliiga|klasse|deild|besta deild|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|serie|division|div|premier|bundesliga|eredivisie|ekstraklasa|allsvenskan|eliteserien|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl)\b/.test(competition);
+  return /\b(league|liga|ligue|lig|divisie|lyga|virsliga|meistriliiga|klasse|deild|besta deild|campeonato|oberliga|regionalliga|verbandsliga|landesliga|superettan|veikkausliiga|esiliiga|ykkosliiga|kakkonen|serie|division|div|premier|bundesliga|eredivisie|ekstraliga|allsvenskan|damallsvenskan|eliteserien|elitettan|toppserien|ettan|kvindeliga|frauenliga|superliga|premiership|championship|pro league|jupiler|prva liga|national league|1 hnl|2 hnl|gamma ethniki|fa wsl|nb\s?(?:ii|iii|2|3)|[23]\s*snl)\b/.test(competition);
 }
