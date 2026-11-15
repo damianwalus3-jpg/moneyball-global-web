@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Ticket, Trophy, Wallet } from "lucide-react";
+import { CalendarDays, Ticket, Trophy, Wallet, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataError, EmptyState, NoGuarantee, PageHeader, PageLoader, StatCard } from "@/components/app/ui-bits";
 import { bankrollBalance, hitRate, isCouponCandidate } from "@/lib/domain";
@@ -91,7 +91,7 @@ function Panel() {
           <EmptyState icon={CalendarDays} title="Brak meczów europejskich" description="Wykonaj europejski skan FootyNomad lub zaimportuj europejskie mecze w Terminarzu." action={<Button asChild><Link to="/mecze">Przejdź do Terminarza</Link></Button>} />
         </div>
       )}
-      <NoGuarantee className="mt-6" />
+      <section className="surface-card mt-6 p-4 sm:p-5">\n        <div className="flex flex-wrap items-center justify-between gap-3">\n          <div className="min-w-0">\n            <h2 className="font-display text-lg font-bold uppercase">Wybrane typy</h2>\n            <p className="text-sm text-muted-foreground">Osobny rejestr typów z kursem i symulacją stawki 5 € na każdy typ.</p>\n          </div>\n          <Button asChild><Link to="/wybrane-typy"><Target className="mr-2 size-4" /> Otwórz wybrane typy</Link></Button>\n        </div>\n      </section>\n      <NoGuarantee className="mt-6" />
     </div>
   );
 }
