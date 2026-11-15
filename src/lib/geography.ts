@@ -30,6 +30,17 @@ function normalize(value: unknown): string {
     .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+/** Keep only national senior top-flight and second-tier league competitions. */
+export function isTopTwoTierLeague(match: EuropeanMatchFields): boolean {
+  const competition = normalize(match.competition || match.league);
+  if (!competition) return false;
+  if (/\\b(u(?:17|18|19|20|21|23)|under ?(?:17|18|19|20|21|23)|youth|junior(?:s)?|academy|juvenil|jugend|reserve|reserves|b team|ii team)\\b/.test(competition)) return false;
+  // Explicit third tier and below always lose, even if the provider calls them "League".
+  if (/\\b(?:3|4|5|6|7|8|9|iii|iv|v|vi)\\s*(?:\\.\\s*)?(?:liga|league|division|div|bundesliga|serie|snl|hnl|federal|federation)\\b|\\b(?:third|fourth|fifth|regional|regionalliga|oberliga|national league north|national league south|non league|non-league)\\b/.test(competition)) return false;
+  // Recognized first/second divisions across European naming conventions.
+  return /\\b(?:premier league|premiership|championship|super league|superliga|super lig|pro league|jupiler pro league|challenger pro league|bundesliga|2 bundesliga|ligue 1|ligue 2|serie a|serie b|la liga|laliga|segunda division|segunda liga|eredivisie|keuken kampioen divisie|primeira liga|segunda liga|ekstraklasa|1 liga|2 liga|liga i|liga ii|liga 1|liga 2|prva liga|prva hrvatska|hnl|1 hnl|2 hnl|first league|second league|first division|second division|division 1|division 2|div 1|div 2|1st division|2nd division|1st league|2nd league|1 liga|2 liga|a lyga|virsliga|meistriliiga|veikkausliiga|ykkosliiga|allsvenskan|superettan|eliteserien|obos ligaen|premier division|league of ireland premier|league of ireland first|scottish championship|league one|league two|national league)\\b/.test(competition);
+}
+
 /** Europe-only scope. UEFA competitions remain included even when providers label their country as "World". */
 export function isEuropeanMatch(match: EuropeanMatchFields): boolean {
   const country = normalize(match.country);
