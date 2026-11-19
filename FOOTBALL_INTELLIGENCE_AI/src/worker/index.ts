@@ -1031,6 +1031,43 @@ export default {
       }
       return generatePredictions(env, date);
     }
+    if (url.pathname === "/api/sync/status") {
+      if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+      try {
+        const [counts, jobs] = await Promise.all([
+          env.DB.prepare(`
+            SELECT 'fixtures' AS kind, COUNT(*) AS total
+              FROM fixtures WHERE provider = 'api-sports'
+            UNION ALL
+            SELECT 'predictions' AS kind, COUNT(*) AS total
+              FROM match_predictions
+          `).all<{ kind: string; total: number }>(),
+          env.DB.prepare(`
+            SELECT job_type, status, started_at, finished_at,
+                   requests_made, records_seen, records_inserted
+              FROM ingestion_jobs
+             WHERE provider = 'api-sports'
+             ORDER BY created_at DESC
+             LIMIT 10
+          `).all<{
+            job_type: string; status: string; started_at: string | null;
+            finished_at: string | null; requests_made: number;
+            records_seen: number; records_inserted: number;
+          }>(),
+        ]);
+        const totals = Object.fromEntries(counts.results.map(row => [row.kind, Number(row.total)]));
+        return json({
+          provider: "api-sports",
+          counts: {
+            fixtures: totals.fixtures ?? 0,
+            predictions: totals.predictions ?? 0,
+          },
+          recentJobs: jobs.results,
+        });
+      } catch {
+        return json({ error: "sync_status_unavailable" }, 503);
+      }
+    }
     if (url.pathname === "/api/models/performance") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
       return modelPerformance(env);
