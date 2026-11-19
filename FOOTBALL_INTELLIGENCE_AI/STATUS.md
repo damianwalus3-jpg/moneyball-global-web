@@ -16,13 +16,13 @@
 - Added unit tests for auth, status, leagues, quota headers and API errors (written, not yet executed).
 - Added provider-neutral D1 schema migration, Worker health endpoint, sanitized provider-status endpoint and Worker unit tests (written, not yet executed).
 - Selected Cloudflare Workers + D1 for first deployment.
-- Updated `wrangler.toml` with the user's verified D1 database ID.
+- Updated `wrangler.toml` with the user's verified D1 database ID.\n- Added isolated `package.json` scripts for tests, typecheck, remote D1 migration list/apply and deployment; added strict TypeScript configuration and ignored local Worker artifacts.
 - Updated README, architecture, data model, deployment decision, provider integration, roadmap and status.
 
 ## Not yet verified / blocked
 - API key has not been configured or used; no live API request has been made.
 - D1 database exists, but migration has not yet been applied; no tables have been created.
-- Worker has not been deployed or bound to this D1 instance.
+- Worker has not been deployed or bound to this D1 instance. Git-connected build setup and Cloudflare deployment credentials are still required.
 - Tests, lint, typecheck and build have not been executed in CI or local checkout.
 - Actual per-minute quota and competition/season coverage still require authenticated calls.
 
