@@ -61,6 +61,13 @@
 - Extended `GET /api/fixtures?date=YYYY-MM-DD` to return the latest stored probabilities with each fixture.
 - Added route validation/auth tests. Model quality is not yet established: no historical backtest, calibration or live D1 execution has been run. Do not interpret these baseline probabilities as verified betting edges.
 
+- Added read-only `GET /api/fixtures?date=YYYY-MM-DD` with a bounded result count and latest stored prediction fields for the dashboard.
+- Corrected kickoff persistence to canonical UTC and date filtering to Europe/Brussels local-day boundaries, including daylight-saving transitions; added a boundary test for 19 November 2026.
+- Added D1 migration `0003_model_predictions.sql` for versioned model outputs and auditable forecast snapshots.
+- Implemented baseline independent-Poisson forecasts for 1X2, derived Double Chance, Over/Under 2.5 and BTTS. The model uses up to the latest 10 completed team matches strictly before kickoff and stores its feature cutoff and sample counts.
+- Added protected prediction generation endpoint `POST /api/predictions/generate?date=YYYY-MM-DD`, capped at 50 upcoming fixtures per run.
+- Model is experimental only. No backtest, calibration, live D1 execution or CI success is yet verified.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
