@@ -21,16 +21,17 @@ Competition coverage varies. Read `coverage` from `/leagues` and persist the act
 The official docs state that pre-match odds are generally provided 1–14 days before fixtures and that the API retains a 7-day odds history; availability varies by league, season, fixture and bookmaker. Do not treat this as a long-term historical odds archive. Persist snapshots as they are collected.
 
 ## Ingestion and quality rules
-1. Read `/status` first; record subscription, daily limit, remaining quota and rate-limit headers without storing personal account fields.
-2. Fetch `/countries` and `/leagues`; store actual coverage flags.
-3. Fetch fixtures with timezone `Europe/Brussels`; persist canonical UTC kickoff plus display timezone.
-4. Respect pagination and provider rate limits; cache reference data and avoid duplicate calls.
-5. Preserve raw payloads with fetched_at, endpoint, safe parameters, provider version and hash. Never persist the API key or full authenticated request.
-6. Upsert fixtures idempotently by provider fixture ID.
-7. Store odds as timestamped bookmaker/market snapshots; never overwrite prior snapshots.
-8. Store provider predictions separately from the app's independently trained predictions.
-9. Missing or unsupported fields remain explicitly missing, never fabricated.
-10. Read response headers `x-ratelimit-requests-limit`, `x-ratelimit-requests-remaining`, `X-RateLimit-Limit` and `X-RateLimit-Remaining`; throttle before hitting limits.
+1. Read `/status` first; the docs state this call does not count against the daily quota. Record subscription, daily limit and current usage, excluding personal account fields.
+2. Read response headers `x-ratelimit-requests-limit`, `x-ratelimit-requests-remaining`, `X-RateLimit-Limit` and `X-RateLimit-Remaining`; throttle below both daily and per-minute limits.
+3. Fetch `/countries` and `/leagues`; store actual coverage flags.
+4. Fetch fixtures with timezone `Europe/Brussels`; persist canonical UTC kickoff plus display timezone.
+5. Respect pagination and provider rate limits; cache reference data and avoid duplicate calls.
+6. Preserve raw payloads with fetched_at, endpoint, safe parameters, provider version and hash. Never persist the API key or full authenticated request.
+7. Upsert fixtures idempotently by provider fixture ID.
+8. Store odds as timestamped bookmaker/market snapshots; never overwrite prior snapshots.
+9. Store provider predictions separately from the app's independently trained predictions.
+10. Missing or unsupported fields remain explicitly missing, never fabricated.
+11. Track daily consumption and minute rate continuously; leave a safety reserve for retries and live updates.
 
 ## First validation checklist
 - [ ] Configure `API_FOOTBALL_API_KEY` as a server-side deployment secret (never paste it in chat).
