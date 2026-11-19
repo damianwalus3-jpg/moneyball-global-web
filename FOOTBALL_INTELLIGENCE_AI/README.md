@@ -31,5 +31,8 @@ Official documentation: https://www.api-football.com/documentation-v3
 ## Current status
 Provider identity, subscription tier and daily quota confirmed from the user's dashboard. The API-SPORTS v3 client scaffold is implemented. Live authentication, account coverage, runtime tests, persistence and deployment remain pending because the API secret has not yet been configured in a server environment.
 
+## Cloudflare deployment
+See [`docs/CLOUDFLARE_DEPLOYMENT.md`](docs/CLOUDFLARE_DEPLOYMENT.md) for the exact Workers Builds configuration. The Worker must use the `football-intelligence-ai` branch and `FOOTBALL_INTELLIGENCE_AI` root directory; never deploy the repository root or a MONEYBALL branch for this product.
+
 ## Development
 Work is isolated under `FOOTBALL_INTELLIGENCE_AI/` on branch `football-intelligence-ai`. Do not deploy the containing legacy application as this new product. A dedicated repository/deployment boundary is still required before production.
