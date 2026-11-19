@@ -68,6 +68,11 @@
 - Added protected prediction generation endpoint `POST /api/predictions/generate?date=YYYY-MM-DD`, capped at 50 upcoming fixtures per run.
 - Model is experimental only. No backtest, calibration, live D1 execution or CI success is yet verified.
 
+## Forecast evaluation — 2026-11-19
+- Added D1 migration `0004_prediction_evaluation.sql` to retain proper scoring-rule results.
+- Added protected `POST /api/predictions/evaluate?date=YYYY-MM-DD`: matches completed on the requested Brussels-local date are compared with the latest saved pre-match prediction; stores multiclass 1X2 Brier score, log loss, Over 2.5 Brier and BTTS Brier. Re-evaluation updates the same record rather than duplicating it.
+- Added an authorization test and deployment instructions for the evaluation step. No actual settled fixture evaluation has been run because the Worker/D1 deployment is still pending.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
