@@ -4,6 +4,7 @@ interface D1Result { success: boolean; meta?: { changes?: number } }
 interface D1Statement {
   bind(...values: unknown[]): D1Statement;
   first<T = unknown>(): Promise<T | null>;
+  all<T = unknown>(): Promise<{ results: T[]; success: boolean }>;
   run(): Promise<D1Result>;
 }
 interface D1Database {
@@ -359,6 +360,45 @@ async function refreshFixtureEnrichment(env: Env, providerFixtureId: string): Pr
   }
 }
 
+
+interface FixtureListRow {
+  provider_fixture_id: string;
+  kickoff_at: string | null;
+  status_short: string | null;
+  status_long: string | null;
+  elapsed_minutes: number | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  round_name: string | null;
+  home_team: string;
+  away_team: string;
+  competition: string | null;
+  country: string | null;
+  season_year: number | null;
+}
+async function listFixtures(env: Env, date: string, limit: number): Promise<Response> {
+  try {
+    const result = await env.DB.prepare(`
+      SELECT f.provider_fixture_id, f.kickoff_at, f.status_short, f.status_long,
+        f.elapsed_minutes, f.home_goals, f.away_goals, f.round_name,
+        home.name AS home_team, away.name AS away_team,
+        c.name AS competition, co.name AS country, cs.season_year
+      FROM fixtures f
+      JOIN teams home ON home.id = f.home_team_id
+      JOIN teams away ON away.id = f.away_team_id
+      LEFT JOIN competition_seasons cs ON cs.id = f.competition_season_id
+      LEFT JOIN competitions c ON c.id = cs.competition_id
+      LEFT JOIN countries co ON co.id = c.country_id
+      WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
+      ORDER BY f.kickoff_at ASC
+      LIMIT ?
+    `).bind(date, limit).all<FixtureListRow>();
+    return json({ date, count: result.results.length, fixtures: result.results });
+  } catch {
+    return json({ error: "fixture_query_failed" }, 503);
+  }
+}
+
 function providerClient(env: Env) {
   if (!env.API_FOOTBALL_API_KEY) throw new Error("provider_secret_not_configured");
   return createApiFootballClient({ apiKey: env.API_FOOTBALL_API_KEY });
@@ -506,6 +546,18 @@ export default {
       } catch {
         return json({ status: "degraded", database: false }, 503);
       }
+    }
+    if (url.pathname === "/api/fixtures") {
+      if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+      const date = url.searchParams.get("date") ?? "";
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+          Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
+          new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+        return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
+      }
+      const rawLimit = Number(url.searchParams.get("limit") ?? "100");
+      const limit = Number.isFinite(rawLimit) ? Math.min(250, Math.max(1, Math.floor(rawLimit))) : 100;
+      return listFixtures(env, date, limit);
     }
     if (url.pathname === "/api/provider/status") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
