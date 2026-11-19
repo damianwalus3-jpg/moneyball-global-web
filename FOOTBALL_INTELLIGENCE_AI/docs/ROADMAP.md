@@ -19,7 +19,8 @@
 - [ ] Run authenticated `/status` and low-volume live smoke tests.
 
 ## Stage 2 — reliable data ingestion
-- [ ] Read account quota/subscription from `/status`.
+- [x] Confirm account plan and daily quota from dashboard screenshot: Pro, 7,500 requests/day; 670 used at screenshot time.
+- [ ] Read account subscription and per-minute quota from `/status` (documented endpoint does not consume daily quota).
 - [ ] Fetch countries and leagues; persist actual competition coverage flags.
 - [ ] Fixtures and status lifecycle, with Europe/Brussels display timezone and UTC storage.
 - [ ] Teams and identity mapping.
