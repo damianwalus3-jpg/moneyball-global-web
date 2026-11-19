@@ -152,4 +152,29 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     await expect(response.json()).resolves.toMatchObject({ date: "2026-11-19", count: 0, fixtures: [] });
   });
 
+  it("requires ingestion authorization before generating predictions", async () => {
+    const env = { DB: {}, INGESTION_TOKEN: "ingestion-secret" };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/predictions/generate?date=2026-11-19", {
+        method: "POST",
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("validates prediction generation date before accessing D1", async () => {
+    const prepare = vi.fn();
+    const env = { DB: { prepare }, INGESTION_TOKEN: "ingestion-secret" };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/predictions/generate?date=bad", {
+        method: "POST",
+        headers: { authorization: "Bearer ingestion-secret" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(400);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
 });
