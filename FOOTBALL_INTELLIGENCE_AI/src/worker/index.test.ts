@@ -79,4 +79,20 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: "invalid_date" });
   });
+  it("rejects impossible calendar dates", async () => {
+    const env = {
+      DB: { prepare: () => ({ first: vi.fn() }) },
+      API_FOOTBALL_API_KEY: "provider-secret",
+      INGESTION_TOKEN: "ingestion-secret",
+    };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/refresh?date=2026-02-31", {
+        method: "POST",
+        headers: { authorization: "Bearer ingestion-secret" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(400);
+  });
+
 });
