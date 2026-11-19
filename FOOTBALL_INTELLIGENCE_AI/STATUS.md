@@ -47,14 +47,14 @@
 - Added input-validation coverage for fixture date requests. This remains unverified by an executed CI run and has not yet been tested against the live provider or D1.
 
 ## Next steps
-1. Add `API_FOOTBALL_API_KEY` as a Cloudflare Worker secret; never paste it in chat or commit it.
-2. Create/confirm the Worker project and bind D1 using the configured `wrangler.toml`.
-3. Apply `db/migrations/0001_initial_schema.sql` to the new D1 database.
-4. Deploy to a non-production preview URL and test `/health`.
-5. Test `/api/provider/status`; persist sanitized plan/quota snapshot.
-6. Fetch countries, current leagues and a small fixture date window; persist actual coverage.
-7. Add quota-aware scheduled ingestion and test idempotency.
-8. Run full CI before considering any public production deployment.
+1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
+2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
+3. Verify that the existing D1 database is bound as `DB`, then apply the initial migration.
+4. Deploy to a preview URL and verify `/health` and `/api/provider/status`.
+5. Run protected discovery refresh, inspect actual country/league coverage, then ingest a single date of fixtures.
+6. Add scheduled incremental fixture refresh and result reconciliation after live D1 tests pass.
+7. Expand statistics, injuries, lineups and odds only where provider coverage confirms availability.
+8. Run and verify CI before any public production deployment.
 
 ## Safety
 - Never expose API keys to browser code or logs.
