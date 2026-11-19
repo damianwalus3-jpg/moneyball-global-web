@@ -295,6 +295,22 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes read-only ingestion counts and recent job metadata", async () => {
+    const all = vi.fn().mockResolvedValue({ results: [] });
+    const env = { DB: { prepare: () => ({ all }) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/sync/status"),
+      env as never,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      provider: "api-sports",
+      counts: { fixtures: 0, predictions: 0 },
+      recentJobs: [],
+    });
+    expect(all).toHaveBeenCalledTimes(2);
+  });
+
   it("returns aggregated model performance from the read API", async () => {
     const all = vi.fn().mockResolvedValue({ results: [] });
     const env = { DB: { prepare: () => ({ all }) } };
