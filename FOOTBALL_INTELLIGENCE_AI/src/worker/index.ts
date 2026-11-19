@@ -417,7 +417,7 @@ async function generatePredictions(env: Env, date: string): Promise<Response> {
       JOIN teams home ON home.id = f.home_team_id
       JOIN teams away ON away.id = f.away_team_id
       WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
-        AND f.status_short IN ('NS', 'TBD', 'PST')
+        AND f.status_short = 'NS'
       ORDER BY f.kickoff_at ASC LIMIT 50
     `).bind(date).all<ModelFixture>();
     const fixtures = targets.results;
@@ -512,6 +512,15 @@ interface FixtureListRow {
   competition: string | null;
   country: string | null;
   season_year: number | null;
+  probability_home: number | null;
+  probability_draw: number | null;
+  probability_away: number | null;
+  probability_1x: number | null;
+  probability_x2: number | null;
+  probability_12: number | null;
+  probability_over_25: number | null;
+  probability_btts_yes: number | null;
+  prediction_model: string | null;
 }
 async function listFixtures(env: Env, date: string, limit: number): Promise<Response> {
   try {
@@ -519,13 +528,21 @@ async function listFixtures(env: Env, date: string, limit: number): Promise<Resp
       SELECT f.provider_fixture_id, f.kickoff_at, f.status_short, f.status_long,
         f.elapsed_minutes, f.home_goals, f.away_goals, f.round_name,
         home.name AS home_team, away.name AS away_team,
-        c.name AS competition, co.name AS country, cs.season_year
+        c.name AS competition, co.name AS country, cs.season_year,
+        mp.probability_home, mp.probability_draw, mp.probability_away,
+        mp.probability_1x, mp.probability_x2, mp.probability_12,
+        mp.probability_over_25, mp.probability_btts_yes,
+        mv.model_key || '@' || mv.version AS prediction_model
       FROM fixtures f
       JOIN teams home ON home.id = f.home_team_id
       JOIN teams away ON away.id = f.away_team_id
       LEFT JOIN competition_seasons cs ON cs.id = f.competition_season_id
       LEFT JOIN competitions c ON c.id = cs.competition_id
       LEFT JOIN countries co ON co.id = c.country_id
+      LEFT JOIN match_predictions mp ON mp.id = (
+        SELECT id FROM match_predictions WHERE fixture_id = f.id ORDER BY generated_at DESC LIMIT 1
+      )
+      LEFT JOIN model_versions mv ON mv.id = mp.model_version_id
       WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
       ORDER BY f.kickoff_at ASC
       LIMIT ?
