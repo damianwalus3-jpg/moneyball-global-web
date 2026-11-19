@@ -74,7 +74,7 @@ async function recordJob(
   db: D1Database,
   status: "succeeded" | "failed",
   startedAt: string,
-  jobType: "discovery" | "fixtures",
+  jobType: "discovery" | "fixtures" | "enrichment",
   counts: { requests: number; seen: number; inserted: number },
   error?: string,
 ): Promise<void> {
@@ -223,6 +223,139 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
     const detail = error instanceof Error ? error.message : "unknown_error";
     await recordJob(env.DB, "failed", startedAt, "fixtures", counts, detail).catch(() => undefined);
     return json({ error: "fixture_sync_failed", detail }, 502);
+  }
+}
+
+
+interface ProviderStatistic {
+  team?: { id?: string | number; name?: string };
+  statistics?: Array<{ type?: string; value?: string | number | null }>;
+}
+interface ProviderLineup {
+  team?: { id?: string | number };
+  formation?: string | null;
+  coach?: Record<string, unknown> | null;
+  startXI?: unknown[];
+  substitutes?: unknown[];
+}
+interface ProviderInjury {
+  team?: { id?: string | number };
+  player?: { id?: string | number; name?: string; type?: string | null; reason?: string | null };
+}
+async function refreshFixtureEnrichment(env: Env, providerFixtureId: string): Promise<Response> {
+  const startedAt = now();
+  const counts = { requests: 0, seen: 0, inserted: 0 };
+  try {
+    const client = providerClient(env);
+    const fixture = await env.DB.prepare(`
+      SELECT id FROM fixtures WHERE provider = 'api-sports' AND provider_fixture_id = ?
+    `).bind(providerFixtureId).first<{ id: number }>();
+    if (!fixture) return json({ error: "fixture_not_found" }, 404);
+
+    const account = (await client.getStatus()).response;
+    const dailyLimit = account.requests?.limit_day ?? null;
+    const used = account.requests?.current ?? null;
+    const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
+    await env.DB.prepare(`
+      INSERT INTO provider_accounts
+        (provider, product, plan_name, subscription_active, daily_request_limit,
+         daily_requests_used, daily_requests_remaining, observed_at, metadata_json)
+      VALUES ('api-sports', 'api-football', ?, ?, ?, ?, ?, ?, '{}')
+      ON CONFLICT(provider, product) DO UPDATE SET
+        plan_name = excluded.plan_name, subscription_active = excluded.subscription_active,
+        daily_request_limit = excluded.daily_request_limit,
+        daily_requests_used = excluded.daily_requests_used,
+        daily_requests_remaining = excluded.daily_requests_remaining,
+        observed_at = excluded.observed_at
+    `).bind(account.subscription?.plan ?? null,
+      account.subscription?.active === undefined ? null : account.subscription.active ? 1 : 0,
+      dailyLimit, used, remaining, now()).run();
+    if (account.subscription?.active === false) throw new Error("provider_subscription_inactive");
+    if (remaining !== null && remaining < 100) throw new Error("provider_quota_reserve_reached");
+
+    const [statisticsResult, lineupsResult, injuriesResult] = await Promise.all([
+      client.getFixtureStatistics({ fixture: providerFixtureId }) as Promise<ApiFootballResponse<ProviderStatistic[]>>,
+      client.getLineups(providerFixtureId) as Promise<ApiFootballResponse<ProviderLineup[]>>,
+      client.getInjuries({ fixture: providerFixtureId }) as Promise<ApiFootballResponse<ProviderInjury[]>>,
+    ]);
+    counts.requests = 3;
+    const statistics = Array.isArray(statisticsResult.response) ? statisticsResult.response : [];
+    const lineups = Array.isArray(lineupsResult.response) ? lineupsResult.response : [];
+    const injuries = Array.isArray(injuriesResult.response) ? injuriesResult.response : [];
+    await Promise.all([
+      storeRaw(env.DB, "fixtures/statistics", statisticsResult, statistics.length),
+      storeRaw(env.DB, "fixtures/lineups", lineupsResult, lineups.length),
+      storeRaw(env.DB, "injuries", injuriesResult, injuries.length),
+    ]);
+    const observedAt = now();
+
+    for (const teamStats of statistics) {
+      const providerTeamId = teamStats.team?.id;
+      if (providerTeamId === undefined) continue;
+      const team = await env.DB.prepare(
+        "SELECT id FROM teams WHERE provider = 'api-sports' AND provider_team_id = ?",
+      ).bind(String(providerTeamId)).first<{ id: number }>();
+      if (!team) continue;
+      for (const stat of teamStats.statistics ?? []) {
+        if (!stat.type) continue;
+        await env.DB.prepare(`
+          INSERT INTO fixture_statistics
+            (fixture_id, team_id, statistic_type, statistic_value_json, observed_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(fixture.id, team.id, stat.type, JSON.stringify(stat.value ?? null), observedAt).run();
+        counts.seen++;
+        counts.inserted++;
+      }
+    }
+
+    for (const lineup of lineups) {
+      const providerTeamId = lineup.team?.id;
+      if (providerTeamId === undefined) continue;
+      const team = await env.DB.prepare(
+        "SELECT id FROM teams WHERE provider = 'api-sports' AND provider_team_id = ?",
+      ).bind(String(providerTeamId)).first<{ id: number }>();
+      if (!team) continue;
+      await env.DB.prepare(`
+        INSERT INTO fixture_lineups
+          (fixture_id, team_id, formation, coach_json, start_xi_json, substitutes_json, observed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(fixture.id, team.id, lineup.formation ?? null,
+        JSON.stringify(lineup.coach ?? {}), JSON.stringify(lineup.startXI ?? []),
+        JSON.stringify(lineup.substitutes ?? []), observedAt).run();
+      counts.seen++;
+      counts.inserted++;
+    }
+
+    for (const injury of injuries) {
+      const playerName = injury.player?.name;
+      if (!playerName) continue;
+      const providerTeamId = injury.team?.id;
+      const team = providerTeamId === undefined ? null : await env.DB.prepare(
+        "SELECT id FROM teams WHERE provider = 'api-sports' AND provider_team_id = ?",
+      ).bind(String(providerTeamId)).first<{ id: number }>();
+      await env.DB.prepare(`
+        INSERT INTO fixture_injuries
+          (fixture_id, team_id, player_provider_id, player_name, injury_type, reason, observed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(fixture.id, team?.id ?? null,
+        injury.player?.id === undefined ? null : String(injury.player.id),
+        playerName, injury.player?.type ?? null, injury.player?.reason ?? null, observedAt).run();
+      counts.seen++;
+      counts.inserted++;
+    }
+
+    await recordJob(env.DB, "succeeded", startedAt, "enrichment", counts);
+    return json({
+      status: "completed", fixtureId: providerFixtureId,
+      statisticsRecords: statistics.reduce((sum, row) => sum + (row.statistics?.length ?? 0), 0),
+      lineupTeams: lineups.length, injuryRecords: injuries.length,
+      rowsStored: counts.inserted, requestsMade: counts.requests,
+      quota: { dailyLimit, used, remaining, safetyReserve: 100 },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    await recordJob(env.DB, "failed", startedAt, "enrichment", counts, detail).catch(() => undefined);
+    return json({ error: "fixture_enrichment_failed", detail }, 502);
   }
 }
 
@@ -395,6 +528,17 @@ export default {
       } catch {
         return json({ error: env.API_FOOTBALL_API_KEY ? "provider_status_unavailable" : "provider_secret_not_configured" }, 503);
       }
+    }
+    if (url.pathname === "/api/fixtures/enrich") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!env.INGESTION_TOKEN) return json({ error: "ingestion_secret_not_configured" }, 503);
+      const authorization = request.headers.get("authorization") ?? "";
+      if (!safeEqual(authorization, `Bearer ${env.INGESTION_TOKEN}`)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const fixtureId = url.searchParams.get("fixture") ?? "";
+      if (!/^\\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
+      return refreshFixtureEnrichment(env, fixtureId);
     }
     if (url.pathname === "/api/fixtures/refresh") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
