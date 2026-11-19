@@ -10,7 +10,7 @@
 ## Stage 1 — foundation
 - [x] Initial connector scaffold exists (legacy APIFootball.com scaffold must be replaced before use).
 - [x] Correct provider integration contract documented.
-- [ ] Implement API-SPORTS v3 server-only client.
+- [x] Implement API-SPORTS v3 server-only client scaffold.
 - [ ] Configure `API_FOOTBALL_API_KEY` as a server-side secret.
 - [ ] Select and document final hosting/database stack.
 - [ ] Create schema migrations and seed/reference data.
