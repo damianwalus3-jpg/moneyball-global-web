@@ -177,4 +177,20 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(prepare).not.toHaveBeenCalled();
   });
 
+  it("converts Belgian calendar dates to UTC boundaries for fixture queries", async () => {
+    const all = vi.fn().mockResolvedValue({ results: [] });
+    const bind = vi.fn().mockReturnValue({ all });
+    const env = { DB: { prepare: () => ({ bind }) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures?date=2026-11-19"),
+      env as never,
+    );
+    expect(response.status).toBe(200);
+    expect(bind).toHaveBeenCalledWith(
+      "2026-11-18T23:00:00.000Z",
+      "2026-11-19T23:00:00.000Z",
+      100,
+    );
+  });
+
 });
