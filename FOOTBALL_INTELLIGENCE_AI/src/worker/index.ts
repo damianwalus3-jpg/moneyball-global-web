@@ -15,6 +15,9 @@ interface Env {
   API_FOOTBALL_API_KEY?: string;
   INGESTION_TOKEN?: string;
 }
+
+interface ScheduledControllerLike { scheduledTime: number }
+interface ExecutionContextLike { waitUntil(promise: Promise<unknown>): void }
 interface Country {
   id?: string | number;
   name?: string;
@@ -109,6 +112,16 @@ function json(data: unknown, status = 200): Response {
   });
 }
 function now(): string { return new Date().toISOString(); }
+function brusselsCalendarDate(timestamp: number): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
 function toUtcIso(value?: string): string | null {
   if (!value) return null;
   const parsed = new Date(value);
@@ -1148,5 +1161,32 @@ export default {
       return refreshDiscovery(env);
     }
     return json({ error: "not_found" }, 404);
+  },
+  scheduled(controller: ScheduledControllerLike, env: Env, ctx: ExecutionContextLike): void {
+    const task = (async () => {
+      const date = brusselsCalendarDate(controller.scheduledTime);
+      if (!(await claimPublicSyncSlot(env))) {
+        console.log(JSON.stringify({ event: "scheduled_sync_skipped", reason: "cooldown", date }));
+        return;
+      }
+      const response = await syncFixturesAndPredictions(env, date);
+      const payload = await response.json() as Record<string, unknown>;
+      const result = {
+        event: response.ok && payload.status === "completed"
+          ? "scheduled_sync_completed"
+          : "scheduled_sync_incomplete",
+        date,
+        httpStatus: response.status,
+        result: payload,
+      };
+      if (result.event === "scheduled_sync_completed") console.log(JSON.stringify(result));
+      else console.error(JSON.stringify(result));
+    })().catch(error => {
+      console.error(JSON.stringify({
+        event: "scheduled_sync_failed",
+        message: error instanceof Error ? error.message : "unknown_error",
+      }));
+    });
+    ctx.waitUntil(task);
   },
 };
