@@ -81,6 +81,9 @@
 - Added protected `POST /api/fixtures/odds?fixture=<provider-fixture-id>` to fetch one fixture's bookmaker markets/selections and append odds snapshots, retaining the raw source payload. It preflights the subscription/quota and records no-odds responses without fabricating prices.
 - Added an authorization test and deployment notes. Actual odds entitlement and market coverage remain unverified until a live provider call can be made.
 
+- Added read-only `GET /api/models/performance` to aggregate evaluated sample counts and mean Brier/log-loss metrics by model version; added route test.
+- Hardened dashboard rendering by escaping provider-controlled team/competition text and made malformed kickoff timestamps non-fatal.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
