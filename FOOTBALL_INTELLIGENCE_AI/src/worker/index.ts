@@ -59,7 +59,7 @@ button{cursor:pointer;background:#1e65d6;border-color:#3679e4;font-weight:650}bu
 <body><main>
 <div class="top"><div><h1>⚽ FOOTBALL INTELLIGENCE AI</h1><div class="sub">Centrum analizy meczów i prognoz • czas: Europe/Brussels</div></div><span class="pill" id="state">Oczekiwanie na dane</span></div>
 <section class="panel">
-<div class="controls"><label for="day">Data meczów</label><input id="day" type="date"><button id="load">Pobierz mecze</button></div>
+<div class="controls"><label for="day">Data meczów</label><input id="day" type="date"><button id="load">Synchronizuj i pobierz mecze</button></div>
 <div class="stats"><div class="stat"><strong id="count">—</strong><span>Mecze</span></div><div class="stat"><strong id="predicted">—</strong><span>Z prognozą</span></div><div class="stat"><strong id="finished">—</strong><span>Zakończone</span></div></div>
 </section>
 <section class="panel"><div class="top"><h2 style="font-size:18px;margin:0">Mecze i prognozy</h2><span class="muted" id="updated"></span></div>
@@ -74,10 +74,15 @@ $("day").value=date.year+"-"+date.month+"-"+date.day;
 const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const pct=v=>v===null||v===undefined?"—":(Number(v)*100).toFixed(1)+"%";
 const time=v=>v?new Intl.DateTimeFormat("pl-BE",{timeZone:"Europe/Brussels",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"—";
-async function load(){
+async function load(sync=false){
  const day=$("day").value;if(!day)return;
- $("load").disabled=true;$("state").textContent="Ładowanie…";
+ $("load").disabled=true;$("state").textContent=sync?"Synchronizuję dane…":"Ładowanie…";
  try{
+  if(sync){
+   const syncResponse=await fetch("/api/fixtures/sync?date="+encodeURIComponent(day),{method:"POST"});
+   const syncData=await syncResponse.json();
+   if(!syncResponse.ok)throw new Error(syncData.detail||syncData.error||"Synchronizacja nie powiodła się");
+  }
   const response=await fetch("/api/fixtures?date="+encodeURIComponent(day));
   const data=await response.json();if(!response.ok)throw new Error(data.error||"Błąd pobierania");
   const list=data.fixtures||[];
@@ -86,11 +91,11 @@ async function load(){
   $("finished").textContent=list.filter(x=>["FT","AET","PEN"].includes(x.status_short)).length;
   $("rows").innerHTML=list.length?list.map(x=>"<tr><td>"+time(x.kickoff_at)+"<small>"+esc(x.status_short||"—")+"</small></td><td><strong>"+esc(x.home_team)+" – "+esc(x.away_team)+"</strong><small>"+esc(x.competition||"Rozgrywki nieznane")+(x.country?" • "+esc(x.country):"")+"</small></td><td>"+(x.home_goals===null?"—":esc(x.home_goals+" : "+x.away_goals))+"</td><td>"+pct(x.probability_home)+"</td><td>"+pct(x.probability_draw)+"</td><td>"+pct(x.probability_away)+"</td><td>"+pct(x.probability_1x)+"</td><td>"+pct(x.probability_x2)+"</td><td>"+pct(x.probability_over_25)+"</td><td>"+pct(x.probability_btts_yes)+"</td></tr>").join(""):"<tr><td colspan='10' class='empty'>Brak zapisanych meczów dla tej daty. Najpierw musi zadziałać synchronizacja danych.</td></tr>";
   $("updated").textContent="Pobrano: "+new Date().toLocaleTimeString("pl-BE");
-  $("state").textContent="Dane załadowane";
+  $("state").textContent=sync?"Synchronizacja zakończona":"Dane załadowane";
  }catch(e){$("state").textContent="Błąd";$("rows").innerHTML="<tr><td colspan='10' class='empty'>"+esc(e.message)+"</td></tr>";}
  finally{$("load").disabled=false;}
 }
-$("load").addEventListener("click",load);$("day").addEventListener("change",load);load();
+$("load").addEventListener("click",()=>load(true));$("day").addEventListener("change",()=>load(false));load(false);
 </script></body></html>`;
 
 function json(data: unknown, status = 200): Response {
@@ -803,6 +808,33 @@ async function listFixtures(env: Env, date: string, limit: number): Promise<Resp
   }
 }
 
+async function claimPublicSyncSlot(env: Env): Promise<boolean> {
+  const current = now();
+  const cutoff = new Date(Date.now() - 120_000).toISOString();
+  const result = await env.DB.prepare(`
+    INSERT INTO public_sync_gate (id, last_requested_at)
+    VALUES (1, ?)
+    ON CONFLICT(id) DO UPDATE SET last_requested_at = excluded.last_requested_at
+    WHERE public_sync_gate.last_requested_at <= ?
+  `).bind(current, cutoff).run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+async function syncFixturesAndPredictions(env: Env, date: string): Promise<Response> {
+  const fixtureResponse = await refreshFixtures(env, date);
+  const fixtureResult = await fixtureResponse.json() as Record<string, unknown>;
+  if (!fixtureResponse.ok) {
+    return json({ status: "failed", stage: "fixtures", date, ...fixtureResult }, fixtureResponse.status);
+  }
+  const predictionResponse = await generatePredictions(env, date);
+  const predictionResult = await predictionResponse.json() as Record<string, unknown>;
+  if (!predictionResponse.ok) {
+    return json({
+      status: "partial", stage: "predictions", date,
+      fixtures: fixtureResult, predictions: predictionResult,
+    }, 207);
+  }
+  return json({ status: "completed", date, fixtures: fixtureResult, predictions: predictionResult });
+}
 function providerClient(env: Env) {
   if (!env.API_FOOTBALL_API_KEY) throw new Error("provider_secret_not_configured");
   return createApiFootballClient({ apiKey: env.API_FOOTBALL_API_KEY });
@@ -1069,6 +1101,27 @@ export default {
       const fixtureId = url.searchParams.get("fixture") ?? "";
       if (!/^\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
       return refreshFixtureEnrichment(env, fixtureId);
+    }
+    if (url.pathname === "/api/fixtures/sync") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      const origin = request.headers.get("origin");
+      if (origin && origin !== url.origin) return json({ error: "cross_origin_request_rejected" }, 403);
+      const fetchSite = request.headers.get("sec-fetch-site");
+      if (fetchSite === "cross-site") return json({ error: "cross_origin_request_rejected" }, 403);
+      const date = url.searchParams.get("date") ?? "";
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+          Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
+          new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+        return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
+      }
+      try {
+        if (!(await claimPublicSyncSlot(env))) {
+          return json({ error: "sync_cooldown", detail: "Synchronizacja jest ograniczona do jednego uruchomienia na 2 minuty. Spróbuj ponownie za chwilę.", retryAfterSeconds: 120 }, 429);
+        }
+        return await syncFixturesAndPredictions(env, date);
+      } catch (error) {
+        return json({ error: "sync_unavailable", detail: error instanceof Error ? error.message : "unknown_error" }, 503);
+      }
     }
     if (url.pathname === "/api/fixtures/refresh") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
