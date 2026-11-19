@@ -1,10 +1,5 @@
 import { createApiFootballClient } from "../providers/apifootball/client";
 
-interface D1Result<T> {
-  results?: T[];
-  success: boolean;
-}
-
 interface D1Database {
   prepare(query: string): {
     first<T = unknown>(): Promise<T | null>;
