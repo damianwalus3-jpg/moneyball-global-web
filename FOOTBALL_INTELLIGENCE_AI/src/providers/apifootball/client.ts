@@ -4,6 +4,28 @@
  */
 export type ApiFootballParams = Record<string, string | number | boolean | undefined>;
 
+export interface ApiFootballRateLimits {
+  dailyLimit: number | null;
+  dailyRemaining: number | null;
+  minuteLimit: number | null;
+  minuteRemaining: number | null;
+}
+
+export interface ApiFootballResponse<T = unknown> {
+  get?: string;
+  parameters?: Record<string, string>;
+  errors?: unknown[] | Record<string, unknown>;
+  results?: number;
+  paging?: { current: number; total: number };
+  response: T;
+}
+
+export interface ApiFootballStatus {
+  account?: { firstname?: string; lastname?: string; email?: string };
+  subscription?: { plan?: string; end?: string; active?: boolean };
+  requests?: { current?: number; limit_day?: number };
+}
+
 export class ApiFootballError extends Error {
   constructor(
     message: string,
@@ -20,6 +42,14 @@ export interface ApiFootballClientOptions {
   baseUrl?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  onRateLimits?: (limits: ApiFootballRateLimits, endpoint: string) => void;
+}
+
+function readLimit(headers: Headers, name: string): number | null {
+  const raw = headers.get(name);
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 export function createApiFootballClient(options: ApiFootballClientOptions) {
@@ -34,7 +64,8 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
     path: string,
     params: ApiFootballParams = {},
   ): Promise<T> => {
-    const url = new URL(`${baseUrl}/${path.replace(/^\//, "")}`);
+    const endpoint = path.replace(/^\//, "");
+    const url = new URL(`${baseUrl}/${endpoint}`);
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== "") {
         url.searchParams.set(key, String(value));
@@ -50,6 +81,14 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
         signal: controller.signal,
         cache: "no-store",
       });
+
+      options.onRateLimits?.({
+        dailyLimit: readLimit(response.headers, "x-ratelimit-requests-limit"),
+        dailyRemaining: readLimit(response.headers, "x-ratelimit-requests-remaining"),
+        minuteLimit: readLimit(response.headers, "X-RateLimit-Limit"),
+        minuteRemaining: readLimit(response.headers, "X-RateLimit-Remaining"),
+      }, endpoint);
+
       const body = await response.text();
       let payload: unknown;
       try {
@@ -62,7 +101,11 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
       }
       if (payload && typeof payload === "object" && !Array.isArray(payload)) {
         const record = payload as Record<string, unknown>;
-        if (record.errors && typeof record.errors === "object" && Object.keys(record.errors).length > 0) {
+        const errors = record.errors;
+        const hasErrors = Array.isArray(errors)
+          ? errors.length > 0
+          : Boolean(errors && typeof errors === "object" && Object.keys(errors).length > 0);
+        if (hasErrors) {
           throw new ApiFootballError("API-SPORTS reported an API error", response.status, payload);
         }
       }
@@ -79,17 +122,27 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
   };
 
   return {
-    getStatus: () => request("status"),
-    getCountries: (params: ApiFootballParams = {}) => request("countries", params),
-    getLeagues: (params: ApiFootballParams = {}) => request("leagues", params),
+    getStatus: () => request<ApiFootballResponse<ApiFootballStatus>>("status"),
+    getCountries: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("countries", params),
+    // The provider requires at least one filter; current=true discovers active competitions.
+    getLeagues: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("leagues", { current: "true", ...params }),
+    getSeasons: () => request<ApiFootballResponse<number[]>>("leagues/seasons"),
     getFixtures: (params: ApiFootballParams = {}) =>
-      request("fixtures", { timezone: "Europe/Brussels", ...params }),
-    getTeams: (params: ApiFootballParams = {}) => request("teams", params),
-    getStandings: (params: ApiFootballParams = {}) => request("standings", params),
-    getFixtureStatistics: (params: ApiFootballParams = {}) => request("fixtures/statistics", params),
-    getOdds: (params: ApiFootballParams = {}) => request("odds", params),
-    getPredictions: (params: ApiFootballParams = {}) => request("predictions", params),
-    getInjuries: (params: ApiFootballParams = {}) => request("injuries", params),
-    getLineups: (params: ApiFootballParams = {}) => request("fixtures/lineups", params),
+      request<ApiFootballResponse>("fixtures", { timezone: "Europe/Brussels", ...params }),
+    getTeams: (params: ApiFootballParams = {}) => request<ApiFootballResponse>("teams", params),
+    getStandings: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("standings", params),
+    getFixtureStatistics: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("fixtures/statistics", params),
+    getOdds: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("odds", { timezone: "Europe/Brussels", ...params }),
+    getPredictions: (fixture: number | string) =>
+      request<ApiFootballResponse>("predictions", { fixture }),
+    getInjuries: (params: ApiFootballParams = {}) =>
+      request<ApiFootballResponse>("injuries", { timezone: "Europe/Brussels", ...params }),
+    getLineups: (fixture: number | string) =>
+      request<ApiFootballResponse>("fixtures/lineups", { fixture }),
   };
 }
