@@ -1128,6 +1128,7 @@ export default {
         return json({
           provider: "api-sports",
           product: "api-football",
+          available: true,
           subscription: {
             plan: status.subscription?.plan ?? null,
             active: status.subscription?.active ?? null,
@@ -1139,8 +1140,12 @@ export default {
           },
         });
       } catch (error) {
+        const diagnosticMode = url.searchParams.get("diagnostic") === "1";
         if (!env.API_FOOTBALL_API_KEY) {
-          return json({ error: "provider_secret_not_configured" }, 503);
+          return json({
+            error: "provider_secret_not_configured",
+            ...(diagnosticMode ? { available: false } : {}),
+          }, diagnosticMode ? 200 : 503);
         }
         if (error instanceof ApiFootballError) {
           const payload = error.providerPayload;
@@ -1153,21 +1158,23 @@ export default {
             : [];
           return json({
             error: "provider_status_unavailable",
+            ...(diagnosticMode ? { available: false } : {}),
             diagnostic: {
               kind: error.status ? "http_error" : "request_error",
               httpStatus: error.status ?? null,
               message: error.message,
               providerErrorKeys: errorKeys,
             },
-          }, 503);
+          }, diagnosticMode ? 200 : 503);
         }
         return json({
           error: "provider_status_unavailable",
+          ...(diagnosticMode ? { available: false } : {}),
           diagnostic: {
             kind: "internal_error",
             message: error instanceof Error ? error.message : "unknown_error",
           },
-        }, 503);
+        }, diagnosticMode ? 200 : 503);
       }
     }
     if (url.pathname === "/api/fixtures/odds") {
