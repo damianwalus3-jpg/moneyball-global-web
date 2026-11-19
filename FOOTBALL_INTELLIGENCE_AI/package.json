@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrations:list": "wrangler d1 migrations list DB --remote",
     "db:migrations:apply": "wrangler d1 migrations apply DB --remote",
-    "deploy": "npm run db:migrations:apply && wrangler deploy"
+    "deploy": "npm run db:migrations:apply && wrangler deploy",
+    "build": "node -e \"console.log('No separate asset build is required; Wrangler deploy publishes the Worker.')\""
   },
   "devDependencies": {
     "typescript": "^5.9.3",
