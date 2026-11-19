@@ -71,6 +71,7 @@ const $=id=>document.getElementById(id);
 const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
 const date=Object.fromEntries(parts.map(p=>[p.type,p.value]));
 $("day").value=date.year+"-"+date.month+"-"+date.day;
+const esc=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const pct=v=>v===null||v===undefined?"—":(Number(v)*100).toFixed(1)+"%";
 const time=v=>v?new Intl.DateTimeFormat("pl-BE",{timeZone:"Europe/Brussels",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"—";
 async function load(){
@@ -83,10 +84,10 @@ async function load(){
   $("count").textContent=list.length;
   $("predicted").textContent=list.filter(x=>x.probability_home!==null).length;
   $("finished").textContent=list.filter(x=>["FT","AET","PEN"].includes(x.status_short)).length;
-  $("rows").innerHTML=list.length?list.map(x=>"<tr><td>"+time(x.kickoff_at)+"<small>"+(x.status_short||"—")+"</small></td><td><strong>"+x.home_team+" – "+x.away_team+"</strong><small>"+(x.competition||"Rozgrywki nieznane")+(x.country?" • "+x.country:"")+"</small></td><td>"+(x.home_goals===null?"—":x.home_goals+" : "+x.away_goals)+"</td><td>"+pct(x.probability_home)+"</td><td>"+pct(x.probability_draw)+"</td><td>"+pct(x.probability_away)+"</td><td>"+pct(x.probability_1x)+"</td><td>"+pct(x.probability_x2)+"</td><td>"+pct(x.probability_over_25)+"</td><td>"+pct(x.probability_btts_yes)+"</td></tr>").join(""):"<tr><td colspan='10' class='empty'>Brak zapisanych meczów dla tej daty. Najpierw musi zadziałać synchronizacja danych.</td></tr>";
+  $("rows").innerHTML=list.length?list.map(x=>"<tr><td>"+time(x.kickoff_at)+"<small>"+esc(x.status_short||"—")+"</small></td><td><strong>"+esc(x.home_team)+" – "+esc(x.away_team)+"</strong><small>"+esc(x.competition||"Rozgrywki nieznane")+(x.country?" • "+esc(x.country):"")+"</small></td><td>"+(x.home_goals===null?"—":esc(x.home_goals+" : "+x.away_goals))+"</td><td>"+pct(x.probability_home)+"</td><td>"+pct(x.probability_draw)+"</td><td>"+pct(x.probability_away)+"</td><td>"+pct(x.probability_1x)+"</td><td>"+pct(x.probability_x2)+"</td><td>"+pct(x.probability_over_25)+"</td><td>"+pct(x.probability_btts_yes)+"</td></tr>").join(""):"<tr><td colspan='10' class='empty'>Brak zapisanych meczów dla tej daty. Najpierw musi zadziałać synchronizacja danych.</td></tr>";
   $("updated").textContent="Pobrano: "+new Date().toLocaleTimeString("pl-BE");
   $("state").textContent="Dane załadowane";
- }catch(e){$("state").textContent="Błąd";$("rows").innerHTML="<tr><td colspan='10' class='empty'>"+String(e.message)+"</td></tr>";}
+ }catch(e){$("state").textContent="Błąd";$("rows").innerHTML="<tr><td colspan='10' class='empty'>"+esc(e.message)+"</td></tr>";}
  finally{$("load").disabled=false;}
 }
 $("load").addEventListener("click",load);$("day").addEventListener("change",load);load();
