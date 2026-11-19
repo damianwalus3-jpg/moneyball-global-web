@@ -282,7 +282,7 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     const run = vi.fn().mockResolvedValue({ success: true, meta: { changes: 0 } });
     const bind = vi.fn().mockReturnValue({ run });
     const prepare = vi.fn(() => ({ bind }));
-    const waitUntil = vi.fn();
+    const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
     worker.scheduled(
       { scheduledTime: Date.UTC(2026, 10, 19, 12, 0, 0) },
       { DB: { prepare } } as never,
