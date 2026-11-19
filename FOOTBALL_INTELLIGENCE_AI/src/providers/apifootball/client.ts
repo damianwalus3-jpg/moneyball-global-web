@@ -45,6 +45,13 @@ export interface ApiFootballClientOptions {
   onRateLimits?: (limits: ApiFootballRateLimits, endpoint: string) => void;
 }
 
+function safeProviderErrorKeys(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const errors = (payload as Record<string, unknown>).errors;
+  if (!errors || typeof errors !== "object") return [];
+  const keys = Array.isArray(errors) ? errors.map((_, index) => `item_${index + 1}`) : Object.keys(errors as Record<string, unknown>);
+  return keys.filter((key) => /^[a-z][a-z0-9_]{0,30}$/i.test(key)).slice(0, 8).sort();
+}
 function readLimit(headers: Headers, name: string): number | null {
   const raw = headers.get(name);
   if (raw === null) return null;
@@ -97,7 +104,9 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
         throw new ApiFootballError("API-SPORTS returned non-JSON content", response.status);
       }
       if (!response.ok) {
-        throw new ApiFootballError("API-SPORTS request failed", response.status, payload);
+        const keys = safeProviderErrorKeys(payload);
+        const category = keys.length ? ` (${keys.join(",")})` : "";
+        throw new ApiFootballError(`API-SPORTS HTTP ${response.status}${category}`, response.status, payload);
       }
       if (payload && typeof payload === "object" && !Array.isArray(payload)) {
         const record = payload as Record<string, unknown>;
@@ -106,7 +115,9 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
           ? errors.length > 0
           : Boolean(errors && typeof errors === "object" && Object.keys(errors).length > 0);
         if (hasErrors) {
-          throw new ApiFootballError("API-SPORTS reported an API error", response.status, payload);
+          const keys = safeProviderErrorKeys(payload);
+          const category = keys.length ? ` (${keys.join(",")})` : "";
+          throw new ApiFootballError(`API-SPORTS provider error${category}`, response.status, payload);
         }
       }
       return payload as T;
