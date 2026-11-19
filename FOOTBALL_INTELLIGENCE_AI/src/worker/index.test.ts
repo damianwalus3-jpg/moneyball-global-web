@@ -204,4 +204,16 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(401);
   });
 
+  it("serves the read-only Polish dashboard at the root path", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/"),
+      {} as never,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const html = await response.text();
+    expect(html).toContain("FOOTBALL INTELLIGENCE AI");
+    expect(html).toContain("/api/fixtures?date=");
+  });
+
 });
