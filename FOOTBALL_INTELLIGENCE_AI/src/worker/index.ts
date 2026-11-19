@@ -83,6 +83,148 @@ async function recordJob(
     VALUES ('api-sports', 'discovery', ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(status, startedAt, now(), counts.requests, counts.seen, counts.inserted, error ?? null, startedAt).run();
 }
+
+interface FixtureTeam {
+  id?: string | number;
+  name?: string;
+  logo?: string | null;
+  winner?: boolean | null;
+}
+interface ProviderFixture {
+  fixture?: {
+    id?: string | number;
+    date?: string;
+    referee?: string | null;
+    venue?: Record<string, unknown> | null;
+    status?: { short?: string; long?: string; elapsed?: number | null };
+  };
+  league?: { id?: string | number; season?: number; name?: string; type?: string; logo?: string };
+  teams?: { home?: FixtureTeam; away?: FixtureTeam };
+  goals?: { home?: number | null; away?: number | null };
+}
+async function refreshFixtures(env: Env, date: string): Promise<Response> {
+  const startedAt = now();
+  const counts = { requests: 0, seen: 0, inserted: 0 };
+  try {
+    const client = providerClient(env);
+    const accountResult = await client.getStatus();
+    const account = accountResult.response;
+    const dailyLimit = account.requests?.limit_day ?? null;
+    const used = account.requests?.current ?? null;
+    const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
+    await env.DB.prepare(`
+      INSERT INTO provider_accounts
+        (provider, product, plan_name, subscription_active, daily_request_limit,
+         daily_requests_used, daily_requests_remaining, observed_at, metadata_json)
+      VALUES ('api-sports', 'api-football', ?, ?, ?, ?, ?, ?, '{}')
+      ON CONFLICT(provider, product) DO UPDATE SET
+        plan_name = excluded.plan_name, subscription_active = excluded.subscription_active,
+        daily_request_limit = excluded.daily_request_limit,
+        daily_requests_used = excluded.daily_requests_used,
+        daily_requests_remaining = excluded.daily_requests_remaining,
+        observed_at = excluded.observed_at
+    `).bind(account.subscription?.plan ?? null,
+      account.subscription?.active === undefined ? null : account.subscription.active ? 1 : 0,
+      dailyLimit, used, remaining, now()).run();
+    if (account.subscription?.active === false) throw new Error("provider_subscription_inactive");
+    if (remaining !== null && remaining < 100) throw new Error("provider_quota_reserve_reached");
+
+    const result = await client.getFixtures({ date }) as ApiFootballResponse<ProviderFixture[]>;
+    counts.requests = 1;
+    const fixtures = Array.isArray(result.response) ? result.response : [];
+    await storeRaw(env.DB, "fixtures", result, fixtures.length);
+
+    for (const item of fixtures) {
+      const fixture = item.fixture;
+      const league = item.league;
+      const home = item.teams?.home;
+      const away = item.teams?.away;
+      if (!fixture?.id || !league?.id || !home?.id || !away?.id || !home.name || !away.name) continue;
+      counts.seen++;
+      const timestamp = now();
+      const homeResult = await env.DB.prepare(`
+        INSERT INTO teams (provider, provider_team_id, name, logo_url, source_updated_at)
+        VALUES ('api-sports', ?, ?, ?, ?)
+        ON CONFLICT(provider, provider_team_id) DO UPDATE SET
+          name = excluded.name, logo_url = excluded.logo_url, source_updated_at = excluded.source_updated_at
+      `).bind(String(home.id), home.name, home.logo ?? null, timestamp).run();
+      const awayResult = await env.DB.prepare(`
+        INSERT INTO teams (provider, provider_team_id, name, logo_url, source_updated_at)
+        VALUES ('api-sports', ?, ?, ?, ?)
+        ON CONFLICT(provider, provider_team_id) DO UPDATE SET
+          name = excluded.name, logo_url = excluded.logo_url, source_updated_at = excluded.source_updated_at
+      `).bind(String(away.id), away.name, away.logo ?? null, timestamp).run();
+      counts.inserted += (homeResult.meta?.changes ?? 0) + (awayResult.meta?.changes ?? 0);
+      const homeRow = await env.DB.prepare(
+        "SELECT id FROM teams WHERE provider = 'api-sports' AND provider_team_id = ?",
+      ).bind(String(home.id)).first<{ id: number }>();
+      const awayRow = await env.DB.prepare(
+        "SELECT id FROM teams WHERE provider = 'api-sports' AND provider_team_id = ?",
+      ).bind(String(away.id)).first<{ id: number }>();
+      if (!homeRow || !awayRow || homeRow.id === awayRow.id) continue;
+
+      await env.DB.prepare(`
+        INSERT INTO competitions
+          (provider, provider_competition_id, name, type, logo_url, coverage_json, source_updated_at, created_at, updated_at)
+        VALUES ('api-sports', ?, ?, NULL, ?, '{}', ?, ?, ?)
+        ON CONFLICT(provider, provider_competition_id) DO UPDATE SET
+          name = excluded.name, logo_url = excluded.logo_url, source_updated_at = excluded.source_updated_at,
+          updated_at = excluded.updated_at
+      `).bind(String(league.id), league.name ?? `Competition ${league.id}`,
+        league.logo ?? null, timestamp, timestamp, timestamp).run();
+      const competition = await env.DB.prepare(
+        "SELECT id FROM competitions WHERE provider = 'api-sports' AND provider_competition_id = ?",
+      ).bind(String(league.id)).first<{ id: number }>();
+      let seasonId: number | null = null;
+      if (competition && Number.isInteger(league.season)) {
+        await env.DB.prepare(`
+          INSERT INTO competition_seasons
+            (competition_id, season_year, is_current, coverage_json, source_updated_at)
+          VALUES (?, ?, 0, '{}', ?)
+          ON CONFLICT(competition_id, season_year) DO UPDATE SET source_updated_at = excluded.source_updated_at
+        `).bind(competition.id, league.season, timestamp).run();
+        const season = await env.DB.prepare(
+          "SELECT id FROM competition_seasons WHERE competition_id = ? AND season_year = ?",
+        ).bind(competition.id, league.season).first<{ id: number }>();
+        seasonId = season?.id ?? null;
+      }
+      const upsert = await env.DB.prepare(`
+        INSERT INTO fixtures
+          (provider, provider_fixture_id, competition_season_id, home_team_id, away_team_id,
+           kickoff_at, status_short, status_long, elapsed_minutes, home_goals, away_goals,
+           round_name, venue_json, referee, source_updated_at, last_seen_at, raw_summary_json, created_at, updated_at)
+        VALUES ('api-sports', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(provider, provider_fixture_id) DO UPDATE SET
+          competition_season_id = excluded.competition_season_id,
+          home_team_id = excluded.home_team_id, away_team_id = excluded.away_team_id,
+          kickoff_at = excluded.kickoff_at, status_short = excluded.status_short,
+          status_long = excluded.status_long, elapsed_minutes = excluded.elapsed_minutes,
+          home_goals = excluded.home_goals, away_goals = excluded.away_goals,
+          round_name = excluded.round_name, venue_json = excluded.venue_json,
+          referee = excluded.referee, source_updated_at = excluded.source_updated_at,
+          last_seen_at = excluded.last_seen_at, raw_summary_json = excluded.raw_summary_json,
+          updated_at = excluded.updated_at
+      `).bind(String(fixture.id), seasonId, homeRow.id, awayRow.id,
+        fixture.date ?? null, fixture.status?.short ?? null, fixture.status?.long ?? null,
+        fixture.status?.elapsed ?? null, item.goals?.home ?? null, item.goals?.away ?? null,
+        null, JSON.stringify(fixture.venue ?? {}), fixture.referee ?? null,
+        timestamp, timestamp, JSON.stringify(item), timestamp, timestamp).run();
+      counts.inserted += upsert.meta?.changes ?? 0;
+    }
+    await recordJob(env.DB, "succeeded", startedAt, counts);
+    return json({
+      status: "completed", provider: "api-sports", date,
+      fixturesReceived: fixtures.length, fixturesProcessed: counts.seen,
+      rowsChanged: counts.inserted, requestsMade: counts.requests,
+      quota: { dailyLimit, used, remaining, safetyReserve: 100 },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    await recordJob(env.DB, "failed", startedAt, counts, detail).catch(() => undefined);
+    return json({ error: "fixture_sync_failed", detail }, 502);
+  }
+}
+
 function providerClient(env: Env) {
   if (!env.API_FOOTBALL_API_KEY) throw new Error("provider_secret_not_configured");
   return createApiFootballClient({ apiKey: env.API_FOOTBALL_API_KEY });
@@ -246,6 +388,19 @@ export default {
       } catch {
         return json({ error: env.API_FOOTBALL_API_KEY ? "provider_status_unavailable" : "provider_secret_not_configured" }, 503);
       }
+    }
+    if (url.pathname === "/api/fixtures/refresh") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!env.INGESTION_TOKEN) return json({ error: "ingestion_secret_not_configured" }, 503);
+      const authorization = request.headers.get("authorization") ?? "";
+      if (!safeEqual(authorization, `Bearer ${env.INGESTION_TOKEN}`)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const date = url.searchParams.get("date") ?? "";
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+        return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
+      }
+      return refreshFixtures(env, date);
     }
     if (url.pathname === "/api/discovery/refresh") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
