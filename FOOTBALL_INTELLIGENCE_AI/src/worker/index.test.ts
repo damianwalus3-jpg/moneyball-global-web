@@ -148,7 +148,11 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
       env as never,
     );
     expect(response.status).toBe(200);
-    expect(bind).toHaveBeenCalledWith("2026-11-19", 250);
+    expect(bind).toHaveBeenCalledWith(
+      "2026-11-18T23:00:00.000Z",
+      "2026-11-19T23:00:00.000Z",
+      250,
+    );
     await expect(response.json()).resolves.toMatchObject({ date: "2026-11-19", count: 0, fixtures: [] });
   });
 
