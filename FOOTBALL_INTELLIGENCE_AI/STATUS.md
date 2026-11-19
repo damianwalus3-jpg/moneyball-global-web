@@ -127,3 +127,6 @@
 - GitHub Actions run `44587426377` on commit `38ba2e64fba40a5055cc20ea1c1db3f24d8bb7ac`: dependency install PASSED, TypeScript typecheck PASSED, all 24 unit tests PASSED.
 - Live Cloudflare verification immediately after the green CI still returned `Hello world` at both `/` and `/health`. This means Cloudflare has not yet been confirmed to deploy the application bundle. No API provider calls or fixture ingestion have been run.
 - Next: verify a new Git-connected Cloudflare build from `football-intelligence-ai` with root `FOOTBALL_INTELLIGENCE_AI`; then confirm `/health` returns JSON and `/api/provider/status` reports sanitized Pro subscription/quota. Do not start discovery until those checks pass.
+- Added a no-op `build` script because the Cloudflare project form retained its default `bun run build` command; this avoids a missing-script failure while leaving actual Worker publication to `npm run deploy`.
+- Latest CI after this build-script change: run `44587654906` completed successfully (dependency installation, typecheck and unit tests).
+- Cloudflare live URL was checked again after the successful CI and still returned `Hello world`. This confirms the Cloudflare deployment itself has not yet switched to the GitHub Worker bundle; a Cloudflare dashboard/build trigger or connection repair is still required.
