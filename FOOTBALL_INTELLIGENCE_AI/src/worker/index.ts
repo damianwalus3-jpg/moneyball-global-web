@@ -1,4 +1,4 @@
-import { createApiFootballClient, type ApiFootballResponse } from "../providers/apifootball/client";
+import { ApiFootballError, createApiFootballClient, type ApiFootballResponse } from "../providers/apifootball/client";
 
 interface D1Result { success: boolean; meta?: { changes?: number } }
 interface D1Statement {
