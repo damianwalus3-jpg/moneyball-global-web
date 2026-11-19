@@ -48,6 +48,25 @@ function json(data: unknown, status = 200): Response {
   });
 }
 function now(): string { return new Date().toISOString(); }
+function brusselsLocalMidnightUtc(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const targetUtc = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(targetUtc));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const observedAsUtc = Date.UTC(
+    Number(values.year), Number(values.month) - 1, Number(values.day),
+    Number(values.hour), Number(values.minute), Number(values.second),
+  );
+  return new Date(targetUtc - (observedAsUtc - targetUtc)).toISOString();
+}
+function nextCalendarDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -207,7 +226,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
           last_seen_at = excluded.last_seen_at, raw_summary_json = excluded.raw_summary_json,
           updated_at = excluded.updated_at
       `).bind(String(fixture.id), seasonId, homeRow.id, awayRow.id,
-        fixture.date ?? null, fixture.status?.short ?? null, fixture.status?.long ?? null,
+        fixture.date ? new Date(fixture.date).toISOString() : null, fixture.status?.short ?? null, fixture.status?.long ?? null,
         fixture.status?.elapsed ?? null, item.goals?.home ?? null, item.goals?.away ?? null,
         null, JSON.stringify(fixture.venue ?? {}), fixture.referee ?? null,
         timestamp, timestamp, JSON.stringify(item), timestamp, timestamp).run();
@@ -416,10 +435,10 @@ async function generatePredictions(env: Env, date: string): Promise<Response> {
       FROM fixtures f
       JOIN teams home ON home.id = f.home_team_id
       JOIN teams away ON away.id = f.away_team_id
-      WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
+      WHERE f.provider = 'api-sports' AND f.kickoff_at >= ? AND f.kickoff_at < ?
         AND f.status_short = 'NS'
       ORDER BY f.kickoff_at ASC LIMIT 50
-    `).bind(date).all<ModelFixture>();
+    `).bind(brusselsLocalMidnightUtc(date), brusselsLocalMidnightUtc(nextCalendarDate(date))).all<ModelFixture>();
     const fixtures = targets.results;
     if (!fixtures.length) return json({ status: "no_fixtures", date, generated: 0 });
     const model = await env.DB.prepare(`
@@ -543,10 +562,10 @@ async function listFixtures(env: Env, date: string, limit: number): Promise<Resp
         SELECT id FROM match_predictions WHERE fixture_id = f.id ORDER BY generated_at DESC LIMIT 1
       )
       LEFT JOIN model_versions mv ON mv.id = mp.model_version_id
-      WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
+      WHERE f.provider = 'api-sports' AND f.kickoff_at >= ? AND f.kickoff_at < ?
       ORDER BY f.kickoff_at ASC
       LIMIT ?
-    `).bind(date, limit).all<FixtureListRow>();
+    `).bind(brusselsLocalMidnightUtc(date), brusselsLocalMidnightUtc(nextCalendarDate(date)), limit).all<FixtureListRow>();
     return json({ date, count: result.results.length, fixtures: result.results });
   } catch {
     return json({ error: "fixture_query_failed" }, 503);
