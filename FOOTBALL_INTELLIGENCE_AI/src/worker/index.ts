@@ -185,6 +185,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
     const client = providerClient(env);
     const accountResult = await client.getStatus();
     const account = accountResult.response;
+    counts.requests = 1; // provider status preflight
     const dailyLimit = account.requests?.limit_day ?? null;
     const used = account.requests?.current ?? null;
     const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
@@ -206,7 +207,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
     if (remaining !== null && remaining < 100) throw new Error("provider_quota_reserve_reached");
 
     const result = await client.getFixtures({ date }) as ApiFootballResponse<ProviderFixture[]>;
-    counts.requests = 1;
+    counts.requests += 1;
     const fixtures = Array.isArray(result.response) ? result.response : [];
     await storeRaw(env.DB, "fixtures", result, fixtures.length);
 
@@ -353,7 +354,7 @@ async function refreshFixtureEnrichment(env: Env, providerFixtureId: string): Pr
       client.getLineups(providerFixtureId) as Promise<ApiFootballResponse<ProviderLineup[]>>,
       client.getInjuries({ fixture: providerFixtureId }) as Promise<ApiFootballResponse<ProviderInjury[]>>,
     ]);
-    counts.requests = 3;
+    counts.requests += 3;
     const statistics = Array.isArray(statisticsResult.response) ? statisticsResult.response : [];
     const lineups = Array.isArray(lineupsResult.response) ? lineupsResult.response : [];
     const injuries = Array.isArray(injuriesResult.response) ? injuriesResult.response : [];
@@ -678,7 +679,7 @@ async function refreshFixtureOdds(env: Env, providerFixtureId: string): Promise<
     if (remaining !== null && remaining < 100) throw new Error("provider_quota_reserve_reached");
 
     const result = await client.getOdds({ fixture: providerFixtureId }) as ApiFootballResponse<ProviderOddsFixture[]>;
-    counts.requests = 1;
+    counts.requests += 1;
     const records = Array.isArray(result.response) ? result.response : [];
     await storeRaw(env.DB, "odds", result, records.length);
     const observedAt = now();
@@ -811,7 +812,7 @@ async function refreshDiscovery(env: Env): Promise<Response> {
       client.getCountries() as Promise<ApiFootballResponse<Country[]>>,
       client.getLeagues() as Promise<ApiFootballResponse<League[]>>,
     ]);
-    counts.requests = 2;
+    counts.requests += 2;
     const countries = Array.isArray(countriesResult.response) ? countriesResult.response : [];
     const leagues = Array.isArray(leaguesResult.response) ? leaguesResult.response : [];
     await storeRaw(env.DB, "countries", countriesResult, countries.length);
