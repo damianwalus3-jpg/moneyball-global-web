@@ -46,6 +46,12 @@
 - Added protected `POST /api/fixtures/refresh?date=YYYY-MM-DD` for one-day fixture ingestion. It checks the same daily quota reserve, stores the raw response, normalizes teams/competitions/seasons and idempotently upserts fixtures and scores/status.
 - Added input-validation coverage for fixture date requests. This remains unverified by an executed CI run and has not yet been tested against the live provider or D1.
 
+## Fixture enrichment — 2026-11-19
+- Added D1 migration `0002_fixture_enrichment.sql` for lineups and injury snapshots.
+- Added protected `POST /api/fixtures/enrich?fixture=<provider-fixture-id>`: preflights the daily quota, fetches statistics, lineups and fixture-linked injury data, stores raw provider payloads and normalized records, and writes an enrichment job ledger entry.
+- Added route tests for missing authorization and invalid fixture IDs. No test run or live API/D1 verification is claimed.
+- Updated the deployment guide with the safe one-fixture-at-a-time enrichment procedure; this is intentionally not a bulk loop until per-minute quotas and actual coverage are observed.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
