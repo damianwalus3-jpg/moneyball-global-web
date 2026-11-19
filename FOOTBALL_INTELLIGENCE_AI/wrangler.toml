@@ -1,0 +1,13 @@
+name = "football-intelligence-ai-api"
+main = "src/worker/index.ts"
+compatibility_date = "2026-11-19"
+workers_dev = true
+
+# Create the D1 database, then replace the placeholder database_id.
+# Never put API_FOOTBALL_API_KEY in vars; add it with:
+# wrangler secret put API_FOOTBALL_API_KEY
+[[d1_databases]]
+binding = "DB"
+database_name = "football-intelligence-ai"
+database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+migrations_dir = "db/migrations"
