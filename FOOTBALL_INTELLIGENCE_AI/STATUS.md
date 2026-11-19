@@ -77,6 +77,10 @@
 - Added responsive Polish read-only dashboard at `/`: date selector, match count, finished count, predictions count, local kickoff times, results and model probabilities. It reads only the public daily fixtures endpoint; ingestion credentials are never exposed in browser code.
 - Added a Worker test for the dashboard shell and updated deployment verification instructions. UI is ready for first deployment, but no live dashboard URL exists until the Worker is created.
 
+## Odds snapshot ingestion — 2026-11-19
+- Added protected `POST /api/fixtures/odds?fixture=<provider-fixture-id>` to fetch one fixture's bookmaker markets/selections and append odds snapshots, retaining the raw source payload. It preflights the subscription/quota and records no-odds responses without fabricating prices.
+- Added an authorization test and deployment notes. Actual odds entitlement and market coverage remain unverified until a live provider call can be made.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
