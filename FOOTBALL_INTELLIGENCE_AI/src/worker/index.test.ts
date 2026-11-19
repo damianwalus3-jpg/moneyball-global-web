@@ -42,6 +42,31 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     });
   });
 
+  it("returns safe provider error keys through diagnostic mode", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      get: "status",
+      errors: { requests: "Too many requests from shared IP" },
+      results: 0,
+      response: [],
+    }), { status: 200, headers: { "content-type": "application/json" } })));
+    try {
+      const response = await worker.fetch(
+        new Request("https://example.workers.dev/api/provider/status?diagnostic=1"),
+        { DB: {}, API_FOOTBALL_API_KEY: "provider-secret" } as never,
+      );
+      expect(response.status).toBe(200);
+      const payload = await response.json() as {
+        available: boolean;
+        diagnostic: { providerErrorKeys: string[]; message: string };
+      };
+      expect(payload.available).toBe(false);
+      expect(payload.diagnostic.providerErrorKeys).toEqual(["requests"]);
+      expect(JSON.stringify(payload)).not.toContain("Too many requests from shared IP");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects non-GET methods", async () => {
     const response = await worker.fetch(
       new Request("https://example.workers.dev/health", { method: "POST" }),
