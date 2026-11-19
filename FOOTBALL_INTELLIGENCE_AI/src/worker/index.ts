@@ -37,6 +37,61 @@ interface League {
   seasons?: LeagueSeason[];
 }
 
+const DASHBOARD_HTML = \`<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>FOOTBALL INTELLIGENCE AI</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1220;color:#e5edf8}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#101b2d,#0b1220 55%);min-height:100vh}
+main{max-width:1100px;margin:auto;padding:24px 16px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:clamp(24px,5vw,36px);margin:0;letter-spacing:-.04em}.sub{color:#9fb0c7;margin:8px 0 24px}
+.panel{background:#131f31;border:1px solid #29384e;border-radius:16px;padding:16px;margin:14px 0}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}input,button{font:inherit;border-radius:10px;border:1px solid #34455f;padding:10px 12px;background:#0d1727;color:#edf4ff}
+button{cursor:pointer;background:#1e65d6;border-color:#3679e4;font-weight:650}button:disabled{opacity:.5;cursor:wait}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.stat{background:#0d1727;border-radius:12px;padding:12px}.stat strong{display:block;font-size:23px}.stat span{font-size:12px;color:#9fb0c7}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:780px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #28364a;font-size:13px}th{color:#9fb0c7;font-weight:600}td small{display:block;color:#91a4bd;margin-top:4px}.pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#1b2c43;color:#c7d8ee;font-size:11px}
+.muted{color:#94a6bf}.empty{text-align:center;padding:35px 12px;color:#9fb0c7}.foot{font-size:12px;color:#8093ad;margin-top:18px}
+@media(max-width:600px){main{padding:18px 12px}.stats{grid-template-columns:repeat(3,1fr)}.stat strong{font-size:19px}}
+</style></head>
+<body><main>
+<div class="top"><div><h1>⚽ FOOTBALL INTELLIGENCE AI</h1><div class="sub">Centrum analizy meczów i prognoz • czas: Europe/Brussels</div></div><span class="pill" id="state">Oczekiwanie na dane</span></div>
+<section class="panel">
+<div class="controls"><label for="day">Data meczów</label><input id="day" type="date"><button id="load">Pobierz mecze</button></div>
+<div class="stats"><div class="stat"><strong id="count">—</strong><span>Mecze</span></div><div class="stat"><strong id="predicted">—</strong><span>Z prognozą</span></div><div class="stat"><strong id="finished">—</strong><span>Zakończone</span></div></div>
+</section>
+<section class="panel"><div class="top"><h2 style="font-size:18px;margin:0">Mecze i prognozy</h2><span class="muted" id="updated"></span></div>
+<div class="tablewrap"><table><thead><tr><th>Godzina</th><th>Mecz / rozgrywki</th><th>Wynik</th><th>1</th><th>X</th><th>2</th><th>1X</th><th>X2</th><th>O2.5</th><th>BTTS</th></tr></thead><tbody id="rows"><tr><td colspan="10" class="empty">Wybierz datę i pobierz mecze.</td></tr></tbody></table></div>
+<div class="foot">Prognozy są eksperymentalnym modelem statystycznym, nie gwarancją wyniku ani poradą bukmacherską. Brak prognozy oznacza brak wyliczenia, nie 0%.</div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id);
+const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Brussels",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+const date=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+$("day").value=date.year+"-"+date.month+"-"+date.day;
+const pct=v=>v===null||v===undefined?"—":(Number(v)*100).toFixed(1)+"%";
+const time=v=>v?new Intl.DateTimeFormat("pl-BE",{timeZone:"Europe/Brussels",hour:"2-digit",minute:"2-digit"}).format(new Date(v)):"—";
+async function load(){
+ const day=$("day").value;if(!day)return;
+ $("load").disabled=true;$("state").textContent="Ładowanie…";
+ try{
+  const response=await fetch("/api/fixtures?date="+encodeURIComponent(day));
+  const data=await response.json();if(!response.ok)throw new Error(data.error||"Błąd pobierania");
+  const list=data.fixtures||[];
+  $("count").textContent=list.length;
+  $("predicted").textContent=list.filter(x=>x.probability_home!==null).length;
+  $("finished").textContent=list.filter(x=>["FT","AET","PEN"].includes(x.status_short)).length;
+  $("rows").innerHTML=list.length?list.map(x=>"<tr><td>"+time(x.kickoff_at)+"<small>"+(x.status_short||"—")+"</small></td><td><strong>"+x.home_team+" – "+x.away_team+"</strong><small>"+(x.competition||"Rozgrywki nieznane")+(x.country?" • "+x.country:"")+"</small></td><td>"+(x.home_goals===null?"—":x.home_goals+" : "+x.away_goals)+"</td><td>"+pct(x.probability_home)+"</td><td>"+pct(x.probability_draw)+"</td><td>"+pct(x.probability_away)+"</td><td>"+pct(x.probability_1x)+"</td><td>"+pct(x.probability_x2)+"</td><td>"+pct(x.probability_over_25)+"</td><td>"+pct(x.probability_btts_yes)+"</td></tr>").join(""):"<tr><td colspan='10' class='empty'>Brak zapisanych meczów dla tej daty. Najpierw musi zadziałać synchronizacja danych.</td></tr>";
+  $("updated").textContent="Pobrano: "+new Date().toLocaleTimeString("pl-BE");
+  $("state").textContent="Dane załadowane";
+ }catch(e){$("state").textContent="Błąd";$("rows").innerHTML="<tr><td colspan='10' class='empty'>"+String(e.message)+"</td></tr>";}
+ finally{$("load").disabled=false;}
+}
+$("load").addEventListener("click",load);$("day").addEventListener("change",load);load();
+</script></body></html>\`;
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -780,6 +835,11 @@ async function refreshDiscovery(env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/" && request.method === "GET") {
+      return new Response(DASHBOARD_HTML, {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
     if (url.pathname === "/health") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
       try {
