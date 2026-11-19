@@ -2,30 +2,31 @@
 
 ## Stage 0 — charter and architecture
 - [x] Isolated development branch created.
-- [x] Product charter and non-goals documented.
-- [x] Architecture and source register documented.
-- [x] Provider identified as APIFootball.com (not API-SPORTS).
-- [x] API v3 endpoint/authentication contract researched.
-- [ ] Reconcile user's dashboard label "Pro" with public plan names and exact entitlements.
+- [x] Product charter and architecture documented.
+- [x] Provider identity corrected from APIFootball.com to API-SPORTS API-FOOTBALL using the user's dashboard screenshot.
+- [x] API-SPORTS v3 base URL and header authentication researched.
 - [ ] Create dedicated repository or approve temporary isolated folder.
 
 ## Stage 1 — foundation
-- [x] Initial server-only APIFootball API v3 adapter scaffold created.
-- [x] Secret variable documented as APIFOOTBALL_API_KEY; no credential committed.
+- [x] Initial connector scaffold exists (legacy APIFootball.com scaffold must be replaced before use).
+- [x] Correct provider integration contract documented.
+- [ ] Implement API-SPORTS v3 server-only client.
+- [ ] Configure `API_FOOTBALL_API_KEY` as a server-side secret.
 - [ ] Select and document final hosting/database stack.
 - [ ] Create schema migrations and seed/reference data.
 - [ ] Add CI: lint, typecheck, unit tests, build.
-- [ ] Add health/status page and job ledger.
-- [ ] Configure secret in deployment environment and run live smoke tests.
+- [ ] Add health/status page and ingestion job ledger.
+- [ ] Run authenticated `/status` and low-volume live smoke tests.
 
 ## Stage 2 — reliable data ingestion
-- [ ] Fetch account countries and leagues to establish real coverage.
-- [ ] Fixtures and status lifecycle.
+- [ ] Read account quota/subscription from `/status`.
+- [ ] Fetch countries and leagues; persist actual competition coverage flags.
+- [ ] Fixtures and status lifecycle, with Europe/Brussels display timezone and UTC storage.
 - [ ] Teams and identity mapping.
 - [ ] Results and match events.
-- [ ] Statistics, lineups and injuries when supported by plan.
-- [ ] Odds snapshots only after confirming odds entitlement/add-on.
-- [ ] Idempotency, retries, freshness and coverage tests.
+- [ ] Statistics, lineups and injuries where coverage permits.
+- [ ] Pre-match/in-play odds snapshots where coverage permits.
+- [ ] Idempotency, pagination, retries, freshness and rate-limit tests.
 
 ## Stage 3 — prediction research
 - [ ] Establish a time-safe historical dataset.
@@ -46,7 +47,7 @@
 - [ ] History, evaluation and audit pages.
 
 ## Stage 5 — production hardening
-- [ ] Monitoring, alerts, backup/restore and rate-limit budgets.
+- [ ] Monitoring, alerts, backup/restore and quota budgets.
 - [ ] Security review and secret scan.
 - [ ] Mobile usability and accessibility.
 - [ ] Production deployment and post-deploy smoke tests.
