@@ -47,7 +47,8 @@ After a successful deployment:
 3. Confirm D1 now contains the initial schema tables.
 4. Call `POST /api/discovery/refresh` with `Authorization: Bearer <INGESTION_TOKEN>` to fetch and persist the provider's countries, active leagues and season coverage. This endpoint is intentionally protected because each refresh consumes provider quota.
 5. Confirm the discovery response reports counts and the quota reserve.
-6. Only then schedule additional fixture and statistics ingestion.
+6. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
+7. Only after validating daily fixture ingestion should additional statistics, injuries, lineups and odds jobs be added.
 
 ## Stop conditions
 
