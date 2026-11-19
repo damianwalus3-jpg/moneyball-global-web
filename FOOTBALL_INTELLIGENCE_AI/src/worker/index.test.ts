@@ -231,6 +231,53 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(401);
   });
 
+  it("rejects cross-origin public sync requests", async () => {
+    const prepare = vi.fn();
+    const env = { DB: { prepare } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/sync?date=2026-11-19", {
+        method: "POST",
+        headers: { origin: "https://attacker.example" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(403);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits dashboard sync before calling the provider", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true, meta: { changes: 0 } });
+    const bind = vi.fn().mockReturnValue({ run });
+    const env = { DB: { prepare: vi.fn(() => ({ bind })) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/sync?date=2026-11-19", {
+        method: "POST",
+        headers: { origin: "https://example.workers.dev" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "sync_cooldown",
+      retryAfterSeconds: 120,
+    });
+    expect(env.DB.prepare).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates public sync dates before consuming the cooldown slot", async () => {
+    const prepare = vi.fn();
+    const env = { DB: { prepare } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/sync?date=2026-02-31", {
+        method: "POST",
+        headers: { origin: "https://example.workers.dev" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(400);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
   it("returns aggregated model performance from the read API", async () => {
     const all = vi.fn().mockResolvedValue({ results: [] });
     const env = { DB: { prepare: () => ({ all }) } };
