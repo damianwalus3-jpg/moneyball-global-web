@@ -726,6 +726,28 @@ async function refreshFixtureOdds(env: Env, providerFixtureId: string): Promise<
   }
 }
 
+
+async function modelPerformance(env: Env): Promise<Response> {
+  try {
+    const result = await env.DB.prepare(`
+      SELECT mv.model_key, mv.version, COUNT(pe.id) AS evaluated_matches,
+        AVG(pe.brier_1x2) AS mean_brier_1x2,
+        AVG(pe.log_loss_1x2) AS mean_log_loss_1x2,
+        AVG(pe.brier_over_25) AS mean_brier_over_25,
+        AVG(pe.brier_btts) AS mean_brier_btts,
+        MAX(pe.evaluated_at) AS last_evaluated_at
+      FROM model_versions mv
+      LEFT JOIN match_predictions mp ON mp.model_version_id = mv.id
+      LEFT JOIN prediction_evaluations pe ON pe.prediction_id = mp.id
+      GROUP BY mv.id
+      ORDER BY mv.created_at DESC
+    `).all<Record<string, unknown>>();
+    return json({ models: result.results });
+  } catch {
+    return json({ error: "model_performance_unavailable" }, 503);
+  }
+}
+
 interface FixtureListRow {
   provider_fixture_id: string;
   kickoff_at: string | null;
@@ -963,6 +985,10 @@ export default {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
       }
       return generatePredictions(env, date);
+    }
+    if (url.pathname === "/api/models/performance") {
+      if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+      return modelPerformance(env);
     }
     if (url.pathname === "/api/fixtures") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
