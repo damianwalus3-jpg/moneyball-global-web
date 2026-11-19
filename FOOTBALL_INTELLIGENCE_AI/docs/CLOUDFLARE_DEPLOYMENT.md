@@ -33,8 +33,10 @@ After the Worker exists, open **Settings → Variables and Secrets** for this Wo
 
 - Name: `API_FOOTBALL_API_KEY`
 - Value: the private API-SPORTS API-FOOTBALL key from the provider dashboard
+- Name: `INGESTION_TOKEN`
+- Value: generate a separate long random secret used only to authorize manual data refreshes
 
-Paste the value directly into Cloudflare. Never send it in chat, commit it to Git, put it in a `VITE_` variable, or add it as a build variable. The Worker reads it only on the server.
+Paste both values directly into Cloudflare. Never send them in chat, commit them to Git, put them in a `VITE_` variable, or add them as build variables. The Worker reads them only on the server.
 
 ## First verification
 
@@ -43,7 +45,9 @@ After a successful deployment:
 1. Open `https://football-intelligence-ai-api.<your-workers-subdomain>.workers.dev/health`. Expect HTTP 200 and `{"status":"ok","database":true,...}`.
 2. Open `/api/provider/status`. If the secret is not configured, expect a safe 503 response. After adding the secret, expect sanitized subscription and quota metadata.
 3. Confirm D1 now contains the initial schema tables.
-4. Only then begin provider coverage discovery.
+4. Call `POST /api/discovery/refresh` with `Authorization: Bearer <INGESTION_TOKEN>` to fetch and persist the provider's countries, active leagues and season coverage. This endpoint is intentionally protected because each refresh consumes provider quota.
+5. Confirm the discovery response reports counts and the quota reserve.
+6. Only then schedule additional fixture and statistics ingestion.
 
 ## Stop conditions
 
