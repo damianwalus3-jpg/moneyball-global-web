@@ -130,3 +130,11 @@
 - Added a no-op `build` script because the Cloudflare project form retained its default `bun run build` command; this avoids a missing-script failure while leaving actual Worker publication to `npm run deploy`.
 - Latest CI after this build-script change: run `44587654906` completed successfully (dependency installation, typecheck and unit tests).
 - Cloudflare live URL was checked again after the successful CI and still returned `Hello world`. This confirms the Cloudflare deployment itself has not yet switched to the GitHub Worker bundle; a Cloudflare dashboard/build trigger or connection repair is still required.
+
+
+## Live endpoint audit — 2026-11-19
+- Audited the user-supplied host `football-ai-damian-2026.damianwalus3.workers.dev`: its fixtures endpoint returns 114 raw API-SPORTS-shaped fixtures across multiple continents, with an `ok/timezone/paging` envelope. It does not expose the isolated branch Worker's `/health` or `/api/provider/status` routes (both return 404).
+- Confirmed this is a different deployment/API contract from the isolated branch Worker. Full evidence and exact response-shape differences are recorded in `docs/LIVE_ENDPOINT_AUDIT_2026-11-19.md`.
+- Cloudflare Workers Builds check for branch commit `c25dae5d047c3a43b8ea423672d56eaa9b83471b` completed successfully: build ID `790411f4-1097-4fe8-8c2a-b24c0c11da8d`, deployed version `6f0ea2f8-9fea-404e-ac70-a8290dd8c58b`. GitHub typecheck/unit-test check also passed.
+- Live isolated Worker `football-intelligence-ai-api.damianwalus3.workers.dev`: `/health` returns 200 with D1 connected; dashboard is served; `/api/fixtures?date=2026-11-19` returns an empty normalized list (0 fixtures); `/api/provider/status` returns 503. Provider authentication/connectivity and first ingestion are therefore not yet verified.
+- No ingestion POST was sent and no secrets were accessed. Next action is to diagnose the provider-status 503 from Cloudflare runtime diagnostics, then perform controlled discovery and one-day fixture ingestion. Do not apply a Europe-only filter unless the product scope is explicitly changed; the current documented product goal is provider-covered competitions.
