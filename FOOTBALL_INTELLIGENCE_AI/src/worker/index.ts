@@ -74,14 +74,15 @@ async function recordJob(
   db: D1Database,
   status: "succeeded" | "failed",
   startedAt: string,
+  jobType: "discovery" | "fixtures",
   counts: { requests: number; seen: number; inserted: number },
   error?: string,
 ): Promise<void> {
   await db.prepare(`
     INSERT INTO ingestion_jobs
       (provider, job_type, status, started_at, finished_at, requests_made, records_seen, records_inserted, error_message, created_at)
-    VALUES ('api-sports', 'discovery', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(status, startedAt, now(), counts.requests, counts.seen, counts.inserted, error ?? null, startedAt).run();
+    VALUES ('api-sports', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(jobType, status, startedAt, now(), counts.requests, counts.seen, counts.inserted, error ?? null, startedAt).run();
 }
 
 interface FixtureTeam {
@@ -211,7 +212,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
         timestamp, timestamp, JSON.stringify(item), timestamp, timestamp).run();
       counts.inserted += upsert.meta?.changes ?? 0;
     }
-    await recordJob(env.DB, "succeeded", startedAt, counts);
+    await recordJob(env.DB, "succeeded", startedAt, "fixtures", counts);
     return json({
       status: "completed", provider: "api-sports", date,
       fixturesReceived: fixtures.length, fixturesProcessed: counts.seen,
@@ -220,7 +221,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "unknown_error";
-    await recordJob(env.DB, "failed", startedAt, counts, detail).catch(() => undefined);
+    await recordJob(env.DB, "failed", startedAt, "fixtures", counts, detail).catch(() => undefined);
     return json({ error: "fixture_sync_failed", detail }, 502);
   }
 }
@@ -332,7 +333,7 @@ async function refreshDiscovery(env: Env): Promise<Response> {
       }
     }
 
-    await recordJob(env.DB, "succeeded", startedAt, counts);
+    await recordJob(env.DB, "succeeded", startedAt, "discovery", counts);
     return json({
       status: "completed",
       provider: "api-sports",
@@ -346,7 +347,7 @@ async function refreshDiscovery(env: Env): Promise<Response> {
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "unknown_error";
-    await recordJob(env.DB, "failed", startedAt, counts, code).catch(() => undefined);
+    await recordJob(env.DB, "failed", startedAt, "discovery", counts, code).catch(() => undefined);
     if (code === "provider_secret_not_configured") {
       return json({ error: code }, 503);
     }
