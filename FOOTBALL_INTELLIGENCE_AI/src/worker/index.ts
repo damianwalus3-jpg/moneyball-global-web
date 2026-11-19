@@ -1020,8 +1020,32 @@ export default {
             dailyLimit: status.requests?.limit_day ?? null,
           },
         });
-      } catch {
-        return json({ error: env.API_FOOTBALL_API_KEY ? "provider_status_unavailable" : "provider_secret_not_configured" }, 503);
+      } catch (error) {
+        if (!env.API_FOOTBALL_API_KEY) {
+          return json({ error: "provider_secret_not_configured" }, 503);
+        }
+        if (error instanceof ApiFootballError) {
+          const payload = error.providerPayload;
+          const providerErrors = payload && typeof payload === "object" && "errors" in payload
+            ? (payload as { errors?: unknown }).errors
+            : null;
+          return json({
+            error: "provider_status_unavailable",
+            diagnostic: {
+              kind: error.status ? "http_error" : "request_error",
+              httpStatus: error.status ?? null,
+              message: error.message,
+              providerErrors,
+            },
+          }, 503);
+        }
+        return json({
+          error: "provider_status_unavailable",
+          diagnostic: {
+            kind: "internal_error",
+            message: error instanceof Error ? error.message : "unknown_error",
+          },
+        }, 503);
       }
     }
     if (url.pathname === "/api/fixtures/odds") {
