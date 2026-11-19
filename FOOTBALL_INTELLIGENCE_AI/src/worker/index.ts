@@ -104,6 +104,11 @@ function json(data: unknown, status = 200): Response {
   });
 }
 function now(): string { return new Date().toISOString(); }
+function toUtcIso(value?: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
 function brusselsLocalMidnightUtc(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   const targetUtc = Date.UTC(year, month - 1, day, 0, 0, 0);
@@ -283,7 +288,7 @@ async function refreshFixtures(env: Env, date: string): Promise<Response> {
           last_seen_at = excluded.last_seen_at, raw_summary_json = excluded.raw_summary_json,
           updated_at = excluded.updated_at
       `).bind(String(fixture.id), seasonId, homeRow.id, awayRow.id,
-        fixture.date ? new Date(fixture.date).toISOString() : null, fixture.status?.short ?? null, fixture.status?.long ?? null,
+        toUtcIso(fixture.date), fixture.status?.short ?? null, fixture.status?.long ?? null,
         fixture.status?.elapsed ?? null, item.goals?.home ?? null, item.goals?.away ?? null,
         null, JSON.stringify(fixture.venue ?? {}), fixture.referee ?? null,
         timestamp, timestamp, JSON.stringify(item), timestamp, timestamp).run();
