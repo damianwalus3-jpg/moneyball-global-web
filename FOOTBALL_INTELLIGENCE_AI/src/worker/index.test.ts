@@ -95,4 +95,37 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(400);
   });
 
+  it("requires ingestion authorization before fixture enrichment", async () => {
+    const env = {
+      DB: { prepare: () => ({ first: vi.fn() }) },
+      API_FOOTBALL_API_KEY: "provider-secret",
+      INGESTION_TOKEN: "ingestion-secret",
+    };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/enrich?fixture=123", {
+        method: "POST",
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("validates the provider fixture ID before querying D1", async () => {
+    const first = vi.fn();
+    const env = {
+      DB: { prepare: () => ({ first }) },
+      API_FOOTBALL_API_KEY: "provider-secret",
+      INGESTION_TOKEN: "ingestion-secret",
+    };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/enrich?fixture=abc", {
+        method: "POST",
+        headers: { authorization: "Bearer ingestion-secret" },
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(400);
+    expect(first).not.toHaveBeenCalled();
+  });
+
 });
