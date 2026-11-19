@@ -1034,7 +1034,7 @@ export default {
     if (url.pathname === "/api/sync/status") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
       try {
-        const [counts, jobs] = await Promise.all([
+        const [counts, jobs, account] = await Promise.all([
           env.DB.prepare(`
             SELECT 'fixtures' AS kind, COUNT(*) AS total
               FROM fixtures WHERE provider = 'api-sports'
@@ -1068,10 +1068,29 @@ export default {
             finished_at: string | null; requests_made: number;
             records_seen: number; records_inserted: number; error_code: string | null;
           }>(),
+          env.DB.prepare(`
+            SELECT plan_name, subscription_active, daily_request_limit,
+                   daily_requests_used, daily_requests_remaining, observed_at
+              FROM provider_accounts
+             WHERE provider = 'api-sports' AND product = 'api-football'
+             LIMIT 1
+          `).first<{
+            plan_name: string | null; subscription_active: number | null;
+            daily_request_limit: number | null; daily_requests_used: number | null;
+            daily_requests_remaining: number | null; observed_at: string;
+          }>(),
         ]);
         const totals = Object.fromEntries(counts.results.map(row => [row.kind, Number(row.total)]));
         return json({
           provider: "api-sports",
+          account: account ? {
+            plan: account.plan_name,
+            active: account.subscription_active === null ? null : account.subscription_active === 1,
+            dailyLimit: account.daily_request_limit,
+            dailyUsed: account.daily_requests_used,
+            dailyRemaining: account.daily_requests_remaining,
+            observedAt: account.observed_at,
+          } : null,
           counts: {
             fixtures: totals.fixtures ?? 0,
             predictions: totals.predictions ?? 0,
