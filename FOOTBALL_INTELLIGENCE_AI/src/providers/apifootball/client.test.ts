@@ -83,6 +83,17 @@ describe("API-SPORTS API-FOOTBALL v3 client", () => {
     }, "countries");
   });
 
+  it("categorizes provider errors by key without exposing provider values", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ errors: { token: "sensitive detail", requests: "quota detail" } }), { status: 200 }),
+    );
+    const client = createApiFootballClient({ apiKey: "test-secret", fetchImpl: fetchMock });
+    await expect(client.getCountries()).rejects.toMatchObject({
+      name: "ApiFootballError",
+      message: "API-SPORTS provider error (requests,token)",
+    } satisfies Partial<ApiFootballError>);
+  });
+
   it("turns provider HTTP errors into a typed error", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ errors: { token: "Invalid API key" } }), { status: 401 }),
