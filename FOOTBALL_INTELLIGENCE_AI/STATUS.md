@@ -13,13 +13,13 @@
 - Added unit tests for auth, status, leagues, quota headers and API errors (written, not yet executed).
 - Updated README, provider integration, architecture, roadmap and project status.
 - Added initial provider-neutral PostgreSQL schema for account quota snapshots, countries, competitions, seasons, teams, fixtures, immutable raw payloads, statistics, odds snapshots and ingestion jobs.
-- Added a data-model document.
+- Added a data-model document.\n- Selected Cloudflare Workers + D1 for the first low-cost deployment, based on current free-tier limits and the user's existing Cloudflare workflow.\n- Added `wrangler.toml`, Worker health and sanitized provider-status endpoints, plus Worker unit tests (written, not run).\n- Converted the initial migration to Cloudflare D1 SQLite and validated its syntax locally with SQLite 3.46.1 in-memory. The migration has not been applied to a live D1 database.
 
 ## Not yet verified / blocked
 - No API key has been configured or used. No live API request has been made.
 - Per-minute quota and actual competition/season coverage still require authenticated calls.
 - Tests, lint, typecheck and build have not been executed in a local checkout or CI.
-- SQL migration has not been executed against a database. Database vendor, secret management, scheduler and deployment remain unselected.
+- SQL migration syntax is locally validated, but it has not been applied to a live D1 database. D1 database creation and its ID, Worker secret configuration, scheduler implementation and deployment remain pending.
 - The project is not deployed. Do not deploy the containing legacy MONEYBALL app.
 
 ## Next sequence
