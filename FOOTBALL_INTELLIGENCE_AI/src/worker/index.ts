@@ -13,6 +13,8 @@ interface D1Database {
 interface Env {
   DB: D1Database;
   API_FOOTBALL_API_KEY?: string;
+  API_FOOTBALL_PROXY_URL?: string;
+  API_FOOTBALL_PROXY_TOKEN?: string;
   INGESTION_TOKEN?: string;
 }
 
@@ -848,8 +850,37 @@ async function syncFixturesAndPredictions(env: Env, date: string): Promise<Respo
   }
   return json({ status: "completed", date, fixtures: fixtureResult, predictions: predictionResult });
 }
+function hasProviderCredentials(env: Env): boolean {
+  const directKey = Boolean(env.API_FOOTBALL_API_KEY?.trim());
+  const proxyUrl = Boolean(env.API_FOOTBALL_PROXY_URL?.trim());
+  const proxyToken = Boolean(env.API_FOOTBALL_PROXY_TOKEN?.trim());
+  return directKey || (proxyUrl && proxyToken);
+}
 function providerClient(env: Env) {
-  if (!env.API_FOOTBALL_API_KEY) throw new Error("provider_secret_not_configured");
+  const proxyUrl = env.API_FOOTBALL_PROXY_URL?.trim();
+  const proxyToken = env.API_FOOTBALL_PROXY_TOKEN?.trim();
+  if (Boolean(proxyUrl) !== Boolean(proxyToken)) {
+    throw new Error("provider_proxy_configuration_incomplete");
+  }
+  if (proxyUrl && proxyToken) {
+    let parsedProxyUrl: URL;
+    try {
+      parsedProxyUrl = new URL(proxyUrl);
+    } catch {
+      throw new Error("provider_proxy_url_invalid");
+    }
+    if (parsedProxyUrl.protocol !== "https:") throw new Error("provider_proxy_url_invalid");
+    const proxyFetch: typeof fetch = async (input, init) => {
+      const sourceUrl = new URL(input instanceof Request ? input.url : String(input));
+      const targetUrl = new URL(sourceUrl.pathname + sourceUrl.search, parsedProxyUrl);
+      const headers = new Headers(init?.headers);
+      headers.delete("x-apisports-key");
+      headers.set("authorization", `Bearer ${proxyToken}`);
+      return fetch(targetUrl, { ...init, headers });
+    };
+    return createApiFootballClient({ apiKey: "proxy-managed", fetchImpl: proxyFetch });
+  }
+  if (!env.API_FOOTBALL_API_KEY?.trim()) throw new Error("provider_secret_not_configured");
   return createApiFootballClient({ apiKey: env.API_FOOTBALL_API_KEY });
 }
 async function refreshDiscovery(env: Env): Promise<Response> {
@@ -1141,7 +1172,7 @@ export default {
         });
       } catch (error) {
         const diagnosticMode = url.searchParams.get("diagnostic") === "1";
-        if (!env.API_FOOTBALL_API_KEY) {
+        if (!hasProviderCredentials(env)) {
           return json({
             error: "provider_secret_not_configured",
             ...(diagnosticMode ? { available: false } : {}),
