@@ -12,7 +12,7 @@ A cleanly isolated football analytics application, developed on the `football-in
 - Build coupons only as an optional research workflow; no automatic real-money betting.
 
 ## Confirmed provider
-The user's dashboard confirms API-SPORTS API-FOOTBALL, Pro plan, 7,500 requests/day, with 670 requests used at the time of the screenshot. The API key is configured only as the server-side secret `API_FOOTBALL_API_KEY`; it must never be sent in chat or committed.
+The user's dashboard confirms API-SPORTS API-FOOTBALL, Pro plan, 7,500 requests/day. The API key is server-side only. Direct mode uses the Worker secret `API_FOOTBALL_API_KEY`; dedicated-egress mode stores the API key on the proxy and configures `API_FOOTBALL_PROXY_URL` plus `API_FOOTBALL_PROXY_TOKEN` on the Worker. Never send secrets in chat or commit them.
 
 API base URL: `https://v3.football.api-sports.io/`  
 Authentication: `x-apisports-key` request header.  
@@ -29,15 +29,17 @@ Official documentation: https://www.api-football.com/documentation-v3
 - All meaningful decisions and milestones are recorded in this folder.
 
 ## Current status
-Provider identity, subscription tier and daily quota confirmed from the user's dashboard. The API-SPORTS v3 server-only client, Cloudflare Worker endpoints, D1 migrations, ingestion routines, baseline Poisson forecast engine, forecast evaluation and first responsive Polish dashboard shell are implemented in the isolated branch. Automated CI and live verification have not yet been confirmed. The Worker has not been deployed, the provider secret has not been configured in Cloudflare, and no authenticated API or D1 migration has been executed.
+The isolated Worker is deployed at https://football-intelligence-ai-api.damianwalus3.workers.dev and is connected to the dedicated D1 database. GitHub CI, typecheck, unit tests and Cloudflare Workers Builds are passing. Live health and D1 connectivity return OK. However, fixture ingestion is currently blocked: the provider's live diagnostic returns `API-SPORTS provider error (rateLimit)` while the Pro account still has daily quota remaining. D1 currently contains 0 fixtures and 0 predictions; the Poisson model remains experimental and unvalidated. A dedicated-egress proxy implementation is ready in `infra/api-sports-proxy/`, but a VPS/static outbound IP has not yet been provisioned or connected.
 
 ## Cloudflare deployment
-See [`docs/CLOUDFLARE_DEPLOYMENT.md`](docs/CLOUDFLARE_DEPLOYMENT.md) for the exact Workers Builds configuration. The Worker must use the `football-intelligence-ai` branch and `FOOTBALL_INTELLIGENCE_AI` root directory; never deploy the repository root or a MONEYBALL branch for this product.
+The live Worker uses the `football-intelligence-ai` branch and `FOOTBALL_INTELLIGENCE_AI` root directory. See [`docs/CLOUDFLARE_DEPLOYMENT.md`](docs/CLOUDFLARE_DEPLOYMENT.md) for its deployment settings. The current ingestion blocker and dedicated-egress plan are documented in [`infra/api-sports-proxy/README.md`](infra/api-sports-proxy/README.md) and `STATUS.md`.
 
 ## Implemented API surface
 - `GET /`: read-only Polish dashboard shell.
 - `GET /health`: D1 connectivity health.
 - `GET /api/provider/status`: sanitized provider subscription/quota status.
+- `GET /api/provider/status?diagnostic=1`: safe diagnostic mode; returns HTTP 200 with `available:false` and allowlisted error categories when the provider is unavailable.
+- `GET /api/sync/status`: read-only D1 counts, latest ingestion jobs and cached provider quota snapshot.
 - `GET /api/fixtures?date=YYYY-MM-DD`: daily fixtures and latest model probabilities, using Europe/Brussels calendar dates.
 - `GET /api/models/performance`: aggregate Brier/log-loss evaluation metrics by model version.
 - Protected `POST /api/discovery/refresh`: countries, current competitions and seasons.
@@ -46,8 +48,9 @@ See [`docs/CLOUDFLARE_DEPLOYMENT.md`](docs/CLOUDFLARE_DEPLOYMENT.md) for the exa
 - Protected `POST /api/fixtures/odds?fixture=<id>`: bookmaker odds snapshots where plan coverage permits.
 - Protected `POST /api/predictions/generate?date=YYYY-MM-DD`: time-safe Poisson baseline forecasts.
 - Protected `POST /api/predictions/evaluate?date=YYYY-MM-DD`: Brier and log-loss evaluation after results settle.
+- `POST /api/fixtures/sync?date=YYYY-MM-DD`: same-origin dashboard sync with a shared two-minute cooldown; it runs fixture ingestion followed by prediction generation.
 
-All ingestion/admin POST endpoints require a server-side `INGESTION_TOKEN`. The API-SPORTS key remains a separate Worker secret.
+Protected ingestion/admin routes require a server-side `INGESTION_TOKEN`. The browser never receives provider credentials.
 
 ## Development
-Work is isolated under `FOOTBALL_INTELLIGENCE_AI/` on branch `football-intelligence-ai`. Do not deploy the containing legacy application as this new product. A dedicated repository/deployment boundary is still required before production.
+Work is isolated under `FOOTBALL_INTELLIGENCE_AI/` on branch `football-intelligence-ai`. Do not deploy or modify the legacy MONEYBALL production Worker or database. The app is deployed, but it must not be considered operational until a fixture sync succeeds and D1 contains verified fixture and prediction rows.
