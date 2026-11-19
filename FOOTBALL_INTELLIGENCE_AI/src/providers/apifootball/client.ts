@@ -62,7 +62,7 @@ export function createApiFootballClient(options: ApiFootballClientOptions) {
       }
       if (payload && typeof payload === "object" && !Array.isArray(payload)) {
         const record = payload as Record<string, unknown>;
-        if (Array.isArray(record.errors) && record.errors.length > 0) {
+        if (record.errors && typeof record.errors === "object" && Object.keys(record.errors).length > 0) {
           throw new ApiFootballError("API-SPORTS reported an API error", response.status, payload);
         }
       }
