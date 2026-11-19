@@ -52,6 +52,15 @@
 - Added route tests for missing authorization and invalid fixture IDs. No test run or live API/D1 verification is claimed.
 - Updated the deployment guide with the safe one-fixture-at-a-time enrichment procedure; this is intentionally not a bulk loop until per-minute quotas and actual coverage are observed.
 
+## Baseline prediction engine — 2026-11-19
+- Added D1 migration `0003_model_predictions.sql` for model versions and auditable forecast snapshots.
+- Implemented a first independent Poisson score-grid model. It uses each team's latest 10 completed matches with kickoff strictly earlier than the target match, so future results are excluded.
+- Derives 1X2, Double Chance (1X/X2/12), Over/Under 2.5 and BTTS probabilities from the same score matrix.
+- Stores expected goals (lambda), sample counts, feature cutoff, model version and explanation metadata.
+- Prediction generation is protected by `INGESTION_TOKEN`, limited to 50 upcoming fixtures per date, and writes an ingestion ledger entry.
+- Extended `GET /api/fixtures?date=YYYY-MM-DD` to return the latest stored probabilities with each fixture.
+- Added route validation/auth tests. Model quality is not yet established: no historical backtest, calibration or live D1 execution has been run. Do not interpret these baseline probabilities as verified betting edges.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
@@ -59,8 +68,9 @@
 4. Deploy to a preview URL and verify `/health` and `/api/provider/status`.
 5. Run protected discovery refresh, inspect actual country/league coverage, then ingest a single date of fixtures.
 6. Add scheduled incremental fixture refresh and result reconciliation after live D1 tests pass.
-7. Expand statistics, injuries, lineups and odds only where provider coverage confirms availability.
-8. Run and verify CI before any public production deployment.
+7. Backtest and calibrate the Poisson baseline with historical seasons before relying on forecasts.
+8. Expand statistics, injuries, lineups and odds only where provider coverage confirms availability.
+9. Run and verify CI before any public production deployment.
 
 ## Safety
 - Never expose API keys to browser code or logs.
