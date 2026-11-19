@@ -37,7 +37,7 @@ interface League {
   seasons?: LeagueSeason[];
 }
 
-const DASHBOARD_HTML = \`<!doctype html>
+const DASHBOARD_HTML = `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -91,7 +91,7 @@ async function load(){
  finally{$("load").disabled=false;}
 }
 $("load").addEventListener("click",load);$("day").addEventListener("change",load);load();
-</script></body></html>\`;
+</script></body></html>`;
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
