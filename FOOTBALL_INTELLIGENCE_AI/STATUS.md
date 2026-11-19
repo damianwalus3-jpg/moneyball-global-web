@@ -111,3 +111,9 @@
 - Initial URL check returned the default text `Hello world`, not the application's expected dashboard or `/health` JSON. Therefore the application code is NOT yet confirmed deployed and the health check has NOT passed.
 - The Cloudflare Deployments page showed an earlier failed build associated with branch `main`; the later Ready entries were dashboard configuration deployments. A fresh Git-connected build from `football-intelligence-ai` must be observed and verified before claiming the app is live.
 - This status-only commit is intended to trigger a new Git-connected Workers Build using the saved branch/root settings. Verify the build source branch/commit, remote D1 migrations, deployment result, `/` dashboard, `/health` and `/api/provider/status` before any data ingestion.
+
+## Cloudflare deployment follow-up — 2026-11-19
+- User configured Worker `football-intelligence-ai-api`, production secrets `API_FOOTBALL_API_KEY` and `INGESTION_TOKEN`, production D1 binding `DB`, and workers.dev URL.
+- Worker URL still returned the default `Hello world` response during manual verification. This does not verify the application worker code.
+- The Cloudflare deployment history shown by the user contained Dashboard configuration deployments and an earlier failed Git build on `main`; no successful Git-connected build from `football-intelligence-ai` has been confirmed.
+- Next required action: trigger and verify a Git-connected build from branch `football-intelligence-ai` with root directory `FOOTBALL_INTELLIGENCE_AI`; inspect exact build logs if it fails. Do not change production MONEYBALL resources.
