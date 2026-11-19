@@ -311,6 +311,30 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(all).toHaveBeenCalledTimes(2);
   });
 
+  it("redacts unrecognized ingestion errors in the public status response", async () => {
+    const all = vi.fn()
+      .mockResolvedValueOnce({ results: [{ kind: "fixtures", total: 0 }, { kind: "predictions", total: 0 }] })
+      .mockResolvedValueOnce({ results: [{
+        job_type: "fixtures",
+        status: "failed",
+        started_at: "2026-11-19T20:04:39.199Z",
+        finished_at: "2026-11-19T20:04:39.312Z",
+        requests_made: 1,
+        records_seen: 0,
+        records_inserted: 0,
+        error_code: "provider_or_ingestion_error",
+      }] });
+    const env = { DB: { prepare: () => ({ all }) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/sync/status"),
+      env as never,
+    );
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { recentJobs: Array<Record<string, unknown>> };
+    expect(payload.recentJobs[0].error_code).toBe("provider_or_ingestion_error");
+    expect(payload.recentJobs[0]).not.toHaveProperty("error_message");
+  });
+
   it("returns aggregated model performance from the read API", async () => {
     const all = vi.fn().mockResolvedValue({ results: [] });
     const env = { DB: { prepare: () => ({ all }) } };
