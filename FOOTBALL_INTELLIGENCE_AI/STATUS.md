@@ -43,6 +43,8 @@
 - Country normalization uses the provider country code/name because the API-SPORTS countries endpoint does not guarantee a numeric country ID.
 - Added Worker route tests for health, D1 failure, missing provider secret and method validation. CI has not yet been observed to complete; no runtime or live-provider test is claimed.
 - Added deployment instructions for the separate ingestion secret and protected refresh route.
+- Added protected `POST /api/fixtures/refresh?date=YYYY-MM-DD` for one-day fixture ingestion. It checks the same daily quota reserve, stores the raw response, normalizes teams/competitions/seasons and idempotently upserts fixtures and scores/status.
+- Added input-validation coverage for fixture date requests. This remains unverified by an executed CI run and has not yet been tested against the live provider or D1.
 
 ## Next steps
 1. Add `API_FOOTBALL_API_KEY` as a Cloudflare Worker secret; never paste it in chat or commit it.
