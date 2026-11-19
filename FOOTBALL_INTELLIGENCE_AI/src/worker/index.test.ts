@@ -49,4 +49,18 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     );
     expect(response.status).toBe(405);
   });
+  it("requires the separate ingestion token before refresh", async () => {
+    const env = {
+      DB: { prepare: () => ({ first: vi.fn() }) },
+      API_FOOTBALL_API_KEY: "provider-secret",
+      INGESTION_TOKEN: "ingestion-secret",
+    };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/discovery/refresh", { method: "POST" }),
+      env as never,
+    );
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+  });
+
 });
