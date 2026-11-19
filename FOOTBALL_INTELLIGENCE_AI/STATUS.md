@@ -4,37 +4,41 @@
 - Product: FOOTBALL INTELLIGENCE AI.
 - Dashboard confirms API-SPORTS API-FOOTBALL, Pro, 7,500 requests/day; screenshot showed 670 used and 6,830 remaining.
 - API v3 base URL: `https://v3.football.api-sports.io/`; authentication header: `x-apisports-key`.
-- Development branch: `football-intelligence-ai`; all work is isolated under `FOOTBALL_INTELLIGENCE_AI/`. Existing MONEYBALL production is untouched.
+- Cloudflare D1 database created: `football-intelligence-ai`.
+- Region: Western Europe; jurisdiction None; read replication Disabled.
+- Verified D1 database ID: `2619372a-e68f-4220-9b1f-f6fa087c6838`.
+- Development branch: `football-intelligence-ai`; all work is isolated under `FOOTBALL_INTELLIGENCE_AI/`. Existing MONEYBALL production and its `moneyball-global-db` database are untouched.
 
-## Completed in this pass
-- Replaced the wrong APIFootball.com connector with an API-SPORTS v3 server-only client.
+## Completed
+- Replaced wrong APIFootball.com connector with API-SPORTS v3 server-only client.
 - Added status, countries, active leagues, seasons, fixtures, teams, standings, fixture statistics, odds, predictions, injuries and lineups methods.
 - Added daily and per-minute rate-limit header capture and active-league default filter.
 - Added unit tests for auth, status, leagues, quota headers and API errors (written, not yet executed).
-- Updated README, provider integration, architecture, roadmap and project status.
-- Added initial provider-neutral PostgreSQL schema for account quota snapshots, countries, competitions, seasons, teams, fixtures, immutable raw payloads, statistics, odds snapshots and ingestion jobs.
-- Added a data-model document.\n- Selected Cloudflare Workers + D1 for the first low-cost deployment, based on current free-tier limits and the user's existing Cloudflare workflow.\n- Added `wrangler.toml`, Worker health and sanitized provider-status endpoints, plus Worker unit tests (written, not run).\n- Converted the initial migration to Cloudflare D1 SQLite and validated its syntax locally with SQLite 3.46.1 in-memory. The migration has not been applied to a live D1 database.
+- Added provider-neutral D1 schema migration, Worker health endpoint, sanitized provider-status endpoint and Worker unit tests (written, not yet executed).
+- Selected Cloudflare Workers + D1 for first deployment.
+- Updated `wrangler.toml` with the user's verified D1 database ID.
+- Updated README, architecture, data model, deployment decision, provider integration, roadmap and status.
 
 ## Not yet verified / blocked
-- No API key has been configured or used. No live API request has been made.
-- Per-minute quota and actual competition/season coverage still require authenticated calls.
-- Tests, lint, typecheck and build have not been executed in a local checkout or CI.
-- SQL migration syntax is locally validated, but it has not been applied to a live D1 database. D1 database creation and its ID, Worker secret configuration, scheduler implementation and deployment remain pending.
-- The project is not deployed. Do not deploy the containing legacy MONEYBALL app.
+- API key has not been configured or used; no live API request has been made.
+- D1 database exists, but migration has not yet been applied; no tables have been created.
+- Worker has not been deployed or bound to this D1 instance.
+- Tests, lint, typecheck and build have not been executed in CI or local checkout.
+- Actual per-minute quota and competition/season coverage still require authenticated calls.
 
-## Next sequence
-1. Select a separate database and server runtime with server-side secrets and scheduled jobs.
-2. Configure `API_FOOTBALL_API_KEY` securely in that runtime; never send it through chat or commit it.
-3. Run `/status` (free of daily quota per provider docs), then countries, active leagues and a small fixture request.
-4. Execute migrations and persist actual account quota and per-league/season coverage.
-5. Build cached, idempotent, quota-aware ingestion and a job ledger.
-6. Add/run CI: tests, lint, typecheck and build.
-7. Build historical features and baseline predictions only after source coverage and timestamp integrity are verified.
+## Next steps
+1. Add `API_FOOTBALL_API_KEY` as a Cloudflare Worker secret; never paste it in chat or commit it.
+2. Create/confirm the Worker project and bind D1 using the configured `wrangler.toml`.
+3. Apply `db/migrations/0001_initial_schema.sql` to the new D1 database.
+4. Deploy to a non-production preview URL and test `/health`.
+5. Test `/api/provider/status`; persist sanitized plan/quota snapshot.
+6. Fetch countries, current leagues and a small fixture date window; persist actual coverage.
+7. Add quota-aware scheduled ingestion and test idempotency.
+8. Run full CI before considering any public production deployment.
 
-## Safety and quality
+## Safety
 - Never expose API keys to browser code or logs.
-- Respect daily and per-minute limits; cache and deduplicate requests.
-- Keep provider predictions separate from our model.
-- Timestamp every prediction and evaluate against final results.
-- Missing data stays missing; never fabricate.
+- Do not touch the existing MONEYBALL app or its database.
+- Respect provider and D1 quotas; cache and deduplicate calls.
+- Missing data remains missing; never fabricate.
 - No automatic real-money betting.
