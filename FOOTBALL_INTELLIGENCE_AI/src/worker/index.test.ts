@@ -278,6 +278,23 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(prepare).not.toHaveBeenCalled();
   });
 
+  it("uses the shared cooldown gate before a scheduled sync", async () => {
+    const run = vi.fn().mockResolvedValue({ success: true, meta: { changes: 0 } });
+    const bind = vi.fn().mockReturnValue({ run });
+    const prepare = vi.fn(() => ({ bind }));
+    const waitUntil = vi.fn();
+    worker.scheduled(
+      { scheduledTime: Date.UTC(2026, 10, 19, 12, 0, 0) },
+      { DB: { prepare } } as never,
+      { waitUntil },
+    );
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    await waitUntil.mock.calls[0][0];
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(prepare.mock.calls[0][0]).toContain("INSERT INTO public_sync_gate");
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("returns aggregated model performance from the read API", async () => {
     const all = vi.fn().mockResolvedValue({ results: [] });
     const env = { DB: { prepare: () => ({ all }) } };
