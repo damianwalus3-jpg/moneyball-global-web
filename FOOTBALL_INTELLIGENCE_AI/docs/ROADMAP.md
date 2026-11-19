@@ -13,7 +13,7 @@
 - [x] Implement API-SPORTS v3 server-only client scaffold.
 - [ ] Configure `API_FOOTBALL_API_KEY` as a server-side secret.
 - [ ] Select and document final hosting/database stack.
-- [ ] Create schema migrations and seed/reference data.
+- [x] Create initial provider-neutral PostgreSQL schema migration (execution against a database remains pending).
 - [ ] Add CI: lint, typecheck, unit tests, build.
 - [ ] Add health/status page and ingestion job ledger.
 - [ ] Run authenticated `/status` and low-volume live smoke tests.
