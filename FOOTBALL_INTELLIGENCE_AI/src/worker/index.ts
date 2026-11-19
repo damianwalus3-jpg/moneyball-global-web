@@ -75,7 +75,7 @@ async function recordJob(
   db: D1Database,
   status: "succeeded" | "failed",
   startedAt: string,
-  jobType: "discovery" | "fixtures" | "enrichment",
+  jobType: "discovery" | "fixtures" | "enrichment" | "predictions",
   counts: { requests: number; seen: number; inserted: number },
   error?: string,
 ): Promise<void> {
@@ -361,6 +361,143 @@ async function refreshFixtureEnrichment(env: Env, providerFixtureId: string): Pr
 }
 
 
+
+interface HistoricalResult {
+  home_team_id: number;
+  away_team_id: number;
+  home_goals: number;
+  away_goals: number;
+}
+interface ModelFixture {
+  id: number;
+  provider_fixture_id: string;
+  kickoff_at: string;
+  home_team_id: number;
+  away_team_id: number;
+  home_team: string;
+  away_team: string;
+}
+function poisson(lambda: number, goals: number): number {
+  let factorial = 1;
+  for (let i = 2; i <= goals; i++) factorial *= i;
+  return Math.exp(-lambda) * Math.pow(lambda, goals) / factorial;
+}
+function estimateProbabilities(lambdaHome: number, lambdaAway: number) {
+  const home = Array.from({ length: 11 }, (_, i) => poisson(lambdaHome, i));
+  const away = Array.from({ length: 11 }, (_, i) => poisson(lambdaAway, i));
+  const total = home.reduce((a, b) => a + b, 0) * away.reduce((a, b) => a + b, 0);
+  let pHome = 0, pDraw = 0, pAway = 0, pOver25 = 0, pBtts = 0;
+  for (let h = 0; h <= 10; h++) {
+    for (let a = 0; a <= 10; a++) {
+      const p = (home[h] * away[a]) / total;
+      if (h > a) pHome += p;
+      else if (h === a) pDraw += p;
+      else pAway += p;
+      if (h + a >= 3) pOver25 += p;
+      if (h > 0 && a > 0) pBtts += p;
+    }
+  }
+  return {
+    home: pHome, draw: pDraw, away: pAway,
+    over25: pOver25, under25: 1 - pOver25,
+    btts: pBtts, noBtts: 1 - pBtts,
+  };
+}
+function mean(values: number[]): number | null {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+async function generatePredictions(env: Env, date: string): Promise<Response> {
+  const startedAt = now();
+  const counts = { requests: 0, seen: 0, inserted: 0 };
+  try {
+    const targets = await env.DB.prepare(`
+      SELECT f.id, f.provider_fixture_id, f.kickoff_at, f.home_team_id, f.away_team_id,
+        home.name AS home_team, away.name AS away_team
+      FROM fixtures f
+      JOIN teams home ON home.id = f.home_team_id
+      JOIN teams away ON away.id = f.away_team_id
+      WHERE f.provider = 'api-sports' AND substr(f.kickoff_at, 1, 10) = ?
+        AND f.status_short IN ('NS', 'TBD', 'PST')
+      ORDER BY f.kickoff_at ASC LIMIT 50
+    `).bind(date).all<ModelFixture>();
+    const fixtures = targets.results;
+    if (!fixtures.length) return json({ status: "no_fixtures", date, generated: 0 });
+    const model = await env.DB.prepare(`
+      INSERT INTO model_versions (model_key, version, description, created_at)
+      VALUES ('poisson-baseline', '1.0.0', 'Time-safe team goal averages with independent Poisson score grid', ?)
+      ON CONFLICT(model_key, version) DO NOTHING
+    `).bind(now()).run();
+    const modelRow = await env.DB.prepare(
+      "SELECT id FROM model_versions WHERE model_key = 'poisson-baseline' AND version = '1.0.0'",
+    ).first<{ id: number }>();
+    if (!modelRow) throw new Error("model_version_unavailable");
+
+    for (const fixture of fixtures) {
+      const cutoff = fixture.kickoff_at;
+      const [homeHistory, awayHistory] = await Promise.all([
+        env.DB.prepare(`
+          SELECT home_team_id, away_team_id, home_goals, away_goals
+          FROM fixtures
+          WHERE status_short IN ('FT', 'AET', 'PEN') AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+            AND kickoff_at < ? AND (home_team_id = ? OR away_team_id = ?)
+          ORDER BY kickoff_at DESC LIMIT 10
+        `).bind(cutoff, fixture.home_team_id, fixture.home_team_id).all<HistoricalResult>(),
+        env.DB.prepare(`
+          SELECT home_team_id, away_team_id, home_goals, away_goals
+          FROM fixtures
+          WHERE status_short IN ('FT', 'AET', 'PEN') AND home_goals IS NOT NULL AND away_goals IS NOT NULL
+            AND kickoff_at < ? AND (home_team_id = ? OR away_team_id = ?)
+          ORDER BY kickoff_at DESC LIMIT 10
+        `).bind(cutoff, fixture.away_team_id, fixture.away_team_id).all<HistoricalResult>(),
+      ]);
+      const homeScored = homeHistory.results.map(row => row.home_team_id === fixture.home_team_id ? row.home_goals : row.away_goals);
+      const homeConceded = homeHistory.results.map(row => row.home_team_id === fixture.home_team_id ? row.away_goals : row.home_goals);
+      const awayScored = awayHistory.results.map(row => row.home_team_id === fixture.away_team_id ? row.home_goals : row.away_goals);
+      const awayConceded = awayHistory.results.map(row => row.home_team_id === fixture.away_team_id ? row.away_goals : row.home_goals);
+      const lambdaHome = Math.min(3.5, Math.max(0.2, ((mean(homeScored) ?? 1.35) + (mean(awayConceded) ?? 1.35)) / 2));
+      const lambdaAway = Math.min(3.5, Math.max(0.2, ((mean(awayScored) ?? 1.1) + (mean(homeConceded) ?? 1.1)) / 2));
+      const p = estimateProbabilities(lambdaHome, lambdaAway);
+      const generatedAt = now();
+      await env.DB.prepare(`
+        INSERT INTO match_predictions
+          (fixture_id, model_version_id, generated_at, feature_cutoff_at, lambda_home, lambda_away,
+           probability_home, probability_draw, probability_away, probability_1x, probability_x2,
+           probability_12, probability_over_25, probability_under_25, probability_btts_yes,
+           probability_btts_no, sample_home, sample_away, explanation_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(fixture_id, model_version_id, feature_cutoff_at) DO UPDATE SET
+          generated_at = excluded.generated_at, lambda_home = excluded.lambda_home,
+          lambda_away = excluded.lambda_away, probability_home = excluded.probability_home,
+          probability_draw = excluded.probability_draw, probability_away = excluded.probability_away,
+          probability_1x = excluded.probability_1x, probability_x2 = excluded.probability_x2,
+          probability_12 = excluded.probability_12, probability_over_25 = excluded.probability_over_25,
+          probability_under_25 = excluded.probability_under_25,
+          probability_btts_yes = excluded.probability_btts_yes,
+          probability_btts_no = excluded.probability_btts_no,
+          sample_home = excluded.sample_home, sample_away = excluded.sample_away,
+          explanation_json = excluded.explanation_json
+      `).bind(fixture.id, modelRow.id, generatedAt, cutoff, lambdaHome, lambdaAway,
+        p.home, p.draw, p.away, p.home + p.draw, p.away + p.draw, p.home + p.away,
+        p.over25, p.under25, p.btts, p.noBtts, homeHistory.results.length,
+        awayHistory.results.length, JSON.stringify({
+          model: "poisson-baseline@1.0.0",
+          features: "last 10 completed matches per team, all venues",
+          noLookahead: true,
+          cutoff,
+          fallback: homeHistory.results.length === 0 || awayHistory.results.length === 0,
+        })).run();
+      counts.seen++;
+      counts.inserted++;
+    }
+    await recordJob(env.DB, "succeeded", startedAt, "predictions", counts);
+    return json({ status: "completed", date, model: "poisson-baseline@1.0.0", generated: counts.inserted });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    await recordJob(env.DB, "failed", startedAt, "predictions", counts, detail).catch(() => undefined);
+    return json({ error: "prediction_generation_failed", detail }, 502);
+  }
+}
+
 interface FixtureListRow {
   provider_fixture_id: string;
   kickoff_at: string | null;
@@ -546,6 +683,21 @@ export default {
       } catch {
         return json({ status: "degraded", database: false }, 503);
       }
+    }
+    if (url.pathname === "/api/predictions/generate") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!env.INGESTION_TOKEN) return json({ error: "ingestion_secret_not_configured" }, 503);
+      const authorization = request.headers.get("authorization") ?? "";
+      if (!safeEqual(authorization, `Bearer ${env.INGESTION_TOKEN}`)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const date = url.searchParams.get("date") ?? "";
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+          Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
+          new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+        return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
+      }
+      return generatePredictions(env, date);
     }
     if (url.pathname === "/api/fixtures") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
