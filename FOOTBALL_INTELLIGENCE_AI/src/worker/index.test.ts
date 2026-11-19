@@ -67,6 +67,37 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     }
   });
 
+  it("routes provider requests through the dedicated proxy without forwarding the API key", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      errors: [],
+      results: 0,
+      response: {
+        subscription: { plan: "Pro", active: true, end: "2026-12-18T22:07:55+00:00" },
+        requests: { current: 10, limit_day: 7500 },
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", mockFetch);
+    try {
+      const response = await worker.fetch(
+        new Request("https://example.workers.dev/api/provider/status"),
+        {
+          DB: {},
+          API_FOOTBALL_PROXY_URL: "https://proxy.example.test",
+          API_FOOTBALL_PROXY_TOKEN: "proxy-secret",
+        } as never,
+      );
+      expect(response.status).toBe(200);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0] as unknown as [URL, RequestInit];
+      expect(url.toString()).toBe("https://proxy.example.test/status");
+      const headers = new Headers(init.headers);
+      expect(headers.get("authorization")).toBe("Bearer proxy-secret");
+      expect(headers.has("x-apisports-key")).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects non-GET methods", async () => {
     const response = await worker.fetch(
       new Request("https://example.workers.dev/health", { method: "POST" }),
