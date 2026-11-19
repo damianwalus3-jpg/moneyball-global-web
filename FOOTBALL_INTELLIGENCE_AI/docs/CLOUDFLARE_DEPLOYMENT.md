@@ -50,10 +50,11 @@ After a successful deployment:
 6. Confirm the discovery response reports counts and the quota reserve.
 7. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
 8. Enrich one saved fixture with `POST /api/fixtures/enrich?fixture=<API-SPORTS-fixture-id>` and the same bearer token. This uses three provider requests (statistics, lineups and fixture-linked injuries), stores raw snapshots and normalized records, and should be run one fixture at a time until observed quota/latency are confirmed.
-9. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
-10. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
-11. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
-12. After the results refresh updates final scores/statuses, run `POST /api/predictions/evaluate?date=YYYY-MM-DD` with the bearer token. This records Brier scores and log loss for forecasts with completed results, enabling later calibration and model comparison.
+9. Capture odds for one fixture with `POST /api/fixtures/odds?fixture=<API-SPORTS-fixture-id>`. This stores bookmaker/market/selection price snapshots if the subscription returns odds. An empty response is recorded as no odds; it is not treated as a zero price.
+10. Only after validating enrichment and odds entitlement should these calls be placed into a paced scheduled queue. Odds availability, market breadth and retention differ by league.
+11. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
+12. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
+13. After the results refresh updates final scores/statuses, run `POST /api/predictions/evaluate?date=YYYY-MM-DD` with the bearer token. This records Brier scores and log loss for forecasts with completed results, enabling later calibration and model comparison.
 
 ## Stop conditions
 
