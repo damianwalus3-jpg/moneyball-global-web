@@ -1,0 +1,18 @@
+{
+  "name": "football-intelligence-ai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:migrations:list": "wrangler d1 migrations list football-intelligence-ai --remote",
+    "db:migrations:apply": "wrangler d1 migrations apply football-intelligence-ai --remote",
+    "deploy": "npm run db:migrations:apply && wrangler deploy"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8",
+    "wrangler": "^4.47.0"
+  }
+}
