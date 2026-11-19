@@ -11,3 +11,7 @@ binding = "DB"
 database_name = "football-intelligence-ai"
 database_id = "2619372a-e68f-4220-9b1f-f6fa087c6838"
 migrations_dir = "db/migrations"
+
+# Refresh the current Brussels-local match day and reconcile scores every hour.
+[triggers]
+crons = ["7 * * * *"]
