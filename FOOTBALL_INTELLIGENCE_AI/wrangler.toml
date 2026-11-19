@@ -9,5 +9,5 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "football-intelligence-ai"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+database_id = "2619372a-e68f-4220-9b1f-f6fa087c6838"
 migrations_dir = "db/migrations"
