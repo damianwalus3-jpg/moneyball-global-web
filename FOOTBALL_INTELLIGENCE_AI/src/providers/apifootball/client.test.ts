@@ -24,7 +24,8 @@ describe("API-SPORTS API-FOOTBALL v3 client", () => {
     expect(requestedUrl.searchParams.get("date")).toBe("2026-11-19");
     expect(requestedUrl.searchParams.get("timezone")).toBe("Europe/Brussels");
     expect(new Headers(init?.headers).get("x-apisports-key")).toBe("test-secret");
-    expect(requestedUrl.search).toBe("");
+    expect(requestedUrl.searchParams.has("key")).toBe(false);
+    expect(requestedUrl.searchParams.has("api_key")).toBe(false);
   });
 
   it("reads the free status endpoint without adding credentials to the URL", async () => {
