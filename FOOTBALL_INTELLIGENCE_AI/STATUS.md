@@ -117,3 +117,13 @@
 - Worker URL still returned the default `Hello world` response during manual verification. This does not verify the application worker code.
 - The Cloudflare deployment history shown by the user contained Dashboard configuration deployments and an earlier failed Git build on `main`; no successful Git-connected build from `football-intelligence-ai` has been confirmed.
 - Next required action: trigger and verify a Git-connected build from branch `football-intelligence-ai` with root directory `FOOTBALL_INTELLIGENCE_AI`; inspect exact build logs if it fails. Do not change production MONEYBALL resources.
+
+## Build repair and verification — 2026-11-19
+- Fixed npm dependency installation for CI/Workers Builds by setting shallow install strategy and legacy peer dependency handling in `.npmrc`, and applying the same flags in the isolated CI job.
+- Fixed invalid escaped template-literal delimiters in `src/worker/index.ts` that prevented TypeScript parsing.
+- Fixed 14 date-validation regexes that incorrectly matched literal backslash-d characters instead of digits.
+- Added a project-local Node Vitest config so the root MONEYBALL web app's Vite/React config is not loaded by this isolated project.
+- Updated the daily fixture-list test to assert the intended Brussels-local UTC interval and 250-row cap.
+- GitHub Actions run `44587426377` on commit `38ba2e64fba40a5055cc20ea1c1db3f24d8bb7ac`: dependency install PASSED, TypeScript typecheck PASSED, all 24 unit tests PASSED.
+- Live Cloudflare verification immediately after the green CI still returned `Hello world` at both `/` and `/health`. This means Cloudflare has not yet been confirmed to deploy the application bundle. No API provider calls or fixture ingestion have been run.
+- Next: verify a new Git-connected Cloudflare build from `football-intelligence-ai` with root `FOOTBALL_INTELLIGENCE_AI`; then confirm `/health` returns JSON and `/api/provider/status` reports sanitized Pro subscription/quota. Do not start discovery until those checks pass.
