@@ -52,6 +52,7 @@ After a successful deployment:
 8. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
 9. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
 10. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
+11. After the results refresh updates final scores/statuses, run `POST /api/predictions/evaluate?date=YYYY-MM-DD` with the bearer token. This records Brier scores and log loss for forecasts with completed results, enabling later calibration and model comparison.
 
 ## Stop conditions
 
