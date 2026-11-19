@@ -329,6 +329,7 @@ async function refreshFixtureEnrichment(env: Env, providerFixtureId: string): Pr
     if (!fixture) return json({ error: "fixture_not_found" }, 404);
 
     const account = (await client.getStatus()).response;
+    counts.requests = 1; // provider status preflight
     const dailyLimit = account.requests?.limit_day ?? null;
     const used = account.requests?.current ?? null;
     const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
