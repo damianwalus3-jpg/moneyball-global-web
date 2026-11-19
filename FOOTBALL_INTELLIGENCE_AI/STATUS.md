@@ -73,6 +73,10 @@
 - Added protected `POST /api/predictions/evaluate?date=YYYY-MM-DD`: matches completed on the requested Brussels-local date are compared with the latest saved pre-match prediction; stores multiclass 1X2 Brier score, log loss, Over 2.5 Brier and BTTS Brier. Re-evaluation updates the same record rather than duplicating it.
 - Added an authorization test and deployment instructions for the evaluation step. No actual settled fixture evaluation has been run because the Worker/D1 deployment is still pending.
 
+## First dashboard shell — 2026-11-19
+- Added responsive Polish read-only dashboard at `/`: date selector, match count, finished count, predictions count, local kickoff times, results and model probabilities. It reads only the public daily fixtures endpoint; ingestion credentials are never exposed in browser code.
+- Added a Worker test for the dashboard shell and updated deployment verification instructions. UI is ready for first deployment, but no live dashboard URL exists until the Worker is created.
+
 ## Next steps
 1. Create the isolated Worker from the documented repository/branch/root settings; do not select a legacy MONEYBALL Worker.
 2. Add `API_FOOTBALL_API_KEY` and a separate random `INGESTION_TOKEN` as runtime Worker secrets.
