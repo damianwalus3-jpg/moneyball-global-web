@@ -32,8 +32,8 @@ These limits are suitable for a carefully cached first release, not a promise of
 - Added the Cloudflare D1-compatible SQLite migration; syntax was validated locally against SQLite 3.46.1 in an in-memory database. This does not mean it has been applied to a Cloudflare D1 instance.
 
 ## Secrets and setup still required
-- `API_FOOTBALL_API_KEY`: Cloudflare Worker secret.
-- D1 database creation and generated database ID.
+- `API_FOOTBALL_API_KEY`: Cloudflare Worker secret (not yet configured).
+- D1 database created in Western Europe; verified database ID is configured in `wrangler.toml`.
 - Worker deployment permissions and domain/subdomain selection.
 - A separate repository boundary is preferred before production deployment; the current work remains isolated in a subfolder/branch and must not be deployed as the legacy MONEYBALL app.
 
