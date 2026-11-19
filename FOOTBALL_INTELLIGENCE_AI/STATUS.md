@@ -34,6 +34,16 @@
 - Corrected D1 migration scripts to target the configured `DB` binding, as recommended for Workers Builds.
 - User has returned to the Workers & Pages overview; no Worker was created or deployed from the setup wizard.
 
+## Provider discovery ingestion — 2026-11-19
+- Implemented a protected `POST /api/discovery/refresh` endpoint.
+- The endpoint checks a separate `INGESTION_TOKEN` before making provider calls.
+- It checks the provider subscription and daily quota first, persists a sanitized account/usage snapshot, and stops if the subscription is inactive or fewer than 100 daily requests remain.
+- It fetches countries and active leagues, stores immutable raw payloads with SHA-256 hashes, and upserts normalized countries, competitions and competition seasons into D1.
+- Each run is recorded in `ingestion_jobs`; errors are recorded without returning provider payloads.
+- Country normalization uses the provider country code/name because the API-SPORTS countries endpoint does not guarantee a numeric country ID.
+- Added Worker route tests for health, D1 failure, missing provider secret and method validation. CI has not yet been observed to complete; no runtime or live-provider test is claimed.
+- Added deployment instructions for the separate ingestion secret and protected refresh route.
+
 ## Next steps
 1. Add `API_FOOTBALL_API_KEY` as a Cloudflare Worker secret; never paste it in chat or commit it.
 2. Create/confirm the Worker project and bind D1 using the configured `wrangler.toml`.
