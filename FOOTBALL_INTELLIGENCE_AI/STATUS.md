@@ -138,3 +138,14 @@
 - Cloudflare Workers Builds check for branch commit `c25dae5d047c3a43b8ea423672d56eaa9b83471b` completed successfully: build ID `790411f4-1097-4fe8-8c2a-b24c0c11da8d`, deployed version `6f0ea2f8-9fea-404e-ac70-a8290dd8c58b`. GitHub typecheck/unit-test check also passed.
 - Live isolated Worker `football-intelligence-ai-api.damianwalus3.workers.dev`: `/health` returns 200 with D1 connected; dashboard is served; `/api/fixtures?date=2026-11-19` returns an empty normalized list (0 fixtures); `/api/provider/status` returns 503. Provider authentication/connectivity and first ingestion are therefore not yet verified.
 - No ingestion POST was sent and no secrets were accessed. Next action is to diagnose the provider-status 503 from Cloudflare runtime diagnostics, then perform controlled discovery and one-day fixture ingestion. Do not apply a Europe-only filter unless the product scope is explicitly changed; the current documented product goal is provider-covered competitions.
+
+
+## Scheduled fixture and score synchronization — 2026-11-19
+- Added a Cloudflare Worker Cron Trigger at minute 7 of every hour (cron: 7 * * * *).
+- Each scheduled invocation calculates the current calendar date in Europe/Brussels, acquires the same D1 cooldown gate used by dashboard sync, refreshes that day's API-SPORTS fixtures/results, and generates baseline predictions for upcoming fixtures.
+- Scheduled failures are logged with a sanitized event name, date and error message; no provider credentials or request headers are logged.
+- Added a unit test proving the scheduled handler uses the shared cooldown gate before attempting provider work.
+- GitHub Actions run 44620889695 on commit 50b7b65068206829e72f103ab06983feffe0ab14: TypeScript typecheck PASSED; all 28 unit tests PASSED.
+- Cloudflare Workers Build 2f6591a4-1034-471a-bde5-3cd915311341 completed successfully; deployed version ID 5bf9bd8b-e95d-42af-a38b-1dbad3f0cfda.
+- Post-deployment /health returned HTTP 200 with D1 connected. /api/provider/status returned active Pro subscription and 693/7,500 daily requests at the latest successful check.
+- Live fixture list remains empty (count: 0) and model performance remains empty (models: []). The first scheduled invocation has not yet been independently observed in runtime logs; do not claim that fixtures have been ingested until the daily endpoint and ingestion ledger confirm it.
