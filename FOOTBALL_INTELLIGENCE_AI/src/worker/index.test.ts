@@ -216,4 +216,15 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(html).toContain("/api/fixtures?date=");
   });
 
+  it("requires ingestion authorization before collecting odds", async () => {
+    const env = { DB: {}, INGESTION_TOKEN: "ingestion-secret" };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures/odds?fixture=123", {
+        method: "POST",
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(401);
+  });
+
 });
