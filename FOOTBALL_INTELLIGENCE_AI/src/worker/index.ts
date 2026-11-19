@@ -94,7 +94,7 @@ async function recordJob(
   db: D1Database,
   status: "succeeded" | "failed",
   startedAt: string,
-  jobType: "discovery" | "fixtures" | "enrichment" | "predictions",
+  jobType: "discovery" | "fixtures" | "enrichment" | "predictions" | "evaluation",
   counts: { requests: number; seen: number; inserted: number },
   error?: string,
 ): Promise<void> {
@@ -517,6 +517,76 @@ async function generatePredictions(env: Env, date: string): Promise<Response> {
   }
 }
 
+
+interface EvaluationRow {
+  prediction_id: number;
+  fixture_id: number;
+  home_goals: number;
+  away_goals: number;
+  probability_home: number;
+  probability_draw: number;
+  probability_away: number;
+  probability_over_25: number;
+  probability_btts_yes: number;
+}
+async function evaluatePredictions(env: Env, date: string): Promise<Response> {
+  const startedAt = now();
+  const counts = { requests: 0, seen: 0, inserted: 0 };
+  try {
+    const start = brusselsLocalMidnightUtc(date);
+    const end = brusselsLocalMidnightUtc(nextCalendarDate(date));
+    const rows = await env.DB.prepare(`
+      SELECT mp.id AS prediction_id, f.id AS fixture_id, f.home_goals, f.away_goals,
+        mp.probability_home, mp.probability_draw, mp.probability_away,
+        mp.probability_over_25, mp.probability_btts_yes
+      FROM fixtures f
+      JOIN match_predictions mp ON mp.id = (
+        SELECT id FROM match_predictions WHERE fixture_id = f.id ORDER BY generated_at DESC LIMIT 1
+      )
+      WHERE f.provider = 'api-sports' AND f.kickoff_at >= ? AND f.kickoff_at < ?
+        AND f.status_short IN ('FT', 'AET', 'PEN')
+        AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
+      ORDER BY f.kickoff_at ASC LIMIT 250
+    `).bind(start, end).all<EvaluationRow>();
+    for (const row of rows.results) {
+      const actual = row.home_goals > row.away_goals ? "1" : row.home_goals === row.away_goals ? "X" : "2";
+      const yHome = actual === "1" ? 1 : 0;
+      const yDraw = actual === "X" ? 1 : 0;
+      const yAway = actual === "2" ? 1 : 0;
+      const pActual = actual === "1" ? row.probability_home : actual === "X" ? row.probability_draw : row.probability_away;
+      const actualOver = row.home_goals + row.away_goals > 2 ? 1 : 0;
+      const actualBtts = row.home_goals > 0 && row.away_goals > 0 ? 1 : 0;
+      const brier1x2 =
+        Math.pow(row.probability_home - yHome, 2) +
+        Math.pow(row.probability_draw - yDraw, 2) +
+        Math.pow(row.probability_away - yAway, 2);
+      const logLoss = -Math.log(Math.max(1e-15, Math.min(1, pActual)));
+      const brierOver = Math.pow(row.probability_over_25 - actualOver, 2);
+      const brierBtts = Math.pow(row.probability_btts_yes - actualBtts, 2);
+      await env.DB.prepare(`
+        INSERT INTO prediction_evaluations
+          (prediction_id, fixture_id, evaluated_at, actual_outcome, actual_over_25, actual_btts_yes,
+           brier_1x2, log_loss_1x2, brier_over_25, brier_btts)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(prediction_id) DO UPDATE SET
+          evaluated_at = excluded.evaluated_at, actual_outcome = excluded.actual_outcome,
+          actual_over_25 = excluded.actual_over_25, actual_btts_yes = excluded.actual_btts_yes,
+          brier_1x2 = excluded.brier_1x2, log_loss_1x2 = excluded.log_loss_1x2,
+          brier_over_25 = excluded.brier_over_25, brier_btts = excluded.brier_btts
+      `).bind(row.prediction_id, row.fixture_id, now(), actual, actualOver, actualBtts,
+        brier1x2, logLoss, brierOver, brierBtts).run();
+      counts.seen++;
+      counts.inserted++;
+    }
+    await recordJob(env.DB, "succeeded", startedAt, "evaluation", counts);
+    return json({ status: "completed", date, evaluated: counts.inserted, scoring: ["Brier 1X2", "Log loss 1X2", "Brier Over 2.5", "Brier BTTS"] });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    await recordJob(env.DB, "failed", startedAt, "evaluation", counts, detail).catch(() => undefined);
+    return json({ error: "prediction_evaluation_failed", detail }, 502);
+  }
+}
+
 interface FixtureListRow {
   provider_fixture_id: string;
   kickoff_at: string | null;
@@ -719,6 +789,21 @@ export default {
       } catch {
         return json({ status: "degraded", database: false }, 503);
       }
+    }
+    if (url.pathname === "/api/predictions/evaluate") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!env.INGESTION_TOKEN) return json({ error: "ingestion_secret_not_configured" }, 503);
+      const authorization = request.headers.get("authorization") ?? "";
+      if (!safeEqual(authorization, `Bearer ${env.INGESTION_TOKEN}`)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const date = url.searchParams.get("date") ?? "";
+      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+          Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
+          new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+        return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
+      }
+      return evaluatePredictions(env, date);
     }
     if (url.pathname === "/api/predictions/generate") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
