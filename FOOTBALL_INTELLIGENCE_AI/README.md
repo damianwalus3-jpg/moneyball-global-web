@@ -39,6 +39,7 @@ See [`docs/CLOUDFLARE_DEPLOYMENT.md`](docs/CLOUDFLARE_DEPLOYMENT.md) for the exa
 - `GET /health`: D1 connectivity health.
 - `GET /api/provider/status`: sanitized provider subscription/quota status.
 - `GET /api/fixtures?date=YYYY-MM-DD`: daily fixtures and latest model probabilities, using Europe/Brussels calendar dates.
+- `GET /api/models/performance`: aggregate Brier/log-loss evaluation metrics by model version.
 - Protected `POST /api/discovery/refresh`: countries, current competitions and seasons.
 - Protected `POST /api/fixtures/refresh?date=YYYY-MM-DD`: daily fixtures and results.
 - Protected `POST /api/fixtures/enrich?fixture=<id>`: statistics, lineups and fixture-linked injuries.
