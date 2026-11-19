@@ -149,3 +149,16 @@
 - Cloudflare Workers Build 2f6591a4-1034-471a-bde5-3cd915311341 completed successfully; deployed version ID 5bf9bd8b-e95d-42af-a38b-1dbad3f0cfda.
 - Post-deployment /health returned HTTP 200 with D1 connected. /api/provider/status returned active Pro subscription and 693/7,500 daily requests at the latest successful check.
 - Live fixture list remains empty (count: 0) and model performance remains empty (models: []). The first scheduled invocation has not yet been independently observed in runtime logs; do not claim that fixtures have been ingested until the daily endpoint and ingestion ledger confirm it.
+
+
+## API-SPORTS rate-limit diagnosis and dedicated egress fix — 2026-11-19
+
+- Live diagnostic endpoint `GET /api/provider/status?diagnostic=1` returned the sanitized category `API-SPORTS provider error (rateLimit)`.
+- The API-SPORTS subscription was still Pro and active; the latest successful account snapshot showed 693 of 7,500 daily requests used. The failure is therefore not explained by exhaustion of the account's daily quota.
+- API-SPORTS published guidance on 2026-11-13 explaining that shared outbound IPs used by serverless platforms, including Cloudflare Workers, can trigger network-level rate limits even when an individual API key has quota remaining: https://www.api-football.com/news/post/avoid-rate-limit-and-suspension-issues-with-shared-ips
+- This is a strong match for the observed `rateLimit` error, but the exact network trigger still needs confirmation in the API-SPORTS request history.
+- Added optional dedicated-egress proxy support to the Worker. When `API_FOOTBALL_PROXY_URL` and `API_FOOTBALL_PROXY_TOKEN` are both configured, all provider requests are routed through the HTTPS proxy and the API key header is removed before the request leaves Cloudflare.
+- Added a locked-down Node.js 22 proxy at `infra/api-sports-proxy/`. It accepts only GET requests, requires a separate bearer token, allows only known API-FOOTBALL paths, and keeps the API key on the VPS.
+- GitHub CI passed for Worker proxy support and routing tests. Cloudflare Workers Build succeeded; deployed Worker version: `0f77537d-80da-4090-9a77-15a04e32a327`.
+- Not yet completed: no VPS/static egress IP has been provisioned, the proxy has not been deployed, and Worker proxy settings have not been configured. The Worker still uses its current direct API-SPORTS route until those settings are added.
+- Do not claim ingestion is fixed yet: D1 still needs a successful fixture sync and non-zero fixture/prediction counts before the issue is considered resolved.
