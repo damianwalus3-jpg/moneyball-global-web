@@ -964,7 +964,7 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       const date = url.searchParams.get("date") ?? "";
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
           Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
           new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
@@ -979,7 +979,7 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       const date = url.searchParams.get("date") ?? "";
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
           Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
           new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
@@ -993,7 +993,7 @@ export default {
     if (url.pathname === "/api/fixtures") {
       if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
       const date = url.searchParams.get("date") ?? "";
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
           Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
           new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
@@ -1032,7 +1032,7 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       const fixtureId = url.searchParams.get("fixture") ?? "";
-      if (!/^\\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
+      if (!/^\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
       return refreshFixtureOdds(env, fixtureId);
     }
     if (url.pathname === "/api/fixtures/enrich") {
@@ -1043,7 +1043,7 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       const fixtureId = url.searchParams.get("fixture") ?? "";
-      if (!/^\\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
+      if (!/^\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
       return refreshFixtureEnrichment(env, fixtureId);
     }
     if (url.pathname === "/api/fixtures/refresh") {
@@ -1054,7 +1054,7 @@ export default {
         return json({ error: "unauthorized" }, 401);
       }
       const date = url.searchParams.get("date") ?? "";
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
           Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
           new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
