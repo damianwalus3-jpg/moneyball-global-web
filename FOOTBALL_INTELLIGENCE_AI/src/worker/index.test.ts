@@ -193,4 +193,15 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     );
   });
 
+  it("requires ingestion authorization before evaluating predictions", async () => {
+    const env = { DB: {}, INGESTION_TOKEN: "ingestion-secret" };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/predictions/evaluate?date=2026-11-19", {
+        method: "POST",
+      }),
+      env as never,
+    );
+    expect(response.status).toBe(401);
+  });
+
 });
