@@ -24,6 +24,13 @@ These limits are suitable for a carefully cached first release, not a promise of
 - Use a single scheduled coordinator with bounded work per invocation; chain work through persisted job state rather than trying to scan every competition in one Cron execution.
 - Keep public read endpoints cacheable; protect admin/sync endpoints with a separate secret and never expose them to anonymous users.
 
+## Initial Worker scaffold
+
+- Added `wrangler.toml` with D1 binding and migration directory.
+- Added Worker endpoints: `GET /health` (D1 connectivity) and `GET /api/provider/status` (sanitized provider subscription/quota status).
+- Added Worker unit tests for health, unavailable database, missing secret and method rejection. Tests are written but not executed.
+- Added the Cloudflare D1-compatible SQLite migration; syntax was validated locally against SQLite 3.46.1 in an in-memory database. This does not mean it has been applied to a Cloudflare D1 instance.
+
 ## Secrets and setup still required
 - `API_FOOTBALL_API_KEY`: Cloudflare Worker secret.
 - D1 database creation and generated database ID.
