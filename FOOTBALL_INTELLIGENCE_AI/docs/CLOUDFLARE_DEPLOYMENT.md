@@ -50,6 +50,8 @@ After a successful deployment:
 6. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
 7. Enrich one saved fixture with `POST /api/fixtures/enrich?fixture=<API-SPORTS-fixture-id>` and the same bearer token. This uses three provider requests (statistics, lineups and fixture-linked injuries), stores raw snapshots and normalized records, and should be run one fixture at a time until observed quota/latency are confirmed.
 8. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
+9. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
+10. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
 
 ## Stop conditions
 
