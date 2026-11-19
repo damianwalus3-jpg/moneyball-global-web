@@ -1,6 +1,6 @@
 # Initial data model
 
-The first PostgreSQL migration is `db/migrations/0001_initial_schema.sql`.
+The first Cloudflare D1 (SQLite) migration is `db/migrations/0001_initial_schema.sql`.
 
 ## Storage layers
 1. **Provider account snapshot** — plan and quota observations, without storing the user's email or API key.
@@ -12,10 +12,10 @@ The first PostgreSQL migration is `db/migrations/0001_initial_schema.sql`.
 
 ## Important constraints
 - Every provider entity has a provider namespace plus provider ID to avoid collisions when secondary sources are added.
-- Competition coverage is stored per competition/season as JSONB because feature availability differs by season.
+- Competition coverage is stored per competition/season as JSON text because feature availability differs by season.
 - Fixture IDs are unique and stable within a provider. Repeated syncs must upsert, not duplicate.
 - Raw payloads are immutable. Normalized data may be rebuilt from them.
 - Odds snapshots include observation time and bookmaker/market identity.
 - Store event timestamps in UTC; only convert to Europe/Brussels at presentation boundaries.
 - Never store API keys in raw request parameters, metadata, logs or database rows.
-- The initial migration is a baseline, not yet executed against a database. Database vendor, connection secrets, backup policy and migrations runner remain to be selected.
+- The initial migration is a baseline, not yet executed against a database. The D1 database ID, Cloudflare secret and migrations runner still need account-side setup.
