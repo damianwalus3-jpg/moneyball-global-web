@@ -1109,7 +1109,7 @@ export default {
       const fetchSite = request.headers.get("sec-fetch-site");
       if (fetchSite === "cross-site") return json({ error: "cross_origin_request_rejected" }, 403);
       const date = url.searchParams.get("date") ?? "";
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
           Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
           new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
         return json({ error: "invalid_date", expected: "YYYY-MM-DD" }, 400);
