@@ -48,7 +48,8 @@ After a successful deployment:
 4. Call `POST /api/discovery/refresh` with `Authorization: Bearer <INGESTION_TOKEN>` to fetch and persist the provider's countries, active leagues and season coverage. This endpoint is intentionally protected because each refresh consumes provider quota.
 5. Confirm the discovery response reports counts and the quota reserve.
 6. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
-7. Only after validating daily fixture ingestion should additional statistics, injuries, lineups and odds jobs be added.
+7. Enrich one saved fixture with `POST /api/fixtures/enrich?fixture=<API-SPORTS-fixture-id>` and the same bearer token. This uses three provider requests (statistics, lineups and fixture-linked injuries), stores raw snapshots and normalized records, and should be run one fixture at a time until observed quota/latency are confirmed.
+8. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
 
 ## Stop conditions
 
