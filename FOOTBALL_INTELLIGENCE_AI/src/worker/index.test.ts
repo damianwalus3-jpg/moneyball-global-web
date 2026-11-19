@@ -281,7 +281,7 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
   it("uses the shared cooldown gate before a scheduled sync", async () => {
     const run = vi.fn().mockResolvedValue({ success: true, meta: { changes: 0 } });
     const bind = vi.fn().mockReturnValue({ run });
-    const prepare = vi.fn(() => ({ bind }));
+    const prepare = vi.fn((_query: string) => ({ bind }));
     const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
     worker.scheduled(
       { scheduledTime: Date.UTC(2026, 10, 19, 12, 0, 0) },
