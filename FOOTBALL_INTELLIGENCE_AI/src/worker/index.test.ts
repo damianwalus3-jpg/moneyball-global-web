@@ -297,7 +297,8 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
 
   it("exposes read-only ingestion counts and recent job metadata", async () => {
     const all = vi.fn().mockResolvedValue({ results: [] });
-    const env = { DB: { prepare: () => ({ all }) } };
+    const first = vi.fn().mockResolvedValue(null);
+    const env = { DB: { prepare: () => ({ all, first }) } };
     const response = await worker.fetch(
       new Request("https://example.workers.dev/api/sync/status"),
       env as never,
@@ -305,6 +306,7 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       provider: "api-sports",
+      account: null,
       counts: { fixtures: 0, predictions: 0 },
       recentJobs: [],
     });
@@ -324,7 +326,8 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
         records_inserted: 0,
         error_code: "provider_or_ingestion_error",
       }] });
-    const env = { DB: { prepare: () => ({ all }) } };
+    const first = vi.fn().mockResolvedValue(null);
+    const env = { DB: { prepare: () => ({ all, first }) } };
     const response = await worker.fetch(
       new Request("https://example.workers.dev/api/sync/status"),
       env as never,
