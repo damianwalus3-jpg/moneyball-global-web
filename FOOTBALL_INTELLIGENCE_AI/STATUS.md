@@ -34,11 +34,6 @@
 - Corrected D1 migration scripts to target the configured `DB` binding, as recommended for Workers Builds.
 - User has returned to the Workers & Pages overview; no Worker was created or deployed from the setup wizard.
 
-## Cloudflare deployment preparation
-- Added `docs/CLOUDFLARE_DEPLOYMENT.md` with the exact isolated Worker setup: repository `moneyball-global-web`, branch `football-intelligence-ai`, root directory `FOOTBALL_INTELLIGENCE_AI`, Worker name `football-intelligence-ai-api`.
-- Corrected D1 migration scripts to target the configured `DB` binding, as recommended for Workers Builds.
-- User has returned to the Workers & Pages overview; no Worker was created or deployed from the setup wizard.
-
 ## Next steps
 1. Add `API_FOOTBALL_API_KEY` as a Cloudflare Worker secret; never paste it in chat or commit it.
 2. Create/confirm the Worker project and bind D1 using the configured `wrangler.toml`.
