@@ -6,8 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:migrations:list": "wrangler d1 migrations list football-intelligence-ai --remote",
-    "db:migrations:apply": "wrangler d1 migrations apply football-intelligence-ai --remote",
+    "db:migrations:list": "wrangler d1 migrations list DB --remote",
+    "db:migrations:apply": "wrangler d1 migrations apply DB --remote",
     "deploy": "npm run db:migrations:apply && wrangler deploy"
   },
   "devDependencies": {
