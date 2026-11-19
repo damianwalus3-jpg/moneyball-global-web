@@ -42,17 +42,18 @@ Paste both values directly into Cloudflare. Never send them in chat, commit them
 
 After a successful deployment:
 
-1. Open `https://football-intelligence-ai-api.<your-workers-subdomain>.workers.dev/health`. Expect HTTP 200 and `{"status":"ok","database":true,...}`.
-2. Open `/api/provider/status`. If the secret is not configured, expect a safe 503 response. After adding the secret, expect sanitized subscription and quota metadata.
-3. Confirm D1 now contains the initial schema tables.
-4. Call `POST /api/discovery/refresh` with `Authorization: Bearer <INGESTION_TOKEN>` to fetch and persist the provider's countries, active leagues and season coverage. This endpoint is intentionally protected because each refresh consumes provider quota.
-5. Confirm the discovery response reports counts and the quota reserve.
-6. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
-7. Enrich one saved fixture with `POST /api/fixtures/enrich?fixture=<API-SPORTS-fixture-id>` and the same bearer token. This uses three provider requests (statistics, lineups and fixture-linked injuries), stores raw snapshots and normalized records, and should be run one fixture at a time until observed quota/latency are confirmed.
-8. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
-9. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
-10. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
-11. After the results refresh updates final scores/statuses, run `POST /api/predictions/evaluate?date=YYYY-MM-DD` with the bearer token. This records Brier scores and log loss for forecasts with completed results, enabling later calibration and model comparison.
+1. Open `https://football-intelligence-ai-api.<your-workers-subdomain>.workers.dev/` for the read-only Polish dashboard.
+2. Open `https://football-intelligence-ai-api.<your-workers-subdomain>.workers.dev/health`. Expect HTTP 200 and `{"status":"ok","database":true,...}`.
+3. Open `/api/provider/status`. If the secret is not configured, expect a safe 503 response. After adding the secret, expect sanitized subscription and quota metadata.
+4. Confirm D1 now contains the initial schema tables.
+5. Call `POST /api/discovery/refresh` with `Authorization: Bearer <INGESTION_TOKEN>` to fetch and persist the provider's countries, active leagues and season coverage. This endpoint is intentionally protected because each refresh consumes provider quota.
+6. Confirm the discovery response reports counts and the quota reserve.
+7. Refresh a single match date with `POST /api/fixtures/refresh?date=YYYY-MM-DD` and the same bearer token. The endpoint stores raw fixture payloads and upserts teams, competitions, seasons and fixtures.
+8. Enrich one saved fixture with `POST /api/fixtures/enrich?fixture=<API-SPORTS-fixture-id>` and the same bearer token. This uses three provider requests (statistics, lineups and fixture-linked injuries), stores raw snapshots and normalized records, and should be run one fixture at a time until observed quota/latency are confirmed.
+9. Only after validating enrichment should this endpoint be placed into a paced scheduled queue. Odds ingestion remains a separate next stage because market coverage and retention differ by league.
+10. Generate baseline forecasts with `POST /api/predictions/generate?date=YYYY-MM-DD` and the same bearer token. It uses only completed matches whose kickoff is earlier than each target fixture, limits each team to its latest 10 completed matches, stores the feature cutoff and model version, and caps each run at 50 fixtures.
+11. Read daily fixtures and their latest forecast probabilities from `GET /api/fixtures?date=YYYY-MM-DD`. Probabilities are a transparent baseline, not betting advice or guaranteed outcomes.
+12. After the results refresh updates final scores/statuses, run `POST /api/predictions/evaluate?date=YYYY-MM-DD` with the bearer token. This records Brier scores and log loss for forecasts with completed results, enabling later calibration and model comparison.
 
 ## Stop conditions
 
