@@ -104,19 +104,31 @@ async function refreshDiscovery(env: Env): Promise<Response> {
 
     const countryIds = new Map<string, number>();
     for (const country of countries) {
-      if (country.id === undefined || !country.name) continue;
+      if (!country.name) continue;
       counts.seen++;
-      const result = await env.DB.prepare(`
-        INSERT INTO countries (provider, provider_country_id, name, code, flag_url, source_updated_at)
-        VALUES ('api-sports', ?, ?, ?, ?, ?)
-        ON CONFLICT(provider, provider_country_id) DO UPDATE SET
-          name = excluded.name, code = excluded.code, flag_url = excluded.flag_url,
-          source_updated_at = excluded.source_updated_at
-      `).bind(String(country.id), country.name, country.code ?? null, country.flag ?? null, now()).run();
+      const providerCountryId = country.id === undefined ? null : String(country.id);
+      const result = country.code
+        ? await env.DB.prepare(`
+            INSERT INTO countries (provider, provider_country_id, name, code, flag_url, source_updated_at)
+            VALUES ('api-sports', ?, ?, ?, ?, ?)
+            ON CONFLICT(provider, code) DO UPDATE SET
+              provider_country_id = excluded.provider_country_id, name = excluded.name,
+              flag_url = excluded.flag_url, source_updated_at = excluded.source_updated_at
+          `).bind(providerCountryId, country.name, country.code, country.flag ?? null, now()).run()
+        : await env.DB.prepare(`
+            INSERT INTO countries (provider, provider_country_id, name, code, flag_url, source_updated_at)
+            VALUES ('api-sports', ?, ?, NULL, ?, ?)
+            ON CONFLICT(provider, provider_country_id) DO UPDATE SET
+              name = excluded.name, flag_url = excluded.flag_url, source_updated_at = excluded.source_updated_at
+          `).bind(providerCountryId ?? country.name, country.name, country.flag ?? null, now()).run();
       if (result.meta?.changes) counts.inserted += result.meta.changes;
-      const saved = await env.DB.prepare(
-        "SELECT id FROM countries WHERE provider = 'api-sports' AND provider_country_id = ?",
-      ).bind(String(country.id)).first<{ id: number }>();
+      const saved = country.code
+        ? await env.DB.prepare(
+            "SELECT id FROM countries WHERE provider = 'api-sports' AND code = ?",
+          ).bind(country.code).first<{ id: number }>()
+        : await env.DB.prepare(
+            "SELECT id FROM countries WHERE provider = 'api-sports' AND name = ?",
+          ).bind(country.name).first<{ id: number }>();
       if (saved) countryIds.set(country.name.toLowerCase(), saved.id);
     }
 
