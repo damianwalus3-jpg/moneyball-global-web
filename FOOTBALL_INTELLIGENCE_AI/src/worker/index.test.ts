@@ -128,4 +128,28 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(first).not.toHaveBeenCalled();
   });
 
+  it("validates fixture-list date before querying D1", async () => {
+    const all = vi.fn();
+    const env = { DB: { prepare: () => ({ all }) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures?date=2026-02-31"),
+      env as never,
+    );
+    expect(response.status).toBe(400);
+    expect(all).not.toHaveBeenCalled();
+  });
+
+  it("returns a bounded daily fixture list", async () => {
+    const all = vi.fn().mockResolvedValue({ results: [] });
+    const bind = vi.fn().mockReturnValue({ all });
+    const env = { DB: { prepare: vi.fn(() => ({ bind })) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/fixtures?date=2026-11-19&limit=9999"),
+      env as never,
+    );
+    expect(response.status).toBe(200);
+    expect(bind).toHaveBeenCalledWith("2026-11-19", 250);
+    await expect(response.json()).resolves.toMatchObject({ date: "2026-11-19", count: 0, fixtures: [] });
+  });
+
 });
