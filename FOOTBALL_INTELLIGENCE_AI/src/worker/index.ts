@@ -1055,7 +1055,10 @@ export default {
                        'API-SPORTS request failed',
                        'API-SPORTS reported an API error',
                        'API-SPORTS returned non-JSON content'
-                     ) THEN error_message
+                     ) OR error_message GLOB 'API-SPORTS provider error (*)'
+                       OR error_message GLOB 'API-SPORTS HTTP [0-9]* (*)'
+                       OR error_message GLOB 'API-SPORTS HTTP [0-9]*'
+                     THEN error_message
                      WHEN error_message IS NOT NULL THEN 'provider_or_ingestion_error'
                      ELSE NULL
                    END AS error_code
@@ -1141,16 +1144,20 @@ export default {
         }
         if (error instanceof ApiFootballError) {
           const payload = error.providerPayload;
-          const providerErrors = payload && typeof payload === "object" && "errors" in payload
+          const rawErrors = payload && typeof payload === "object" && "errors" in payload
             ? (payload as { errors?: unknown }).errors
             : null;
+          const errorKeys = rawErrors && typeof rawErrors === "object"
+            ? (Array.isArray(rawErrors) ? rawErrors.map((_, index) => `item_${index + 1}`) : Object.keys(rawErrors))
+                .filter((key) => /^[a-z][a-z0-9_]{0,30}$/i.test(key)).slice(0, 8).sort()
+            : [];
           return json({
             error: "provider_status_unavailable",
             diagnostic: {
               kind: error.status ? "http_error" : "request_error",
               httpStatus: error.status ?? null,
               message: error.message,
-              providerErrors,
+              providerErrorKeys: errorKeys,
             },
           }, 503);
         }
