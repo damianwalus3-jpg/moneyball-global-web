@@ -1,44 +1,43 @@
-# APIFootball.com provider integration
+# API-SPORTS API-FOOTBALL integration
 
-## Confirmed API identity
-The user confirmed **apifootball.com**, not API-SPORTS/API-Football. Use API v3:
-- Base URL: `https://apiv3.apifootball.com/`
-- Authentication: `APIkey` query parameter (provider's documented scheme).
-- All calls must run server-side. The key must never enter browser bundles, public environment variables, logs, analytics, error traces or source control. Redact query strings in observability.
+## Confirmed provider identity
+The user's screenshot shows the API-SPORTS dashboard at `dashboard.api-football.com`, with the API-FOOTBALL product tile showing **9% Used**. This is API-SPORTS API-FOOTBALL, not the separate APIFootball.com service.
 
-Official documentation: https://apifootball.com/documentation/
+Official API documentation: https://www.api-football.com/documentation_v3
+Official pricing: https://www.api-football.com/pricing/
 
-## Documented actions
-- `get_countries`: countries included in the current subscription.
-- `get_leagues`: competitions included in the current subscription.
-- `get_teams`: team roster and player data, scoped by league_id or team_id.
-- `get_events`: fixtures/results; accepts from, to, timezone, country_id, league_id, match_id, team_id, match_live and withPlayerStats.
-- `get_standings`: league standings.
-- `get_statistics`: match statistics.
-- `get_odds`: pre-match odds; date range and optional match_id; response includes bookmaker and market values.
-- `get_H2H`: head-to-head and recent team results.
-- `get_predictions`: provider predictions.
-- Lineups, news, live odds/comments and WebSockets are documented separately; verify entitlement before enabling.
+## API contract
+- Base URL: `https://v3.football.api-sports.io/`
+- Authentication: request header `x-apisports-key`.
+- REST resources use paths such as `/status`, `/countries`, `/leagues`, `/fixtures`, `/teams`, `/standings`, `/fixtures/statistics`, `/odds`, `/predictions`, `/injuries`, `/players/squads`.
+- Calls must be server-side. Store the credential as `API_FOOTBALL_API_KEY`; never expose it in browser bundles, public environment variables, logs, analytics, error traces or source control.
+- Use the `/status` endpoint to read the account's actual subscription and request quotas. The screenshot's 9% usage does not reveal the plan name, daily quota or minute rate.
 
-## Important plan ambiguity
-The public pricing page currently lists Free, European, Worldwide and Premium; it does not show a plan named “Pro”. Odds are presented as a separate $15 add-on on that page. The user's dashboard may show a legacy, custom or differently named Pro plan. Do not infer that odds, global leagues, predictions or news are enabled from the word “Pro”. Verify live account entitlement with a server-side smoke test and compare returned countries/leagues with expected coverage.
+## Plan and coverage
+The official pricing page currently lists Free, Pro, Ultra and Mega. Its public Pro tier is described as 7,500 requests/day, and lists fixtures, statistics, predictions, injuries, lineups and pre-match/in-play odds. The screenshot alone does not prove which tier is active; the authenticated `/status` response is authoritative for the account.
+Competition coverage varies. Read `coverage` from `/leagues` and persist the actual per-league availability; do not assume every competition has every data type.
 
-## Integration safety and data quality
-1. Keep the API key in server-side secret `APIFOOTBALL_API_KEY`.
-2. API key is a query parameter, so never log the full URL.
-3. Request only the date window needed; use Europe/Brussels for fixture display and persist UTC timestamps after parsing.
-4. Treat empty arrays, provider errors and unavailable fields as distinct states.
-5. Preserve raw payloads with fetched_at, action, safe parameters (never APIkey), source version and hash.
-6. Idempotently upsert by provider match_id.
-7. Store odds as timestamped bookmaker snapshots; do not overwrite historical odds.
-8. Store predictions with generated_at and model version. Do not treat provider predictions as our model's output.
-9. API v3 documentation last updated 2023-07-22 according to the provider page; verify current behaviour against the account before production use.
+## Odds and historical limits
+The official docs state that pre-match odds are generally provided 1–14 days before fixtures and that the API retains a 7-day odds history; availability varies by league, season, fixture and bookmaker. Do not treat this as a long-term historical odds archive. Persist snapshots as they are collected.
+
+## Ingestion and quality rules
+1. Read `/status` first; record subscription, daily limit, remaining quota and rate-limit headers without storing personal account fields.
+2. Fetch `/countries` and `/leagues`; store actual coverage flags.
+3. Fetch fixtures with timezone `Europe/Brussels`; persist canonical UTC kickoff plus display timezone.
+4. Respect pagination and provider rate limits; cache reference data and avoid duplicate calls.
+5. Preserve raw payloads with fetched_at, endpoint, safe parameters, provider version and hash. Never persist the API key or full authenticated request.
+6. Upsert fixtures idempotently by provider fixture ID.
+7. Store odds as timestamped bookmaker/market snapshots; never overwrite prior snapshots.
+8. Store provider predictions separately from the app's independently trained predictions.
+9. Missing or unsupported fields remain explicitly missing, never fabricated.
+10. Read response headers `x-ratelimit-requests-limit`, `x-ratelimit-requests-remaining`, `X-RateLimit-Limit` and `X-RateLimit-Remaining`; throttle before hitting limits.
 
 ## First validation checklist
-- [ ] User confirms dashboard's exact plan label and whether odds add-on is active.
-- [ ] Configure `APIFOOTBALL_API_KEY` as a deployment secret (never paste it in chat).
-- [ ] Call get_countries and get_leagues; store actual account coverage.
-- [ ] Call get_events for a small date window in Europe/Brussels.
-- [ ] Check quota headers/usage if exposed by provider; do not assume public plan limits apply to custom plans.
-- [ ] Validate event IDs, statuses, team IDs, timezone and final score fields.
-- [ ] Test get_odds and get_statistics only after entitlement confirmed.
+- [ ] Configure `API_FOOTBALL_API_KEY` as a server-side deployment secret (never paste it in chat).
+- [ ] Call `/status` and record actual subscription and quotas.
+- [ ] Call `/countries` and `/leagues`; build a coverage inventory.
+- [ ] Call `/fixtures` for a small Europe/Brussels date window.
+- [ ] Validate fixture IDs, statuses, UTC timestamps, teams and scores.
+- [ ] Validate statistics, lineups, injuries and predictions only where league coverage allows.
+- [ ] Validate `/odds` and bookmaker/market coverage, then begin scheduled snapshots.
+- [ ] Run integration tests and a low-volume live smoke test before enabling scheduled ingestion.
