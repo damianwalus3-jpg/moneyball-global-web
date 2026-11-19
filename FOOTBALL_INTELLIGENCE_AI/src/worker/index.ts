@@ -1044,7 +1044,21 @@ export default {
           `).all<{ kind: string; total: number }>(),
           env.DB.prepare(`
             SELECT job_type, status, started_at, finished_at,
-                   requests_made, records_seen, records_inserted
+                   requests_made, records_seen, records_inserted,
+                   CASE
+                     WHEN error_message IN (
+                       'provider_secret_not_configured',
+                       'provider_subscription_inactive',
+                       'provider_quota_reserve_reached',
+                       'API-SPORTS request timed out',
+                       'API-SPORTS network request failed',
+                       'API-SPORTS request failed',
+                       'API-SPORTS reported an API error',
+                       'API-SPORTS returned non-JSON content'
+                     ) THEN error_message
+                     WHEN error_message IS NOT NULL THEN 'provider_or_ingestion_error'
+                     ELSE NULL
+                   END AS error_code
               FROM ingestion_jobs
              WHERE provider = 'api-sports'
              ORDER BY created_at DESC
@@ -1052,7 +1066,7 @@ export default {
           `).all<{
             job_type: string; status: string; started_at: string | null;
             finished_at: string | null; requests_made: number;
-            records_seen: number; records_inserted: number;
+            records_seen: number; records_inserted: number; error_code: string | null;
           }>(),
         ]);
         const totals = Object.fromEntries(counts.results.map(row => [row.kind, Number(row.total)]));
