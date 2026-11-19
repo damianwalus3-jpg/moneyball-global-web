@@ -149,7 +149,7 @@ async function recordJob(
   db: D1Database,
   status: "succeeded" | "failed",
   startedAt: string,
-  jobType: "discovery" | "fixtures" | "enrichment" | "predictions" | "evaluation",
+  jobType: "discovery" | "fixtures" | "enrichment" | "predictions" | "evaluation" | "odds",
   counts: { requests: number; seen: number; inserted: number },
   error?: string,
 ): Promise<void> {
@@ -642,6 +642,82 @@ async function evaluatePredictions(env: Env, date: string): Promise<Response> {
   }
 }
 
+
+interface ProviderOddsValue { value?: string; odd?: string | number }
+interface ProviderOddsMarket { id?: string | number; name?: string; values?: ProviderOddsValue[] }
+interface ProviderOddsBookmaker { id?: string | number; name?: string; bets?: ProviderOddsMarket[] }
+interface ProviderOddsFixture { fixture?: { id?: string | number }; bookmakers?: ProviderOddsBookmaker[] }
+async function refreshFixtureOdds(env: Env, providerFixtureId: string): Promise<Response> {
+  const startedAt = now();
+  const counts = { requests: 0, seen: 0, inserted: 0 };
+  try {
+    const fixture = await env.DB.prepare(
+      "SELECT id FROM fixtures WHERE provider = 'api-sports' AND provider_fixture_id = ?",
+    ).bind(providerFixtureId).first<{ id: number }>();
+    if (!fixture) return json({ error: "fixture_not_found" }, 404);
+    const client = providerClient(env);
+    const account = (await client.getStatus()).response;
+    const dailyLimit = account.requests?.limit_day ?? null;
+    const used = account.requests?.current ?? null;
+    const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
+    await env.DB.prepare(`
+      INSERT INTO provider_accounts
+        (provider, product, plan_name, subscription_active, daily_request_limit,
+         daily_requests_used, daily_requests_remaining, observed_at, metadata_json)
+      VALUES ('api-sports', 'api-football', ?, ?, ?, ?, ?, ?, '{}')
+      ON CONFLICT(provider, product) DO UPDATE SET
+        plan_name = excluded.plan_name, subscription_active = excluded.subscription_active,
+        daily_request_limit = excluded.daily_request_limit,
+        daily_requests_used = excluded.daily_requests_used,
+        daily_requests_remaining = excluded.daily_requests_remaining,
+        observed_at = excluded.observed_at
+    `).bind(account.subscription?.plan ?? null,
+      account.subscription?.active === undefined ? null : account.subscription.active ? 1 : 0,
+      dailyLimit, used, remaining, now()).run();
+    if (account.subscription?.active === false) throw new Error("provider_subscription_inactive");
+    if (remaining !== null && remaining < 100) throw new Error("provider_quota_reserve_reached");
+
+    const result = await client.getOdds({ fixture: providerFixtureId }) as ApiFootballResponse<ProviderOddsFixture[]>;
+    counts.requests = 1;
+    const records = Array.isArray(result.response) ? result.response : [];
+    await storeRaw(env.DB, "odds", result, records.length);
+    const observedAt = now();
+    for (const fixtureOdds of records) {
+      for (const bookmaker of fixtureOdds.bookmakers ?? []) {
+        for (const market of bookmaker.bets ?? []) {
+          for (const selection of market.values ?? []) {
+            const odds = Number(selection.odd);
+            if (!selection.value || !Number.isFinite(odds) || odds <= 1) continue;
+            await env.DB.prepare(`
+              INSERT INTO odds_snapshots
+                (fixture_id, bookmaker_provider_id, bookmaker_name, market_provider_id,
+                 market_name, selection_name, odds_value, observed_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(fixture.id,
+              bookmaker.id === undefined ? null : String(bookmaker.id),
+              bookmaker.name ?? "Unknown bookmaker",
+              market.id === undefined ? null : String(market.id),
+              market.name ?? "Unknown market", selection.value, odds, observedAt).run();
+            counts.seen++;
+            counts.inserted++;
+          }
+        }
+      }
+    }
+    await recordJob(env.DB, "succeeded", startedAt, "odds", counts);
+    return json({
+      status: records.length ? "completed" : "no_odds_returned",
+      fixtureId: providerFixtureId, bookmakerCount: records.reduce((n, item) => n + (item.bookmakers?.length ?? 0), 0),
+      oddsSnapshots: counts.inserted, requestsMade: counts.requests,
+      quota: { dailyLimit, used, remaining, safetyReserve: 100 },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "unknown_error";
+    await recordJob(env.DB, "failed", startedAt, "odds", counts, detail).catch(() => undefined);
+    return json({ error: "fixture_odds_sync_failed", detail }, 502);
+  }
+}
+
 interface FixtureListRow {
   provider_fixture_id: string;
   kickoff_at: string | null;
@@ -913,6 +989,17 @@ export default {
       } catch {
         return json({ error: env.API_FOOTBALL_API_KEY ? "provider_status_unavailable" : "provider_secret_not_configured" }, 503);
       }
+    }
+    if (url.pathname === "/api/fixtures/odds") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!env.INGESTION_TOKEN) return json({ error: "ingestion_secret_not_configured" }, 503);
+      const authorization = request.headers.get("authorization") ?? "";
+      if (!safeEqual(authorization, `Bearer ${env.INGESTION_TOKEN}`)) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      const fixtureId = url.searchParams.get("fixture") ?? "";
+      if (!/^\\d+$/.test(fixtureId)) return json({ error: "invalid_fixture_id" }, 400);
+      return refreshFixtureOdds(env, fixtureId);
     }
     if (url.pathname === "/api/fixtures/enrich") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
