@@ -92,6 +92,31 @@ async function refreshDiscovery(env: Env): Promise<Response> {
   const counts = { requests: 0, seen: 0, inserted: 0 };
   try {
     const client = providerClient(env);
+    const accountResult = await client.getStatus();
+    const account = accountResult.response;
+    const dailyLimit = account.requests?.limit_day ?? null;
+    const used = account.requests?.current ?? null;
+    const remaining = dailyLimit !== null && used !== null ? Math.max(0, dailyLimit - used) : null;
+    await env.DB.prepare(`
+      INSERT INTO provider_accounts
+        (provider, product, plan_name, subscription_active, daily_request_limit,
+         daily_requests_used, daily_requests_remaining, observed_at, metadata_json)
+      VALUES ('api-sports', 'api-football', ?, ?, ?, ?, ?, ?, '{}')
+      ON CONFLICT(provider, product) DO UPDATE SET
+        plan_name = excluded.plan_name, subscription_active = excluded.subscription_active,
+        daily_request_limit = excluded.daily_request_limit,
+        daily_requests_used = excluded.daily_requests_used,
+        daily_requests_remaining = excluded.daily_requests_remaining,
+        observed_at = excluded.observed_at
+    `).bind(account.subscription?.plan ?? null,
+      account.subscription?.active === undefined ? null : account.subscription.active ? 1 : 0,
+      dailyLimit, used, remaining, now()).run();
+    if (account.subscription?.active === false) {
+      throw new Error("provider_subscription_inactive");
+    }
+    if (remaining !== null && remaining < 100) {
+      throw new Error("provider_quota_reserve_reached");
+    }
     const [countriesResult, leaguesResult] = await Promise.all([
       client.getCountries() as Promise<ApiFootballResponse<Country[]>>,
       client.getLeagues() as Promise<ApiFootballResponse<League[]>>,
@@ -175,6 +200,7 @@ async function refreshDiscovery(env: Env): Promise<Response> {
       recordsSeen: counts.seen,
       rowsChanged: counts.inserted,
       requestsMade: counts.requests,
+      quota: { dailyLimit, used, remaining, safetyReserve: 100 },
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "unknown_error";
