@@ -26,6 +26,14 @@
 - Tests, lint, typecheck and build have not been executed in CI or local checkout.
 - Actual per-minute quota and competition/season coverage still require authenticated calls.
 
+## CI and deployment preparation
+- Added a GitHub Actions workflow scoped to the `football-intelligence-ai` branch and `FOOTBALL_INTELLIGENCE_AI/**`; it runs TypeScript typecheck and Vitest unit tests without deploying.
+- Fixed a test assertion that incorrectly expected the fixture request to have no query parameters; it now checks that API credentials are absent from the URL.
+- CI status for the workflow commit had not yet appeared when checked; tests are therefore still unverified.
+- Added `docs/CLOUDFLARE_DEPLOYMENT.md` with the exact isolated Worker setup: repository `moneyball-global-web`, branch `football-intelligence-ai`, root directory `FOOTBALL_INTELLIGENCE_AI`, Worker name `football-intelligence-ai-api`.
+- Corrected D1 migration scripts to target the configured `DB` binding, as recommended for Workers Builds.
+- User has returned to the Workers & Pages overview; no Worker was created or deployed from the setup wizard.
+
 ## Cloudflare deployment preparation
 - Added `docs/CLOUDFLARE_DEPLOYMENT.md` with the exact isolated Worker setup: repository `moneyball-global-web`, branch `football-intelligence-ai`, root directory `FOOTBALL_INTELLIGENCE_AI`, Worker name `football-intelligence-ai-api`.
 - Corrected D1 migration scripts to target the configured `DB` binding, as recommended for Workers Builds.
