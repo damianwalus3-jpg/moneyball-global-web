@@ -297,14 +297,20 @@ async function refreshDiscovery(env: Env): Promise<Response> {
         : await env.DB.prepare(
             "SELECT id FROM countries WHERE provider = 'api-sports' AND name = ?",
           ).bind(country.name).first<{ id: number }>();
-      if (saved) countryIds.set(country.name.toLowerCase(), saved.id);
+      if (saved) {
+        countryIds.set(country.name.toLowerCase(), saved.id);
+        if (country.code) countryIds.set(country.code.toLowerCase(), saved.id);
+      }
     }
 
     for (const league of leagues) {
       if (league.id === undefined || !league.name) continue;
       counts.seen++;
       const countryName = league.country?.name?.toLowerCase();
-      const countryId = countryName ? countryIds.get(countryName) ?? null : null;
+      const countryCode = league.country?.code?.toLowerCase();
+      const countryId = (countryName ? countryIds.get(countryName) : undefined)
+        ?? (countryCode ? countryIds.get(countryCode) : undefined)
+        ?? null;
       const upsert = await env.DB.prepare(`
         INSERT INTO competitions
           (provider, provider_competition_id, country_id, name, type, logo_url, coverage_json, source_updated_at, created_at, updated_at)
