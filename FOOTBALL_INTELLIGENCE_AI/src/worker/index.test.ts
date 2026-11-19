@@ -227,4 +227,15 @@ describe("FOOTBALL INTELLIGENCE AI Worker", () => {
     expect(response.status).toBe(401);
   });
 
+  it("returns aggregated model performance from the read API", async () => {
+    const all = vi.fn().mockResolvedValue({ results: [] });
+    const env = { DB: { prepare: () => ({ all }) } };
+    const response = await worker.fetch(
+      new Request("https://example.workers.dev/api/models/performance"),
+      env as never,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ models: [] });
+  });
+
 });
