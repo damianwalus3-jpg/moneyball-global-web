@@ -1,132 +1,132 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-20T06:28:58.522659+00:00",
+  "generated_at": "2026-11-21T06:24:24.158674+00:00",
   "source": "American Soccer Analysis public API",
   "license": "CC BY-SA 4.0",
   "attribution": "American Soccer Analysis (ASA), https://www.americansocceranalysis.com/",
   "method": "Chronological rolling last-10 team form, 540-day lookback, independent Poisson 1X2; xG and goals models use the same matches; temperature fitted only on validation.",
-  "matches_reconstructed": 1924,
-  "predictions_with_both_team_histories": 1673,
+  "matches_reconstructed": 1922,
+  "predictions_with_both_team_histories": 1669,
   "split": {
-    "train": 1003,
-    "validation": 335,
-    "test": 335
+    "train": 1001,
+    "validation": 334,
+    "test": 334
   },
   "temperature": {
-    "goals_only": 1.38,
-    "xg": 1.15
+    "goals_only": 1.39,
+    "xg": 1.14
   },
   "test": {
     "goals_only_raw": {
-      "accuracy": 0.501493,
-      "brier": 0.613632,
-      "log_loss": 1.022554,
-      "ece_top_class": 0.036702
+      "accuracy": 0.497006,
+      "brier": 0.616167,
+      "log_loss": 1.02619,
+      "ece_top_class": 0.035313
     },
     "xg_raw": {
-      "accuracy": 0.540299,
-      "brier": 0.60785,
-      "log_loss": 1.01519,
-      "ece_top_class": 0.08958
+      "accuracy": 0.535928,
+      "brier": 0.609789,
+      "log_loss": 1.018111,
+      "ece_top_class": 0.085345
     },
     "goals_only_calibrated": {
-      "accuracy": 0.501493,
-      "brier": 0.620418,
-      "log_loss": 1.032101,
-      "ece_top_class": 0.07024
+      "accuracy": 0.497006,
+      "brier": 0.622524,
+      "log_loss": 1.035099,
+      "ece_top_class": 0.067054
     },
     "xg_calibrated": {
-      "accuracy": 0.540299,
-      "brier": 0.612272,
-      "log_loss": 1.020973,
-      "ece_top_class": 0.104941
+      "accuracy": 0.535928,
+      "brier": 0.613708,
+      "log_loss": 1.023171,
+      "ece_top_class": 0.09979
     },
     "calibrated_delta_xg_minus_goals": {
-      "accuracy": 0.038806,
-      "brier": -0.008146,
-      "log_loss": -0.011128,
-      "ece_top_class": 0.034701
+      "accuracy": 0.038922,
+      "brier": -0.008816,
+      "log_loss": -0.011928,
+      "ece_top_class": 0.032736
     }
   },
   "double_chance": {
     "goals_only_raw": {
       "1X": {
-        "accuracy_at_0_5": 0.701493,
-        "brier": 0.202317,
-        "log_loss": 0.593278,
-        "ece": 0.068585
+        "accuracy_at_0_5": 0.697605,
+        "brier": 0.203715,
+        "log_loss": 0.596383,
+        "ece": 0.066269
       },
       "X2": {
-        "accuracy_at_0_5": 0.567164,
-        "brier": 0.23925,
-        "log_loss": 0.670615,
-        "ece": 0.081002
+        "accuracy_at_0_5": 0.571856,
+        "brier": 0.238494,
+        "log_loss": 0.669081,
+        "ece": 0.074301
       },
       "12": {
-        "accuracy_at_0_5": 0.776119,
-        "brier": 0.172065,
-        "log_loss": 0.52719,
-        "ece": 0.015962
+        "accuracy_at_0_5": 0.772455,
+        "brier": 0.173959,
+        "log_loss": 0.531385,
+        "ece": 0.012372
       }
     },
     "xg_raw": {
       "1X": {
-        "accuracy_at_0_5": 0.740299,
-        "brier": 0.19817,
-        "log_loss": 0.584789,
-        "ece": 0.110833
+        "accuracy_at_0_5": 0.739521,
+        "brier": 0.199248,
+        "log_loss": 0.587169,
+        "ece": 0.111368
       },
       "X2": {
-        "accuracy_at_0_5": 0.552239,
-        "brier": 0.236855,
-        "log_loss": 0.665119,
-        "ece": 0.092996
+        "accuracy_at_0_5": 0.556886,
+        "brier": 0.235735,
+        "log_loss": 0.662764,
+        "ece": 0.088535
       },
       "12": {
-        "accuracy_at_0_5": 0.776119,
-        "brier": 0.172825,
-        "log_loss": 0.529237,
-        "ece": 0.001962
+        "accuracy_at_0_5": 0.772455,
+        "brier": 0.174806,
+        "log_loss": 0.53367,
+        "ece": 0.001906
       }
     },
     "goals_only_calibrated": {
       "1X": {
-        "accuracy_at_0_5": 0.695522,
-        "brier": 0.202636,
-        "log_loss": 0.594342,
-        "ece": 0.085495
+        "accuracy_at_0_5": 0.691617,
+        "brier": 0.204048,
+        "log_loss": 0.597405,
+        "ece": 0.078886
       },
       "X2": {
-        "accuracy_at_0_5": 0.546269,
-        "brier": 0.244032,
-        "log_loss": 0.68038,
-        "ece": 0.09469
+        "accuracy_at_0_5": 0.550898,
+        "brier": 0.242973,
+        "log_loss": 0.678208,
+        "ece": 0.088222
       },
       "12": {
-        "accuracy_at_0_5": 0.776119,
-        "brier": 0.17375,
-        "log_loss": 0.53188,
-        "ece": 0.050876
+        "accuracy_at_0_5": 0.772455,
+        "brier": 0.175503,
+        "log_loss": 0.535701,
+        "ece": 0.047753
       }
     },
     "xg_calibrated": {
       "1X": {
-        "accuracy_at_0_5": 0.722388,
-        "brier": 0.199351,
-        "log_loss": 0.587513,
-        "ece": 0.09322
+        "accuracy_at_0_5": 0.727545,
+        "brier": 0.200366,
+        "log_loss": 0.589721,
+        "ece": 0.097918
       },
       "X2": {
-        "accuracy_at_0_5": 0.549254,
-        "brier": 0.239789,
-        "log_loss": 0.67125,
-        "ece": 0.109896
+        "accuracy_at_0_5": 0.553892,
+        "brier": 0.238346,
+        "log_loss": 0.668236,
+        "ece": 0.104727
       },
       "12": {
-        "accuracy_at_0_5": 0.776119,
-        "brier": 0.173132,
-        "log_loss": 0.53014,
-        "ece": 0.014758
+        "accuracy_at_0_5": 0.772455,
+        "brier": 0.174996,
+        "log_loss": 0.534245,
+        "ece": 0.010256
       }
     }
   }
